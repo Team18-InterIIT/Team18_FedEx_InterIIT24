@@ -18,9 +18,9 @@ class Package:
 
 class ULD:
     def _init_(self, uld_list):
-        self.priority = False
-        self.weight = 0
-        self.dim = dim(self, int(uld_list[1]), int(uld_list[2]), int(uld_list[3]))
+        self.priority: bool = False
+        self.weight: int = 0
+        self.dim: dim = dim(self, int(uld_list[1]), int(uld_list[2]), int(uld_list[3]))
 
         self.identifier: str = uld_list[0]
         self.weight_limit: int = int(uld_list[4])
@@ -28,12 +28,12 @@ class ULD:
 
 class Environment:
     def __init__(self, K, uld_list, pkg_list):
-        self.packages = list()
-        default_pos = ((-1, -1, -1), (-1, -1, -1))
+        self.packages: list[Package] = list()
+        default_pos: tuple = ((-1, -1, -1), (-1, -1, -1))
         for pkg_data_row in pkg_list:
             self.packages.append(Package(pkg_data_row, 0, default_pos))
 
-        self.ULDs = [None]
+        self.ULDs: list[ULD] = [None]
 
         for uld_data_row in uld_list:
             self.ULDs.append(ULD(uld_data_row))
