@@ -2,7 +2,7 @@ file_path = "test/Challenge_FedEx.txt"
 with open(file_path, "r") as file:
     lines = file.readlines()
 
-    k = int(lines[0].strip())
+    K = int(lines[0].strip())
     uld_list = None
     pkg_list = None
 
@@ -19,3 +19,13 @@ with open(file_path, "r") as file:
         if pkg_list is None and line.startswith("Package"):
             pkg_list = [line.strip().split(",") for line in lines[i + 1 :]]
             i = j + 1
+
+def get_K():
+    return K
+
+def get_uld_list():
+    return uld_list
+
+
+def get_pkg_list():
+    return pkg_list
