@@ -1,3 +1,6 @@
+import parser
+
+
 class dim:
     def __init__(self, length: int, width: int, height: int):
         self.l: int = length
@@ -40,6 +43,52 @@ class Environment:
         self.ULDs: list[ULD] = [None]
         for uld_data_row in uld_list:
             self.ULDs.append(ULD(uld_data_row))
+
+    def check_collision(self, uld_id: int, coords: tuple[tuple]):
+        for pkg in self.ULDs[uld_id].packages:
+            if (
+                coords[0][0] < pkg.coords[1][0]
+                and coords[1][0] > pkg.coords[0][0]
+                and coords[0][1] < pkg.coords[1][1]
+                and coords[1][1] > pkg.coords[0][1]
+                and coords[0][2] < pkg.coords[1][2]
+                and coords[1][2] > pkg.coords[0][2]
+            ):
+                return True
+
+        return False
+
+    def check_weight_limit(self, uld_id: int, pkg_weight: int):
+        return self.ULDs[uld_id].weight + pkg_weight > self.ULDs[uld_id].weight_limit
+
+    def add_package(
+        self,
+        pkg_id: id,
+        uld_id: id,
+        coords: tuple[tuple],
+        collision_check: bool = True,
+        weight_limit_check: bool = True,
+        floating_check: bool = True,
+        stability_check: bool = True,
+        fragility_check: bool = True,
+    ):
+        if collision_check and self.check_collision(uld_id, coords):
+            return False
+
+        if weight_limit_check and self.check_weight_limit(
+            uld_id, self.packages[pkg_id].weight
+        ):
+            return False
+
+        pkg = self.packages[pkg_id]
+        uld = self.ULDs[uld_id]
+
+        pkg.uld = uld_id
+        pkg.coords = coords
+
+        uld.packages.append(pkg)
+        uld.weight += pkg.weight
+        uld.has_priority = uld.has_priority or pkg.is_priority
 
 
 def cost_function(
@@ -117,3 +166,10 @@ def cost_function(
                 cost += pkg.cost
 
     return cost
+
+K = parser.get_K()
+uld_list = parser.get_uld_list()
+pkg_list = parser.get_pkg_list()
+
+env = Environment(K, uld_list, pkg_list)
+
