@@ -1,5 +1,10 @@
 import parser
 
+DEFAULT_NUMBER_OF_DECIMALS = 3
+
+START_POSITION = [0, 0, 0]
+
+axes_id = {'length':0, 'breadth':1, 'height':2}
 
 class dim:
     def __init__(self, length: int, width: int, height: int):
@@ -15,10 +20,14 @@ class Package:
         self.dim: dim = dim(int(pkg_row[1]), int(pkg_row[2]), int(pkg_row[3]))
         self.weight: int = int(pkg_row[4])
         self.is_priority: bool = pkg_row[5] == "Priority"
-        self.cost: int | str = "-" if pkg_row[6] == "-" else int(pkg_row[6])
+        self.cost: float = float('inf') if self.is_priority else float(pkg_row[6])
 
         self.uld: int = 0
         self.coords: tuple[tuple] = ((-1, -1, -1), (-1, -1, -1))
+
+    
+    def get_volume(self):
+        return self.width * self.height * self.depth, self.number_of_decimals
 
 
 class ULD:

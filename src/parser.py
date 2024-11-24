@@ -1,4 +1,9 @@
-file_path = "test/Challenge_FedEx.txt"
+import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
+file_path = os.path.join(project_root, "test", "Challenge_FedEx.txt")
+
 with open(file_path, "r") as file:
     lines = file.readlines()
 
