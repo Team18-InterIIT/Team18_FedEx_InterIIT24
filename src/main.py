@@ -1,9 +1,7 @@
 import parser
+import itertools
 
-DEFAULT_NUMBER_OF_DECIMALS = 3
-START_POSITION = (0, 0, 0)
 axes_id = {"length": 0, "breadth": 1, "height": 2}
-
 
 class Dim:
     def __init__(self, length: int, width: int, height: int):
@@ -18,7 +16,7 @@ class Package:
         self.id: int = int(pkg_row[0])
         self.dim: Dim = Dim(int(pkg_row[1]), int(pkg_row[2]), int(pkg_row[3]))
         self.weight: int = int(pkg_row[4])
-        self.is_priority: bool = pkg_row[5] == "Priority"
+        self.is_priority: bool = (pkg_row[5] == "Priority")
         self.cost: float = float("inf") if self.is_priority else float(pkg_row[6])
 
         self.uld: int = 0
@@ -49,33 +47,33 @@ class ULD:
 
 
 class Environment:
-    def __init__(self, K, uld_list, pkg_list):
+    def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]]):
         self.K = K
 
         self.packages: list[Package] = list()
         for pkg_data_row in pkg_list:
             self.packages.append(Package(pkg_data_row))
 
-        self.ULDs: list[ULD] = [None]
+        self.ULDs: list[ULD] = list()
         for uld_data_row in uld_list:
             self.ULDs.append(ULD(uld_data_row))
 
-    def check_collision(self, uld_id: int, coords: tuple[tuple]):
-        for pkg in self.ULDs[uld_id].packages:
+    def check_collision(self, uld_id: int, coords_to_check: tuple[tuple]):
+        for curr_pkg in self.ULDs[uld_id-1].packages:
             if (
-                coords[0][0] < pkg.coords[1][0]
-                and coords[1][0] > pkg.coords[0][0]
-                and coords[0][1] < pkg.coords[1][1]
-                and coords[1][1] > pkg.coords[0][1]
-                and coords[0][2] < pkg.coords[1][2]
-                and coords[1][2] > pkg.coords[0][2]
+                coords_to_check[0][0] < curr_pkg.coords[1][0]
+                and coords_to_check[1][0] > curr_pkg.coords[0][0]
+                and coords_to_check[0][1] < curr_pkg.coords[1][1]
+                and coords_to_check[1][1] > curr_pkg.coords[0][1]
+                and coords_to_check[0][2] < curr_pkg.coords[1][2]
+                and coords_to_check[1][2] > curr_pkg.coords[0][2]
             ):
                 return True
 
         return False
 
     def check_weight_limit(self, uld_id: int, pkg_weight: int):
-        return self.ULDs[uld_id].weight + pkg_weight > self.ULDs[uld_id].weight_limit
+        return self.ULDs[uld_id-1].weight + pkg_weight > self.ULDs[uld_id-1].weight_limit
 
     def add_package(
         self,
@@ -97,7 +95,7 @@ class Environment:
             return False
 
         pkg = self.packages[pkg_id - 1]
-        uld = self.ULDs[uld_id]
+        uld = self.ULDs[uld_id-1]
 
         pkg.uld = uld_id
         pkg.coords = coords
@@ -108,22 +106,32 @@ class Environment:
 
         return True
 
+    def try_all_rotations(self, pkg_id, uld_id, pivot):
+        pkg = self.packages[pkg_id - 1]
+        for l_inc, b_inc, h_inc in itertools.permutations([pkg.dim.l, pkg.dim.w, pkg.dim.h]):
+            if (self.add_package(
+                        pkg_id,
+                        uld_id,
+                        coords=(
+                            pivot,
+                            (
+                                pivot[0] + l_inc,
+                                pivot[1] + b_inc,
+                                pivot[2] + h_inc,
+                            ),
+                        ),
+                    )):
+                return True
+        return False
+
     def pack_to_bin(self, uld_id, pkg_id):
-        uld = self.ULDs[uld_id]
+        uld = self.ULDs[uld_id-1]
         pkg = self.packages[pkg_id - 1]
 
         fitted = False
 
         if not uld.packages:
-            response = self.add_package(
-                pkg_id,
-                uld_id,
-                coords=(START_POSITION, (pkg.dim.l, pkg.dim.w, pkg.dim.h)),
-            )
-
-            if not response:
-                uld.unfitted_items.append(pkg)
-
+            self.try_all_rotations(pkg_id, uld_id, (0, 0, 0))
             return
 
         for axis in range(0, 3):
@@ -139,29 +147,18 @@ class Environment:
                 elif axis == axes_id["height"]:
                     pivot = (ib.dim.l, ib.dim.w, ib.dim.h + h)
 
-                if self.add_package(
-                    pkg_id,
-                    uld_id,
-                    coords=(
-                        pivot,
-                        (
-                            pivot[0] + pkg.dim.l,
-                            pivot[1] + pkg.dim.w,
-                            pivot[2] + pkg.dim.h,
-                        ),
-                    ),
-                ):
+                if self.try_all_rotations(pkg_id, uld_id, pivot):
                     fitted = True
                     break
 
             if fitted:
                 break
 
-    def pack(self, bigger_first=False, distribute_items=True):
-        self.ULDs[1:].sort(key=lambda uld: uld.get_volume(), reverse=bigger_first)
+    def pack(self, bigger_first=False, distribute_items=False):
+        self.ULDs.sort(key=lambda uld: uld.get_volume(), reverse=bigger_first)
         self.packages.sort(key=lambda item: item.get_volume(), reverse=bigger_first)
 
-        for uld in self.ULDs[1:]:
+        for uld in self.ULDs:
             for pkg in self.packages:
                 if pkg.uld == 0:
                     self.pack_to_bin(uld.id, pkg.id)
@@ -177,8 +174,6 @@ def cost_function(
 
     if collision_check:
         for uld in env.ULDs:
-            if uld is None:
-                continue
 
             events = []
             for pkg in uld.packages:
@@ -224,8 +219,6 @@ def cost_function(
                     active.remove(current_pkg)
 
     for uld in env.ULDs:
-        if uld is None:
-            continue
         if weight_limit_check and uld.weight > uld.weight_limit:
             print("ULD weight limit exceeded")
             return float("inf")
