@@ -186,6 +186,71 @@ class Environment:
                 if pkg.uld == 0:
                     self.pack_to_bin(uld.id, pkg.id)
 
+    def plot(self):
+        for uld in self.ULDs:
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection="3d")
+            for pkg in uld.packages:
+                x = [pkg.coords[0][0], pkg.coords[1][0]]
+                y = [pkg.coords[0][1], pkg.coords[1][1]]
+                z = [pkg.coords[0][2], pkg.coords[1][2]]
+
+                verts = [
+                    [
+                        (x[0], y[0], z[0]),
+                        (x[1], y[0], z[0]),
+                        (x[1], y[1], z[0]),
+                        (x[0], y[1], z[0]),
+                    ],
+                    [
+                        (x[0], y[0], z[1]),
+                        (x[1], y[0], z[1]),
+                        (x[1], y[1], z[1]),
+                        (x[0], y[1], z[1]),
+                    ],
+                    [
+                        (x[0], y[0], z[0]),
+                        (x[1], y[0], z[0]),
+                        (x[1], y[0], z[1]),
+                        (x[0], y[0], z[1]),
+                    ],
+                    [
+                        (x[0], y[1], z[0]),
+                        (x[1], y[1], z[0]),
+                        (x[1], y[1], z[1]),
+                        (x[0], y[1], z[1]),
+                    ],
+                    [
+                        (x[0], y[0], z[0]),
+                        (x[0], y[1], z[0]),
+                        (x[0], y[1], z[1]),
+                        (x[0], y[0], z[1]),
+                    ],
+                    [
+                        (x[1], y[0], z[0]),
+                        (x[1], y[1], z[0]),
+                        (x[1], y[1], z[1]),
+                        (x[1], y[0], z[1]),
+                    ],
+                ]
+                ax.add_collection3d(
+                    Poly3DCollection(
+                        verts,
+                        facecolors="lightblue",
+                        linewidths=1,
+                        edgecolors="r",
+                        alpha=0.25,
+                    )
+                )
+
+            ax.set_xlabel("Length")
+            ax.set_ylabel("Breadth")
+            ax.set_zlabel("Height")
+
+            plt.show()
+
+        plt.close()
+
 
 def cost_function(
     env: Environment,
@@ -265,6 +330,4 @@ pkg_list = parser.get_pkg_list()
 
 env = Environment(K, uld_list, pkg_list)
 env.pack()
-
-for pkg in env.packages:
-    print(pkg)
+env.plot()
