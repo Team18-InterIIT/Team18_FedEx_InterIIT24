@@ -18,15 +18,21 @@ with open(file_path, "r") as file:
             for j in range(i + 1, len(lines)):
                 if lines[j].strip() == "":
                     uld_list = [line.strip().split(",") for line in lines[i + 1 : j]]
+                    for row in range(len(uld_list)):
+                        uld_list[row][0] = uld_list[row][0][1]
                     break
             i = j + 1
         line: str = lines[i]
         if pkg_list is None and line.startswith("Package"):
             pkg_list = [line.strip().split(",") for line in lines[i + 1 :]]
+            for row in range(len(pkg_list)):
+                pkg_list[row][0] = pkg_list[row][0][2:]
             i = j + 1
+
 
 def get_K():
     return K
+
 
 def get_uld_list():
     return uld_list
