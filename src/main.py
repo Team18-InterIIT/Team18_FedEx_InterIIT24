@@ -5,7 +5,6 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 axes_id = {"length": 0, "breadth": 1, "height": 2}
 
-
 class Dim:
     def __init__(self, length: int, width: int, height: int):
         self.l: int = length
@@ -174,12 +173,12 @@ class Environment:
             if fitted:
                 break
 
-    def pack(self, bigger_first=False):
+    def pack(self):
         sorted_ULDs = sorted(
-            self.ULDs, key=lambda uld: uld.get_volume(), reverse=bigger_first
+            self.ULDs, key=lambda uld: uld.get_volume(), reverse=True
         )
         sorted_pkgs = sorted(
-            self.packages, key=lambda pkg: pkg.get_volume(), reverse=bigger_first
+            self.packages, key=lambda pkg: (pkg.cost)**1.5 / pkg.get_volume(), reverse=True
         )
         for uld in sorted_ULDs:
             for pkg in sorted_pkgs:
@@ -250,6 +249,38 @@ class Environment:
             plt.show()
 
         plt.close()
+
+    def summary(self):
+        # Number of packages in each ULD, with volume occupied percentage and weight filled percentage
+        for uld in self.ULDs:
+            print(f"ULD {uld.id}")
+            print(f"  Packages: {len(uld.packages)}")
+            print(f"  Volume: {sum(pkg.get_volume() for pkg in uld.packages)}/{uld.get_volume()}")
+            print(f" Percentage Volume: {sum(pkg.get_volume() for pkg in uld.packages) / uld.get_volume() * 100}%")
+            print(f"  Weight: {uld.weight}/{uld.weight_limit}")
+            print(f" Percentage Weight: {uld.weight / uld.weight_limit * 100}%")
+            print(f"  Priority: {uld.has_priority}")
+            print()
+
+        # Number of ULDs that are priority
+        priority_ULDs = [uld for uld in self.ULDs if uld.has_priority]
+        total_priority_cost = len(priority_ULDs) * K
+        
+        # Number of packages not placed, and sum of costs of packages not placed, sum of volume not filled
+        not_placed = [pkg for pkg in self.packages if pkg.uld == 0]
+        placed = [pkg for pkg in self.packages if pkg.uld != 0]
+        priority_pkgs_placed = [pkg for pkg in placed if pkg.is_priority]
+        priority_pkgs = [pkg for pkg in self.packages if pkg.is_priority]
+        print(f"Number of packages not placed: {len(not_placed)}")
+        print(f"Number of packages placed: {400-len(not_placed)}")
+        print(f"Number of ULDs that are priority: {len(priority_ULDs)}")
+        print(f"Sum of costs of packages not placed: {sum(pkg.cost for pkg in not_placed) + total_priority_cost}")
+        print(f"Sum of volume filled: {sum(pkg.get_volume() for pkg in placed)}")
+        # Percentage volume not filled
+        print(f"Percentage volume filled: {sum(pkg.get_volume() for pkg in placed) / sum(uld.get_volume() for uld in self.ULDs) * 100}%")
+        # Percentage of non-priority packages placed
+        print(f"Percentage of non-priority packages placed: {(len(placed)-len(priority_pkgs_placed))/(400 - len(priority_pkgs)) * 100}%")
+        print()
 
 
 def cost_function(
@@ -330,4 +361,7 @@ pkg_list = parser.get_pkg_list()
 
 env = Environment(K, uld_list, pkg_list)
 env.pack()
-env.plot()
+# env.plot()
+env.summary()
+
+print(cost_function(env, collision_check=False))
