@@ -11,7 +11,7 @@ class Package:
         self.id: str = pkg_row[0]
         self.dim: dim = dim(int(pkg_row[1]), int(pkg_row[2]), int(pkg_row[3]))
         self.weight: int = int(pkg_row[4])
-        self.type: bool = pkg_row[5] == "Priority"
+        self.is_priority: bool = pkg_row[5] == "Priority"
         self.cost: int | str = "-" if pkg_row[6] == "-" else int(pkg_row[6])
 
         self.uld: int = 0
@@ -24,7 +24,7 @@ class ULD:
         self.dim: dim = dim(int(uld_row[1]), int(uld_row[2]), int(uld_row[3]))
         self.weight_limit: int = int(uld_row[4])
 
-        self.priority: bool = False
+        self.has_priority: bool = False
         self.weight: int = 0
         self.packages: list[Package] = list()
 
@@ -104,12 +104,12 @@ def cost_function(
         if weight_limit_check and uld.weight > uld.weight_limit:
             print("ULD weight limit exceeded")
             return float("inf")
-        if uld.priority:
+        if uld.has_priority:
             cost += env.K
 
     for pkg in env.packages:
         if pkg.uld == 0:
-            if pkg.type:
+            if pkg.is_priority:
                 if priority_check:
                     print("Priority package not placed")
                     return float("inf")
