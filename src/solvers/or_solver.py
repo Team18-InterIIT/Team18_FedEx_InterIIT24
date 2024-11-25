@@ -60,12 +60,8 @@ class ORSolver(PackingAlgorithm):
                 objective.SetCoefficient(x[i, b], data["values"][i])
         objective.SetMaximization()
         status = solver.Solve()
-       
+  
 
-        with open("model.lp", "w") as f:
-            f.write(solver.ExportModelAsLpFormat(False))
-
-            
         if status == pywraplp.Solver.OPTIMAL:
             print(f"Total packed value: {objective.Value()}")
             total_weight = 0
