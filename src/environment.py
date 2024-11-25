@@ -134,7 +134,7 @@ def is_contained(ems1, ems2):
 
     return True
 
-def select_best_placement(bps, ems_list, k_b=5, k_e=5):
+def select_best_placement(bps, ems_list, k_b=3, k_e=3):
     """
     Select the best placement for the next box from the first `k_b` boxes and `k_e` EMS regions.
     """
@@ -234,54 +234,43 @@ def find_placement_coords(space, box_dims):
 
 
 
-# Fitness function
 def fitness_function(chromosome):
     """
-    Evaluate the fitness of a chromosome.
-    Fitness is determined by the fill ratio, penalties for unplaced boxes, and weight constraints.
+    Evaluate fitness based on the number of priority ULDs, volume utilization, 
+    and penalties for unplaced boxes.
     """
-    bps, cls = chromosome  # Extract Box Packing Sequence (BPS) and Container Loading Sequence (CLS)
-
-    # Apply heuristic packing strategy to get the packing solution
+    bps, cls = chromosome
     packing_solution = best_match_placement(bps, cls)
 
     if packing_solution is None:
-        # If no feasible packing solution, fitness is 0
-        return 0
+        # No valid packing solution for this chromosome
+        return float("-inf")  # Completely invalidate this chromosome
 
-    # Calculate the total packed volume
+    # Calculate packed volume
     packed_volume = sum(box.get_volume() for box, *_ in packing_solution)
-
-    # Calculate the total container volume
     total_container_volume = sum(container.get_volume() for container in cls)
-
-    # Calculate the fill ratio
-    # print(packed_volume, total_container_volume)
     fill_ratio = packed_volume / total_container_volume
 
-    # Check for unplaced boxes
+    # Calculate penalties for unplaced boxes
     unplaced_boxes = len(bps) - len(packing_solution)
+    penalty_unplaced_boxes = unplaced_boxes * 5  # Adjust penalty weight as needed
 
-    # Calculate penalties
-    penalty_unplaced_boxes = unplaced_boxes * 10  # Arbitrary penalty per unplaced box
-    penalty_overweight = 0
+    # Calculate number of priority ULDs
+    priority_ULDs = set()
+    for box, container, *_ in packing_solution:
+        if box.is_priority:
+            priority_ULDs.add(container)
 
-    # Check for weight violations in containers
-    for container in cls:
-        total_weight = sum(box.weight for box, cont, *_ in packing_solution if cont == container)
-        if total_weight > container.weight_limit:
-            penalty_overweight += (total_weight - container.weight_limit) * 5  # Arbitrary penalty per excess weight
+    penalty_priority_ULDs = len(priority_ULDs) * 20  # Assign a high penalty for each priority ULD
 
-    # Calculate the final fitness
-    fitness = fill_ratio / (1 + penalty_unplaced_boxes + penalty_overweight)
-    # print(fitness)
-
-    return fitness  # Ensure fitness is non-negative
+    # Calculate fitness
+    fitness = fill_ratio - penalty_unplaced_boxes - penalty_priority_ULDs
+    return fitness
 
 
 
 # Selection
-def select_parents(population, fitness_scores, tournament_size=2, prob_t=0.8):
+def select_parents(population, fitness_scores, tournament_size=2, prob_t=0.85):
     """
     Select parents for the next generation using tournament selection.
     """
@@ -374,26 +363,89 @@ def mutate(chromosome, mutation_rate=0.1):
 
 
 # Genetic Algorithm
-def genetic_algorithm(pop_size, generations, mutation_rate=0.1):
+# def genetic_algorithm(pop_size, generations, mutation_rate=0.01, elitism_count=10):
+#     """
+#     Genetic Algorithm with Elitism to preserve the best solution across generations.
+#     """
+#     # Step 1: Initialize population
+#     population = initialize_population(pop_size, packages, containers)
+
+#     # Track the best solution
+#     best_fitness = 0
+#     best_solution = None
+
+#     for generation in range(generations):
+#         # Step 2: Evaluate fitness
+#         fitness_scores = [fitness_function(chromosome) for chromosome in population]
+
+#         # Find the best solution in the current generation
+#         current_best_index = fitness_scores.index(max(fitness_scores))
+#         current_best_fitness = fitness_scores[current_best_index]
+#         current_best_solution = population[current_best_index]
+
+#         # Update global best if a new best solution is found
+#         if current_best_fitness > best_fitness:
+#             best_fitness = current_best_fitness
+#             best_solution = current_best_solution
+
+#         print(f"Generation {generation + 1}: Best Fitness = {best_fitness}")
+
+#         # Step 3: Selection
+#         parents = select_parents(population, fitness_scores)
+
+#         # Step 4: Crossover
+#         next_generation = []
+#         for i in range(0, len(parents), 2):
+#             parent1 = parents[i]
+#             parent2 = parents[i + 1 if i + 1 < len(parents) else 0]
+#             child1 = crossover(parent1, parent2)
+#             child2 = crossover(parent2, parent1)
+#             next_generation.extend([child1, child2])
+
+#         # Step 5: Mutation
+#         next_generation = [mutate(chromosome, mutation_rate) for chromosome in next_generation]
+
+#         # Step 6: Apply Elitism
+#         next_generation = sorted(next_generation, key=lambda chromo: fitness_function(chromo), reverse=True)
+#         if elitism_count > 0:
+#             elites = sorted(population, key=lambda chromo: fitness_function(chromo), reverse=True)[:elitism_count]
+#             next_generation[-elitism_count:] = elites
+
+#         # Replace old population with the new one
+#         population = next_generation[:pop_size]
+
+#     # Step 7: Return the best solution found
+#     return best_solution
+
+def genetic_algorithm(pop_size, generations, mutation_rate=0.1, elitism_count=1):
     """
-    Run the Genetic Algorithm to optimize the packing solution.
+    Genetic Algorithm with a simplified fitness function.
     """
-    # Step 1: Initialize population
+    # Initialize population
     population = initialize_population(pop_size, packages, containers)
 
+    # Track the best solution
+    best_solution = population[0]
+    best_fitness = fitness_function(best_solution)
+
     for generation in range(generations):
-
-        for chromosome in population:
-            ransnds = fitness_function(chromosome)
-            # print(ransnds)
-        # Step 2: Evaluate fitness
+        # Evaluate fitness for the population
         fitness_scores = [fitness_function(chromosome) for chromosome in population]
-        
 
-        # Step 3: Selection
+        # Find the best chromosome in the current generation
+        current_best_index = fitness_scores.index(max(fitness_scores))
+        current_best_fitness = fitness_scores[current_best_index]
+        current_best_solution = population[current_best_index]
+
+        # Update the global best solution
+        if current_best_fitness > best_fitness:
+            best_fitness = current_best_fitness
+            best_solution = current_best_solution
+
+        print(f"Generation {generation + 1}: Best Fitness = {best_fitness}")
+
+        # Selection, crossover, mutation, and elitism logic
         parents = select_parents(population, fitness_scores)
-
-        # Step 4: Crossover
         next_generation = []
         for i in range(0, len(parents), 2):
             parent1 = parents[i]
@@ -402,20 +454,15 @@ def genetic_algorithm(pop_size, generations, mutation_rate=0.1):
             child2 = crossover(parent2, parent1)
             next_generation.extend([child1, child2])
 
-        # Step 5: Mutation
         next_generation = [mutate(chromosome, mutation_rate) for chromosome in next_generation]
-
-        # Step 6: Replace old population with the new one
+        elites = sorted(population, key=lambda chromo: fitness_function(chromo), reverse=True)[:elitism_count]
+        next_generation[-elitism_count:] = elites
         population = next_generation[:pop_size]
 
-        # Debug: Print the best fitness in the current generation
-        max_fitness = max(fitness_scores)
-        print(f"Generation {generation + 1}: Best Fitness = {max_fitness}")
+    return best_solution
 
-    # Step 7: Return the best solution
-    fitness_scores = [fitness_function(chromosome) for chromosome in population]
-    best_index = fitness_scores.index(max(fitness_scores))
-    return population[best_index]
+
+
 
 def output_placement_to_file(packing_solution, bps, output_file="placement_output.txt"):
     """
@@ -451,9 +498,13 @@ def output_placement_to_file(packing_solution, bps, output_file="placement_outpu
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
 def plot_packing_solution_subplots(packing_solution, containers):
     """
     Visualize the packing solution in 3D using subplots for all containers.
+    Priority packages are colored red, and economy packages are colored blue.
     """
     num_containers = len(containers)
     cols = min(3, num_containers)  # Up to 3 columns
@@ -480,6 +531,9 @@ def plot_packing_solution_subplots(packing_solution, containers):
             if cont != container:
                 continue  # Skip boxes not placed in this container
 
+            # Determine color based on priority
+            color = "red" if box.is_priority else "blue"
+
             # Box corners
             x0, y0, z0 = coords
             x1 = x0 + orientation[0]
@@ -503,20 +557,24 @@ def plot_packing_solution_subplots(packing_solution, containers):
             ]
 
             # Create a 3D polygon for the box
-            ax.add_collection3d(Poly3DCollection(faces, facecolors="blue", edgecolors="black", linewidths=0.5, alpha=0.7))
+            ax.add_collection3d(Poly3DCollection(faces, facecolors=color, edgecolors="black", linewidths=0.5, alpha=0.7))
 
             # Annotate the box with its ID
             ax.text(x0 + orientation[0] / 2, y0 + orientation[1] / 2, z0 + orientation[2] / 2,
-                    f"{box.id}", color="red", ha="center", va="center", fontsize=10)
+                    f"{box.id}", color="white", ha="center", va="center", fontsize=10)
 
     # Adjust layout to avoid overlap
     plt.tight_layout()
     plt.show()
 
 
+# Set an initial default solution
+best_solution = initialize_population(1, packages, containers)[0]  # First random chromosome
+best_fitness = 0
+
 
 # Run the GA
-best_solution = genetic_algorithm(pop_size=50, generations=100, mutation_rate=0.1)
+best_solution = genetic_algorithm(pop_size=50, generations= 10 * len(pkg_list), mutation_rate=0.1)
 
 # Generate packing solution for the best chromosome
 bps, cls = best_solution
