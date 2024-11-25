@@ -6,7 +6,7 @@ from environment import Environment
 
 
 class ThreeDBP_Pivoting(PackingAlgorithm):
-    def solve(self, env):
+    def solve(self, env: Environment):
         """
         https://github.com/enzoruiz/3dbinpacking/blob/master/erick_dube_507-034.pdf
         """
@@ -72,6 +72,7 @@ class ThreeDBP_Pivoting(PackingAlgorithm):
             key=lambda pkg: pkg.cost**1.5 / pkg.volume(),
             reverse=True,
         )
+
         for uld in sorted_ULDs:
             for pkg in sorted_pkgs:
                 if pkg.uld_id == 0:

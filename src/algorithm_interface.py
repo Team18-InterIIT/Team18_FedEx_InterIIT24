@@ -13,5 +13,4 @@ class PackingAlgorithm(ABC):
         Returns:
         - Solution or None if infeasible.
         """
-        print("This method should be implemented by a subclass.")
         pass
