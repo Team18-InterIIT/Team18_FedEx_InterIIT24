@@ -1,0 +1,10 @@
+2
+
+ULD Identifier,Length (cm),Width (cm),Height (cm),Weight Limit (kg)
+U1,10,10,10,50
+U2,5,5,5,20
+
+Package Identifier,Length (cm),Width (cm),Height (cm),Weight (kg),Type (P/E),Cost of Delay
+P-1,5,5,5,10,Economy,5
+P-2,6,6,6,15,Economy,6
+P-3,4,4,4,8,Economy,4
