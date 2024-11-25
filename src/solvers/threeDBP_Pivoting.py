@@ -1,5 +1,4 @@
-import itertools
-import heapq
+from itertools import permutations
 
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
@@ -12,10 +11,10 @@ class ThreeDBP_Pivoting(PackingAlgorithm):
         https://github.com/enzoruiz/3dbinpacking/blob/master/erick_dube_507-034.pdf
         """
 
-        def pivot_package(pkg: Package, uld: ULD, pivot: Point, signs) -> bool:
-            for l_inc, w_inc, h_inc in itertools.permutations(
-                [pkg.dim.l, pkg.dim.w, pkg.dim.h]
-            ):
+        def pivot_package(
+            pkg: Package, uld: ULD, pivot: Point, signs: tuple[int, int, int]
+        ) -> bool:
+            for l_inc, w_inc, h_inc in permutations((pkg.dim.l, pkg.dim.w, pkg.dim.h)):
                 l_inc = signs[0] * l_inc
                 w_inc = signs[1] * w_inc
                 h_inc = signs[2] * h_inc
@@ -41,7 +40,7 @@ class ThreeDBP_Pivoting(PackingAlgorithm):
                 )
                 return env.add_package(pkg, uld, corners=corners)
 
-        def generate_corners(existing_pkg):
+        def generate_pivots(existing_pkg):
             x, y, z = (
                 existing_pkg.corners[0].x,
                 existing_pkg.corners[0].y,
@@ -52,8 +51,6 @@ class ThreeDBP_Pivoting(PackingAlgorithm):
                 (Point(x + l, y, z), (1, 1, 1)),
                 (Point(x, y + w, z), (1, 1, 1)),
                 (Point(x, y, z + h), (1, 1, 1)),
-                (Point(x + l, y, z), (-1, -1, 1)),
-                (Point(x, y + w, z), (-1, -1, 1)),
             ]
 
         def pack_to_ULD(pkg: Package, uld: ULD) -> bool:
@@ -67,7 +64,7 @@ class ThreeDBP_Pivoting(PackingAlgorithm):
                 return pivot_package(pkg, uld, Point(0, 0, 0), (1, 1, 1))
 
             for existing_pkg in uld.packages:
-                for pivot, signs in generate_corners(existing_pkg):
+                for pivot, signs in generate_pivots(existing_pkg):
                     if pivot_package(pkg, uld, pivot, signs):
                         return True
 
@@ -75,12 +72,8 @@ class ThreeDBP_Pivoting(PackingAlgorithm):
 
         sorted_ULDs = sorted(env.ULDs, key=lambda uld: uld.volume(), reverse=True)
         sorted_pkgs = sorted(
-            env.packages, key=lambda pkg: pkg.cost / pkg.volume(), reverse=True
+            env.packages, key=lambda pkg: pkg.cost**2 / pkg.volume(), reverse=True
         )
-  
-        for uld in sorted_ULDs:
-            for pkg in sorted_pkgs:
-                pack_to_ULD(pkg, uld)
 
         for uld in sorted_ULDs:
             for pkg in sorted_pkgs:
