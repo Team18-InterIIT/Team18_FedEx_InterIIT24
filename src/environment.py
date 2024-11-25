@@ -30,14 +30,31 @@ class EMS:
 
 
 # Initialize population
+# def initialize_population(pop_size, packages, containers):
+#     population = []
+#     for _ in range(pop_size):
+#         bps = random.sample(packages, len(packages))
+#         cls = random.sample(containers, len(containers))
+#         population.append((bps, cls))
+#     return population
+
+# Initialize population
 def initialize_population(pop_size, packages, containers):
     population = []
-    for _ in range(pop_size):
-        bps = random.sample(packages, len(packages))
-        cls = random.sample(containers, len(containers))
-        population.append((bps, cls))
-    return population
+    # Create a structured chromosome by sorting packages
+    # Sort by volume (or another criterion) in descending order
+    sorted_packages = sorted(packages, key=lambda pkg: pkg.get_volume(), reverse=True)
 
+    # Add a chromosome with sorted packages
+    population.append((sorted_packages, random.sample(containers, len(containers))))
+
+    # Add remaining chromosomes randomly
+    for _ in range(pop_size - 1):
+        bps = random.sample(packages, len(packages))  # Randomly shuffle packages
+        cls = random.sample(containers, len(containers))  # Randomly shuffle containers
+        population.append((bps, cls))
+
+    return population
 
 # Update EMS for a container after placing a box
 def update_ems(container, box, ems, orientation, placement_coords):
@@ -134,88 +151,144 @@ def is_contained(ems1, ems2):
 
     return True
 
+# def select_best_placement(bps, ems_list, k_b=3, k_e=3):
+#     """
+#     Select the best placement for the next box from the first `k_b` boxes and `k_e` EMS regions.
+#     """
+#     best_placement = None
+#     max_fill_ratio = 0
+#     min_margin = (float("inf"), float("inf"), float("inf"))
+
+#     for i, box in enumerate(bps[:k_b]):
+#         for j, space in enumerate(ems_list[:k_e]):
+#             for orientation in itertools.permutations([box.dim.l, box.dim.w, box.dim.h]):
+#                 if can_fit(space, orientation):
+#                     # Calculate fill ratio and margin
+#                     box_volume = box.get_volume()
+#                     space_volume = space.get_dimensions()[0] * space.get_dimensions()[1] * space.get_dimensions()[2]
+#                     fill_ratio = box_volume / space_volume
+
+#                     placement_coords, margin = find_placement_coords(space, orientation)
+
+#                     # Update best placement based on fill ratio and margin
+#                     if (fill_ratio > max_fill_ratio) or (fill_ratio == max_fill_ratio and margin < min_margin):
+#                         best_placement = (box, space, orientation, placement_coords)
+#                         max_fill_ratio = fill_ratio
+#                         min_margin = margin
+
+#     return best_placement
+
 def select_best_placement(bps, ems_list, k_b=3, k_e=3):
     """
     Select the best placement for the next box from the first `k_b` boxes and `k_e` EMS regions.
     """
+    if not bps or not ems_list:
+        # print("No boxes or EMS regions to evaluate.")
+        return None
+
+    k_b = 3
+    k_e = 3
+
     best_placement = None
     max_fill_ratio = 0
     min_margin = (float("inf"), float("inf"), float("inf"))
 
     for i, box in enumerate(bps[:k_b]):
         for j, space in enumerate(ems_list[:k_e]):
-            for orientation in itertools.permutations([box.dim.l, box.dim.w, box.dim.h]):
-                if can_fit(space, orientation):
-                    # Calculate fill ratio and margin
-                    box_volume = box.get_volume()
-                    space_volume = space.get_dimensions()[0] * space.get_dimensions()[1] * space.get_dimensions()[2]
-                    fill_ratio = box_volume / space_volume
+            for orientation in set(itertools.permutations([box.dim.l, box.dim.w, box.dim.h])):
+                if not can_fit(space, orientation):
+                    continue
 
-                    placement_coords, margin = find_placement_coords(space, orientation)
+                # Calculate fill ratio and margin
+                box_volume = box.get_volume()
+                space_volume = space.get_dimensions()[0] * space.get_dimensions()[1] * space.get_dimensions()[2]
+                fill_ratio = box_volume / space_volume
 
-                    # Update best placement based on fill ratio and margin
-                    if (fill_ratio > max_fill_ratio) or (fill_ratio == max_fill_ratio and margin < min_margin):
-                        best_placement = (box, space, orientation, placement_coords)
-                        max_fill_ratio = fill_ratio
-                        min_margin = margin
+                placement_coords, margin = find_placement_coords(space, orientation)
+                if placement_coords is None or margin is None:
+                    continue  # Skip invalid placement
+
+                if not isinstance(margin, tuple) or len(margin) != 3:
+                    continue  # Skip invalid margin
+
+                # Update best placement based on fill ratio and margin
+                if (fill_ratio > max_fill_ratio) or (fill_ratio == max_fill_ratio and margin < min_margin):
+                    best_placement = (box, space, orientation, placement_coords)
+                    max_fill_ratio = fill_ratio
+                    min_margin = margin
 
     return best_placement
 
 
 # Placement strategy
+# def best_match_placement(bps, cls):
+#     """
+#     Implements the heuristic packing strategy to find the best placement for boxes in containers.
+#     """
+#     ems_dict = {c: [EMS(0, 0, 0, c.dim.l, c.dim.w, c.dim.h)] for c in cls}  # EMS per container
+#     packing_solution = []  # To store the placement solution
+
+#     for box in bps:
+#         box_placed = False
+
+#         # Iterate through opened containers
+#         for container in cls:
+#             ems_list = ems_dict[container]  # Get the EMS list for the current container
+
+#             # Select the best placement using k_b boxes and k_e EMS regions
+#             best_placement = select_best_placement([box], ems_list)
+
+#             if best_placement:
+#                 # Extract placement details
+#                 selected_box, selected_space, orientation, placement_coords = best_placement
+
+#                 # Place the box in the container
+#                 packing_solution.append((selected_box, container, placement_coords, orientation))
+
+#                 # Update EMS for the container
+#                 ems_dict[container] = update_ems(container, selected_box, ems_list, orientation, placement_coords)
+
+#                 # Mark box as placed and exit loop
+#                 box_placed = True
+#                 break
+
+#         # If the box cannot be placed in opened containers, return None (no feasible solution)
+#         if not box_placed:
+#             return None
+
+#     return packing_solution
+
 def best_match_placement(bps, cls):
     """
-    Implements the heuristic packing strategy to find the best placement for boxes in containers.
+    Implements the heuristic packing strategy to fit as many packages as possible.
+    Returns both placed and unplaced packages.
     """
-    ems_dict = {c: [EMS(0, 0, 0, c.dim.l, c.dim.w, c.dim.h)] for c in cls}  # EMS per container
-    packing_solution = []  # To store the placement solution
+    ems_dict = {c: [EMS(0, 0, 0, c.dim.l, c.dim.w, c.dim.h)] for c in cls}
+    packing_solution = []
+    unplaced_packages = []
 
     for box in bps:
         box_placed = False
 
-        # Iterate through opened containers
         for container in cls:
-            ems_list = ems_dict[container]  # Get the EMS list for the current container
-
-            # Select the best placement using k_b boxes and k_e EMS regions
-            best_placement = select_best_placement([box], ems_list)
+            ems_list = ems_dict[container]
+            best_placement = select_best_placement([box], ems_list, container)
 
             if best_placement:
-                # Extract placement details
                 selected_box, selected_space, orientation, placement_coords = best_placement
-
-                # Place the box in the container
                 packing_solution.append((selected_box, container, placement_coords, orientation))
-
-                # Update EMS for the container
                 ems_dict[container] = update_ems(container, selected_box, ems_list, orientation, placement_coords)
-
-                # Mark box as placed and exit loop
                 box_placed = True
                 break
 
-        # If the box cannot be placed in opened containers, return None (no feasible solution)
         if not box_placed:
-            return None
+            unplaced_packages.append(box)
 
-    return packing_solution
-
-
+    return packing_solution, unplaced_packages
 
 def can_fit(space, box_dims):
     # Check if the box fits in the EMS
     return all(d <= s for d, s in zip(box_dims, space.get_dimensions()))
-
-# def can_fit(space, box_dims):
-#     """
-#     Check if the box can fit into the EMS in the given orientation.
-#     """
-#     space_dims = space.get_dimensions()
-#     for i in range(3):
-#         if box_dims[i] > space_dims[i]:
-#             print(f"Box {box_dims} cannot fit in space {space_dims}.")
-#             return False
-#     return True
 
 
 
@@ -234,26 +307,57 @@ def find_placement_coords(space, box_dims):
 
 
 
+# def fitness_function(chromosome):
+#     """
+#     Evaluate fitness based on the number of priority ULDs, volume utilization, 
+#     and penalties for unplaced boxes.
+#     """
+#     bps, cls = chromosome
+#     packing_solution = best_match_placement(bps, cls)
+
+#     if packing_solution is None:
+#         # No valid packing solution for this chromosome
+#         return float("-inf")  # Completely invalidate this chromosome
+
+#     # Calculate packed volume
+#     packed_volume = sum(box.get_volume() for box, *_ in packing_solution)
+#     total_container_volume = sum(container.get_volume() for container in cls)
+#     fill_ratio = packed_volume / total_container_volume
+
+#     # Calculate penalties for unplaced boxes
+#     unplaced_boxes = len(bps) - len(packing_solution)
+#     penalty_unplaced_boxes = unplaced_boxes * 5  # Adjust penalty weight as needed
+
+#     # Calculate number of priority ULDs
+#     priority_ULDs = set()
+#     for box, container, *_ in packing_solution:
+#         if box.is_priority:
+#             priority_ULDs.add(container)
+
+#     penalty_priority_ULDs = len(priority_ULDs) * 20  # Assign a high penalty for each priority ULD
+
+#     # Calculate fitness
+#     fitness = fill_ratio - penalty_unplaced_boxes - penalty_priority_ULDs
+#     return fitness
+
 def fitness_function(chromosome):
     """
-    Evaluate fitness based on the number of priority ULDs, volume utilization, 
-    and penalties for unplaced boxes.
+    Evaluate fitness based on the sum of costs of unplaced economy packages and priority ULDs.
+    If any priority package is left unplaced, the fitness is set to -inf.
     """
+    # from parser import get_K  # Import the function to get K from parser
+    K = parser.get_K()  # Get the value of K
+
     bps, cls = chromosome
-    packing_solution = best_match_placement(bps, cls)
+    packing_solution, unplaced_packages = best_match_placement(bps, cls)
 
-    if packing_solution is None:
-        # No valid packing solution for this chromosome
-        return float("-inf")  # Completely invalidate this chromosome
+    # Check if any priority package is unplaced
+    if any(box.is_priority for box in unplaced_packages):
+        return float("-inf")  # Invalidate the solution if a priority package is unplaced
 
-    # Calculate packed volume
-    packed_volume = sum(box.get_volume() for box, *_ in packing_solution)
-    total_container_volume = sum(container.get_volume() for container in cls)
-    fill_ratio = packed_volume / total_container_volume
-
-    # Calculate penalties for unplaced boxes
-    unplaced_boxes = len(bps) - len(packing_solution)
-    penalty_unplaced_boxes = unplaced_boxes * 5  # Adjust penalty weight as needed
+    # Calculate penalties for unplaced economy packages based on their cost
+    unplaced_economy_cost = sum(box.cost for box in unplaced_packages if not box.is_priority)
+    penalty_unplaced_economy = unplaced_economy_cost  # Direct penalty based on cost
 
     # Calculate number of priority ULDs
     priority_ULDs = set()
@@ -261,12 +365,11 @@ def fitness_function(chromosome):
         if box.is_priority:
             priority_ULDs.add(container)
 
-    penalty_priority_ULDs = len(priority_ULDs) * 20  # Assign a high penalty for each priority ULD
+    penalty_priority_ULDs = len(priority_ULDs) * K  # Penalty per priority ULD using K
 
-    # Calculate fitness
-    fitness = fill_ratio - penalty_unplaced_boxes - penalty_priority_ULDs
+    # Fitness calculation
+    fitness = - penalty_unplaced_economy - penalty_priority_ULDs
     return fitness
-
 
 
 # Selection
@@ -498,9 +601,6 @@ def output_placement_to_file(packing_solution, bps, output_file="placement_outpu
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
 def plot_packing_solution_subplots(packing_solution, containers):
     """
     Visualize the packing solution in 3D using subplots for all containers.
@@ -525,7 +625,7 @@ def plot_packing_solution_subplots(packing_solution, containers):
         ax.set_ylabel("Width")
         ax.set_zlabel("Height")
         ax.set_title(f"Container {container.id}")
-
+        # print(len(packing_solution[0]))
         # Plot each box in the container
         for box, cont, coords, orientation in packing_solution:
             if cont != container:
@@ -574,11 +674,18 @@ best_fitness = 0
 
 
 # Run the GA
-best_solution = genetic_algorithm(pop_size=50, generations= 10 * len(pkg_list), mutation_rate=0.1)
+best_solution = genetic_algorithm(pop_size=50, generations= 15 * len(pkg_list), mutation_rate=0.01)
 
 # Generate packing solution for the best chromosome
 bps, cls = best_solution
-packing_solution = best_match_placement(bps, cls)
+packing_solution = best_match_placement(bps, cls)[0]
+
+# Calculate and print packing fraction
+if packing_solution:
+    packed_volume = sum(box.get_volume() for box, _, _, _ in packing_solution)
+    total_container_volume = sum(container.get_volume() for container in containers)
+    packing_fraction = packed_volume / total_container_volume if total_container_volume > 0 else 0
+    print(f"Packing Fraction: {packing_fraction:.2%}")
 
 if packing_solution is not None:
     plot_packing_solution_subplots(packing_solution, containers)
