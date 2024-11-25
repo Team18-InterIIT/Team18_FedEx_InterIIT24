@@ -15,5 +15,6 @@ env = Environment(K, uld_list, pkg_list)
 model = PackingAlgorithm()
 model.solve(env)
 
-env.plot()
+# env.plot()
+env.animate()
 env.summary()
