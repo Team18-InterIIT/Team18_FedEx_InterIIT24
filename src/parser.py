@@ -2,6 +2,7 @@ import os
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
+# file_path = os.path.join(project_root, "test/testcases", "tc2.txt")
 file_path = os.path.join(project_root, "test", "Challenge_FedEx.txt")
 
 with open(file_path, "r") as file:
@@ -29,6 +30,7 @@ with open(file_path, "r") as file:
                 pkg_list[row][0] = pkg_list[row][0][2:]
             i = j + 1
 
+# print(pkg_list)
 
 def get_K():
     return K

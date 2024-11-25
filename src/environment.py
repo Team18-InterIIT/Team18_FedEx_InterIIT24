@@ -256,6 +256,7 @@ def fitness_function(chromosome):
     total_container_volume = sum(container.get_volume() for container in cls)
 
     # Calculate the fill ratio
+    # print(packed_volume, total_container_volume)
     fill_ratio = packed_volume / total_container_volume
 
     # Check for unplaced boxes
@@ -272,8 +273,10 @@ def fitness_function(chromosome):
             penalty_overweight += (total_weight - container.weight_limit) * 5  # Arbitrary penalty per excess weight
 
     # Calculate the final fitness
-    fitness = fill_ratio - penalty_unplaced_boxes - penalty_overweight
-    return max(fitness, 0)  # Ensure fitness is non-negative
+    fitness = fill_ratio / (1 + penalty_unplaced_boxes + penalty_overweight)
+    # print(fitness)
+
+    return fitness  # Ensure fitness is non-negative
 
 
 
@@ -379,8 +382,13 @@ def genetic_algorithm(pop_size, generations, mutation_rate=0.1):
     population = initialize_population(pop_size, packages, containers)
 
     for generation in range(generations):
+
+        for chromosome in population:
+            ransnds = fitness_function(chromosome)
+            # print(ransnds)
         # Step 2: Evaluate fitness
         fitness_scores = [fitness_function(chromosome) for chromosome in population]
+        
 
         # Step 3: Selection
         parents = select_parents(population, fitness_scores)
@@ -427,18 +435,84 @@ def output_placement_to_file(packing_solution, bps, output_file="placement_outpu
         with open(output_file, "w") as file:
             placed_packages = {box.id for box, *_ in packing_solution}
 
-        # Write details for placed packages
-        for box, container, coords, orientation in packing_solution:
+            # Write details for placed packages
+            for box, container, coords, orientation in packing_solution:
+                x0, y0, z0 = coords
+                x1 = x0 + orientation[0]
+                y1 = y0 + orientation[1]
+                z1 = z0 + orientation[2]
+                file.write(f"{box.id},{container.id},{x0},{y0},{z0},{x1},{y1},{z1}\n")
+
+            # Write details for unplaced packages
+            for box in bps:
+                if box.id not in placed_packages:
+                    file.write(f"{box.id},NONE,-1,-1,-1,-1,-1,-1\n")
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+def plot_packing_solution_subplots(packing_solution, containers):
+    """
+    Visualize the packing solution in 3D using subplots for all containers.
+    """
+    num_containers = len(containers)
+    cols = min(3, num_containers)  # Up to 3 columns
+    rows = (num_containers + cols - 1) // cols  # Calculate rows needed
+
+    fig = plt.figure(figsize=(5 * cols, 5 * rows))
+
+    for idx, container in enumerate(containers):
+        # Create a subplot for each container
+        ax = fig.add_subplot(rows, cols, idx + 1, projection='3d')
+
+        # Set container dimensions
+        container_dims = (container.dim.l, container.dim.w, container.dim.h)
+        ax.set_xlim([0, container_dims[0]])
+        ax.set_ylim([0, container_dims[1]])
+        ax.set_zlim([0, container_dims[2]])
+        ax.set_xlabel("Length")
+        ax.set_ylabel("Width")
+        ax.set_zlabel("Height")
+        ax.set_title(f"Container {container.id}")
+
+        # Plot each box in the container
+        for box, cont, coords, orientation in packing_solution:
+            if cont != container:
+                continue  # Skip boxes not placed in this container
+
+            # Box corners
             x0, y0, z0 = coords
             x1 = x0 + orientation[0]
             y1 = y0 + orientation[1]
             z1 = z0 + orientation[2]
-            file.write(f"{box.id},{container.id},{x0},{y0},{z0},{x1},{y1},{z1}\n")
 
-        # Write details for unplaced packages
-        for box in bps:
-            if box.id not in placed_packages:
-                file.write(f"{box.id},NONE,-1,-1,-1,-1,-1,-1\n")
+            # Define the vertices of the box
+            vertices = [
+                [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0],  # Bottom face
+                [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1],  # Top face
+            ]
+
+            # Define the 6 faces of the box
+            faces = [
+                [vertices[0], vertices[1], vertices[5], vertices[4]],  # Front face
+                [vertices[1], vertices[2], vertices[6], vertices[5]],  # Right face
+                [vertices[2], vertices[3], vertices[7], vertices[6]],  # Back face
+                [vertices[3], vertices[0], vertices[4], vertices[7]],  # Left face
+                [vertices[0], vertices[1], vertices[2], vertices[3]],  # Bottom face
+                [vertices[4], vertices[5], vertices[6], vertices[7]],  # Top face
+            ]
+
+            # Create a 3D polygon for the box
+            ax.add_collection3d(Poly3DCollection(faces, facecolors="blue", edgecolors="black", linewidths=0.5, alpha=0.7))
+
+            # Annotate the box with its ID
+            ax.text(x0 + orientation[0] / 2, y0 + orientation[1] / 2, z0 + orientation[2] / 2,
+                    f"{box.id}", color="red", ha="center", va="center", fontsize=10)
+
+    # Adjust layout to avoid overlap
+    plt.tight_layout()
+    plt.show()
+
 
 
 # Run the GA
@@ -447,6 +521,11 @@ best_solution = genetic_algorithm(pop_size=50, generations=100, mutation_rate=0.
 # Generate packing solution for the best chromosome
 bps, cls = best_solution
 packing_solution = best_match_placement(bps, cls)
+
+if packing_solution is not None:
+    plot_packing_solution_subplots(packing_solution, containers)
+else:
+    print("No feasible packing solution found.")
 
 # Output the solution to a file
 output_placement_to_file(packing_solution, bps, output_file="placement_output.txt")
