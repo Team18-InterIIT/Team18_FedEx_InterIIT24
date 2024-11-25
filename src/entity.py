@@ -77,6 +77,10 @@ class Package:
         self.uld_id: int = 0
         self.corners: tuple[Point, Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
 
+    def reset(self):
+        self.uld_id = 0
+        self.corners = (Point(-1, -1, -1), Point(-1, -1, -1))
+
     def volume(self):
         return self.dim.l * self.dim.w * self.dim.h
 
@@ -119,6 +123,11 @@ class ULD:
         self.has_priority: bool = False
         self.weight: int = 0
         self.packages: list[Package] = list()
+
+    def reset(self):
+        self.has_priority = False
+        self.weight = 0
+        self.packages = []
 
     def volume(self):
         return self.dim.l * self.dim.w * self.dim.h

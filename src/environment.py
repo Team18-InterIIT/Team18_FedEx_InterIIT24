@@ -51,6 +51,13 @@ class Environment:
 
         self.pkg_addition_order = []
 
+    def reset(self):
+        for uld in self.ULDs:
+            uld.reset()
+
+        for pkg in self.packages:
+            pkg.reset()
+
     def check_collision(self, uld: ULD, corners_to_check: tuple[Point, Point]):
         """
         Check if the package with the given coordinates will collide with any other package in the ULD
@@ -234,10 +241,6 @@ class Environment:
         """
         delay_cost, priority_cost = self.cost()
 
-        for uld in self.ULDs:
-            print(uld.summary())
-            print("-" * 50)
-
         packages = set(pkg for pkg in self.packages)
         placed = set(pkg for pkg in self.packages if pkg.uld_id != 0)
         not_placed = packages - placed
@@ -345,3 +348,16 @@ class Environment:
         fig.subplots_adjust(top=0.9)
         plt.show()
         plt.close()
+
+    def write(self):
+        with open("output.txt", "w") as f:
+            cost = sum(self.cost())
+            if cost != float("inf"):
+                cost = int(cost)
+            f.write(
+                f"{cost},{sum((1 for pkg in self.packages if pkg.uld_id != 0))},{sum((1 for uld in self.ULDs if uld.has_priority))}\n"
+            )
+            for pkg in self.packages:
+                f.write(
+                    f"{pkg.id},{pkg.uld_id},{pkg.corners[0].x},{pkg.corners[0].y},{pkg.corners[0].z},{pkg.corners[1].x},{pkg.corners[1].y},{pkg.corners[1].z}\n"
+                )
