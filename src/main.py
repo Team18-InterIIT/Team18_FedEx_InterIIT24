@@ -1,14 +1,16 @@
 import itertools
-import parser
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-axes_id = {"length": 0, "breadth": 1, "height": 2}
+import parser
+
+axes_id = {"length": 0, "width": 1, "height": 2}
 
 
 class Point:
-    """Represents a point in 3D space
+    """
+    Represents a point in 3D space
 
     Attributes
     ----------
@@ -45,6 +47,9 @@ class Dim:
         self.w: int = width
         self.h: int = height
 
+    def __repr__(self):
+        return f"{self.l}x{self.w}x{self.h}"
+
 
 class Package:
     """Represents a package
@@ -63,8 +68,13 @@ class Package:
         The cost of delay for the package
     uld_id: int
         The identifier of the ULD in which the package is placed
-    coords: tuple[Point]
-        The coordinates of the package in the ULD
+    corners: tuple[Point, Point]
+        The coordinates of the corners of the package in the ULD
+
+    Methods
+    -------
+    volume() -> int
+        Calculate the volume of the package
     """
 
     def __init__(self, pkg_row: list[str]):
@@ -75,13 +85,13 @@ class Package:
         self.cost: float = float("inf") if self.is_priority else float(pkg_row[6])
 
         self.uld_id: int = 0
-        self.coords: tuple[Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
+        self.corners: tuple[Point, Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
 
     def volume(self):
         return self.dim.l * self.dim.w * self.dim.h
 
     def __repr__(self):
-        return f"Package {self.id}\t {self.dim.l}x{self.dim.w}x{self.dim.h}\t {self.weight}\t {self.is_priority}\t {self.cost}\t {self.uld_id}\t {self.coords}"
+        return f"Package {self.id}\t {self.dim}\t {self.weight}\t {self.is_priority}\t {self.cost}\t {self.uld_id}\t {self.corners}"
 
 
 class ULD:
@@ -102,6 +112,13 @@ class ULD:
         The total weight of the packages in the ULD
     packages: list[Package]
         The packages packed in the ULD
+
+    Methods
+    -------
+    volume() -> int
+        Calculate the volume of the ULD
+    summary() -> str
+        Return a summary of the ULD
     """
 
     def __init__(self, uld_row: list[str]):
@@ -117,19 +134,20 @@ class ULD:
         return self.dim.l * self.dim.w * self.dim.h
 
     def __repr__(self):
-        return f"ULD {self.id}\t {self.dim.l}x{self.dim.w}x{self.dim.h}\t {self.weight}/{self.weight_limit}\t {"Prioritised" if self.has_priority else "Not prioritised"}\t No. of packages: {len(self.packages)}"
+        return f"ULD {self.id}\t {self.dim}\t {self.weight}/{self.weight_limit}\t {"Prioritised" if self.has_priority else "Not prioritised"}\t No. of packages: {len(self.packages)}"
 
     def summary(self):
         return (
             f"ULD {self.id}\n"
             f"No. of packages: {len(self.packages)}\n"
             f"Weight: {self.weight}/{self.weight_limit}\n"
-            f"Volume Utilisation: {round(sum(pkg.volume() for pkg in self.packages) / self.volume() * 100, 2)}%\n"
+            f"Volume Utilisation: {round(sum(pkg.volume() for pkg in self.packages) / self.volume() * 100, 3)}%\n"
         )
 
 
 class Environment:
-    """Represents the environment
+    """
+    Represents the environment
 
     Attributes
     ----------
@@ -142,10 +160,20 @@ class Environment:
 
     Methods
     -------
-    check_collision(uld, coords_to_check)
-        Check if the package with the given coordinates will collide with any other package in the ULD
-    check_weight_limit(uld, pkg_weight)
-        Check if the package with the given weight will exceed the weight limit of the ULD
+    check_collision(uld, corners_to_check) -> bool
+        Check if the package with the given coordinates would
+        collide with any other package in the ULD
+    check_weight_limit(uld, pkg_weight) -> bool
+        Check if the package with the given weight would
+        exceed the weight limit of the ULD
+    add_package(pkg, uld, corners, collision_check, weight_limit_check,
+                floating_check, stability_check, fragility_check) -> bool
+        Add a package to the ULD at the given coordinates
+        taking into account various constraints
+    pack_to_ULD(pkg, uld) -> bool
+        Pack the package to the ULD
+    pack() -> None
+        Pack the packages to the ULDs
     """
 
     def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]]):
@@ -159,30 +187,30 @@ class Environment:
         for uld_data_row in uld_list:
             self.ULDs.append(ULD(uld_data_row))
 
-    def check_collision(self, uld: ULD, coords_to_check: tuple[Point]):
+    def check_collision(self, uld: ULD, corners_to_check: tuple[Point, Point]):
         """
         Check if the package with the given coordinates will collide with any other package in the ULD
 
         Returns **True if collision is detected, False otherwise**
         """
         if (
-            coords_to_check[0].x < 0
-            or coords_to_check[0].y < 0
-            or coords_to_check[0].z < 0
-            or coords_to_check[1].x > uld.dim.l
-            or coords_to_check[1].y > uld.dim.w
-            or coords_to_check[1].z > uld.dim.h
+            corners_to_check[0].x < 0
+            or corners_to_check[0].y < 0
+            or corners_to_check[0].z < 0
+            or corners_to_check[1].x > uld.dim.l
+            or corners_to_check[1].y > uld.dim.w
+            or corners_to_check[1].z > uld.dim.h
         ):
             return True
 
         for existing_pkg in uld.packages:
             if (
-                coords_to_check[0].x < existing_pkg.coords[1].x
-                and coords_to_check[1].x > existing_pkg.coords[0].x
-                and coords_to_check[0].y < existing_pkg.coords[1].y
-                and coords_to_check[1].y > existing_pkg.coords[0].y
-                and coords_to_check[0].z < existing_pkg.coords[1].z
-                and coords_to_check[1].z > existing_pkg.coords[0].z
+                corners_to_check[0].x < existing_pkg.corners[1].x
+                and corners_to_check[1].x > existing_pkg.corners[0].x
+                and corners_to_check[0].y < existing_pkg.corners[1].y
+                and corners_to_check[1].y > existing_pkg.corners[0].y
+                and corners_to_check[0].z < existing_pkg.corners[1].z
+                and corners_to_check[1].z > existing_pkg.corners[0].z
             ):
                 return True
 
@@ -200,7 +228,7 @@ class Environment:
         self,
         pkg: Package,
         uld: ULD,
-        coords: tuple[Point],
+        corners: tuple[Point, Point],
         collision_check: bool = True,
         weight_limit_check: bool = True,
         floating_check: bool = True,
@@ -210,17 +238,17 @@ class Environment:
         """
         Add a package to the ULD at the given coordinates,
         taking into account various constraints
-        
+
         Returns **True if the package is successfully added, False otherwise**
         """
-        if collision_check and self.check_collision(uld, coords):
+        if collision_check and self.check_collision(uld, corners):
             return False
 
         if weight_limit_check and self.check_weight_limit(uld, pkg.weight):
             return False
 
         pkg.uld_id = uld.id
-        pkg.coords = coords
+        pkg.corners = corners
 
         uld.packages.append(pkg)
         uld.weight += pkg.weight
@@ -228,14 +256,14 @@ class Environment:
 
         return True
 
-    def pivot_package(self, pkg, uld, pivot):
+    def pivot_package(self, pkg: Package, uld: ULD, pivot: Point) -> bool:
         for l_inc, b_inc, h_inc in itertools.permutations(
             [pkg.dim.l, pkg.dim.w, pkg.dim.h]
         ):
             if self.add_package(
                 pkg,
                 uld,
-                coords=(
+                corners=(
                     pivot,
                     Point(
                         pivot.x + l_inc,
@@ -248,10 +276,12 @@ class Environment:
 
         return False
 
-    def pack_to_ULD(self, uld, pkg):
+    def pack_to_ULD(self, pkg: Package, uld: ULD) -> bool:
+        """
+        Pack the package to the ULD
+        """
         if not uld.packages:
-            self.pivot_package(pkg, uld, Point(0, 0, 0))
-            return True
+            return self.pivot_package(pkg, uld, Point(0, 0, 0))
 
         for axis in range(0, 3):
             for existing_pkg in uld.packages:
@@ -259,44 +289,47 @@ class Environment:
                 l, w, h = existing_pkg.dim.l, existing_pkg.dim.w, existing_pkg.dim.h
                 if axis == axes_id["length"]:
                     pivot = Point(
-                        existing_pkg.coords[0].x + l,
-                        existing_pkg.coords[0].y,
-                        existing_pkg.coords[0].z,
+                        existing_pkg.corners[0].x + l,
+                        existing_pkg.corners[0].y,
+                        existing_pkg.corners[0].z,
                     )
-                elif axis == axes_id["breadth"]:
+                elif axis == axes_id["width"]:
                     pivot = Point(
-                        existing_pkg.coords[0].x,
-                        existing_pkg.coords[0].y + w,
-                        existing_pkg.coords[0].z,
+                        existing_pkg.corners[0].x,
+                        existing_pkg.corners[0].y + w,
+                        existing_pkg.corners[0].z,
                     )
                 elif axis == axes_id["height"]:
                     pivot = Point(
-                        existing_pkg.coords[0].x,
-                        existing_pkg.coords[0].y,
-                        existing_pkg.coords[0].z + h,
+                        existing_pkg.corners[0].x,
+                        existing_pkg.corners[0].y,
+                        existing_pkg.corners[0].z + h,
                     )
 
                 if self.pivot_package(pkg, uld, pivot):
                     return True
 
+        return False
+
     def pack(self):
         """
+        Add packages to the ULDs
         """
         sorted_ULDs = sorted(self.ULDs, key=lambda uld: uld.volume(), reverse=True)
         sorted_pkgs = sorted(
             self.packages,
-            key=lambda pkg: (pkg.cost) ** 1.5 / pkg.volume(),
+            key=lambda pkg: pkg.cost**1.5 / pkg.volume(),
             reverse=True,
         )
         for uld in sorted_ULDs:
             for pkg in sorted_pkgs:
                 if pkg.uld_id == 0:
-                    self.pack_to_ULD(uld, pkg)
+                    self.pack_to_ULD(pkg, uld)
 
         for pkg in self.packages:
             if pkg.uld_id == 0:
                 for uld in self.ULDs:
-                    self.pack_to_ULD(uld, pkg)
+                    self.pack_to_ULD(pkg, uld)
 
     def cost(
         self,
@@ -312,18 +345,18 @@ class Environment:
         """
         if collision_check:
             for uld in self.ULDs:
-                sorted_pkgs = sorted(uld.packages, key=lambda p: p.coords[0].x)
+                sorted_pkgs = sorted(uld.packages, key=lambda p: p.corners[0].x)
                 active = []
 
                 for pkg in sorted_pkgs:
-                    active = [p for p in active if p.coords[1].x > pkg.coords[0].x]
+                    active = [p for p in active if p.corners[1].x > pkg.corners[0].x]
 
                     for other in active:
                         if (
-                            pkg.coords[0].y < other.coords[1].y
-                            and pkg.coords[1].y > other.coords[0].y
-                            and pkg.coords[0].z < other.coords[1].z
-                            and pkg.coords[1].z > other.coords[0].z
+                            pkg.corners[0].y < other.corners[1].y
+                            and pkg.corners[1].y > other.corners[0].y
+                            and pkg.corners[0].z < other.corners[1].z
+                            and pkg.corners[1].z > other.corners[0].z
                         ):
                             print(f"Collision detected between {pkg.id} and {other.id}")
                             return float("inf"), float("inf")
@@ -362,9 +395,9 @@ class Environment:
         for i, uld in enumerate(self.ULDs):
             ax = fig.add_subplot(rows, cols, i + 1, projection="3d")
             for pkg in uld.packages:
-                x = [pkg.coords[0].x, pkg.coords[1].x]
-                y = [pkg.coords[0].y, pkg.coords[1].y]
-                z = [pkg.coords[0].z, pkg.coords[1].z]
+                x = [pkg.corners[0].x, pkg.corners[1].x]
+                y = [pkg.corners[0].y, pkg.corners[1].y]
+                z = [pkg.corners[0].z, pkg.corners[1].z]
 
                 points = (
                     ((0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)),
@@ -391,7 +424,7 @@ class Environment:
                 )
 
             ax.set_xlabel("Length")
-            ax.set_ylabel("Breadth")
+            ax.set_ylabel("Width")
             ax.set_zlabel("Height")
 
             ax.set_xlim(0, uld.dim.l)
@@ -424,8 +457,8 @@ class Environment:
         print(
             f"Number of packages placed: {len(placed)}\nNumber of packages not placed: {len(not_placed)}"
             f"\nNumber of ULDs that are priority: {len(priority_ULDs)}"
-            f"\nPercentage volume filled: {sum(pkg.volume() for pkg in placed) / sum(uld.volume() for uld in self.ULDs) * 100}%"
-            f"\nPercentage of non-priority packages placed: {(len(placed)-len(priority_pkgs_placed))/(400 - len(priority_pkgs)) * 100}%"
+            f"\nPercentage volume filled: {round(sum(pkg.volume() for pkg in placed) / sum(uld.volume() for uld in self.ULDs) * 100, 3)}%"
+            f"\nPercentage of non-priority packages placed: {round((len(placed) - len(priority_pkgs_placed)) / (len(packages) - len(priority_pkgs)) * 100, 3)}%"
             f"\nCost ==> Priority: {priority_cost} + Delay: {delay_cost} = {priority_cost + delay_cost}"
         )
 
