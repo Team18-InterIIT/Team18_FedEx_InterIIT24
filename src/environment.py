@@ -674,7 +674,7 @@ best_fitness = 0
 
 
 # Run the GA
-best_solution = genetic_algorithm(pop_size=50, generations= 15 * len(pkg_list), mutation_rate=0.01)
+best_solution = genetic_algorithm(pop_size=50, generations= 10, mutation_rate=0.01)
 
 # Generate packing solution for the best chromosome
 bps, cls = best_solution
