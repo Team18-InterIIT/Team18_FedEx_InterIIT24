@@ -190,7 +190,7 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
                     best_state = new_state[:]
                     best_cost = new_cost
 
-                print(f"Iteration: {i}, Best Cost: {best_cost}")
+                print(f"Iteration: {i + 1}, Best Cost: {best_cost}")
                 i += 1
 
             return best_state
@@ -207,7 +207,7 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
         )
 
         priority_pkgs = simulated_annealing(priority_pkgs, num_iterations=100)
-        economy_pkgs = simulated_annealing(economy_pkgs, num_iterations=10)
+        economy_pkgs = simulated_annealing(economy_pkgs, num_iterations=100)
 
         env.reset()
         pkgs = priority_pkgs + economy_pkgs
