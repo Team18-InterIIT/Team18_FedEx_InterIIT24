@@ -303,11 +303,11 @@ class ORToolsBinPacking(PackingAlgorithm):
 
                         # (7b)
                         solver.Add(
-                            x[i] + 0.5 - x[j] <= self.M * xaij[(i, j)],
+                            x_prime[i] - x[j] <= self.M * xaij[(i, j)],
                             f"stability_7b_xaij_{i}_{j}",
                         )
                         solver.Add(
-                            x[i] + 0.5 - x[j] >= self.M * (xaij[(i, j)] - 1),
+                            x_prime[i] - 0.5 - x[j] >= self.M * (xaij[(i, j)] - 1),
                             f"stability_7b_xaij_rev_{i}_{j}",
                         )
 
@@ -334,11 +334,11 @@ class ORToolsBinPacking(PackingAlgorithm):
 
                         # (8b)
                         solver.Add(
-                            z[i] + 0.5 - z[j] <= self.M * xbij[(i, j)],
+                            z[i] - z[j] <= self.M * xbij[(i, j)],
                             f"stability_8b_xbij_{i}_{j}",
                         )
                         solver.Add(
-                            z[i] + 0.5 - z[j] >= self.M * (xbij[(i, j)] - 1),
+                            z[i] - 0.5 - z[j] >= self.M * (xbij[(i, j)] - 1),
                             f"stability_8b_xbij_rev_{i}_{j}",
                         )
 
@@ -359,7 +359,7 @@ class ORToolsBinPacking(PackingAlgorithm):
                             f"stability_9a_ycij_{i}_{j}",
                         )
                         solver.Add(
-                            x_prime[j] - x[i] >= self.M * (ycij[(i, j)] - 1),
+                            x_prime[j] - 0.5 - x[i] >= self.M * (ycij[(i, j)] - 1),
                             f"stability_9a_ycij_rev_{i}_{j}",
                         )
 
@@ -391,7 +391,7 @@ class ORToolsBinPacking(PackingAlgorithm):
                             f"stability_10a_ydij_{i}_{j}",
                         )
                         solver.Add(
-                            z_prime[j] - z[i] >= self.M * (yd[(i, j)] - 1),
+                            z_prime[j] - 0.5 - z[i] >= self.M * (yd[(i, j)] - 1),
                             f"stability_10a_ydij_rev_{i}_{j}",
                         )
 
