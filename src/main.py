@@ -7,12 +7,12 @@ from environment import Environment
 from algorithm_interface import PackingAlgorithm as PackingAlgorithm
 
 # For Example:
-# from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
+from solvers.MIP_ortools import ORToolsBinPacking as PackingAlgorithm
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
 else:
-    test_file = "test/Challenge_FedEx.txt"
+    test_file = "test/testcases/tc2.txt"
 
 parser = parser.Parser(test_file)
 K = parser.get_K()

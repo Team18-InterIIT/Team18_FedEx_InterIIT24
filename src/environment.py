@@ -78,12 +78,12 @@ class Environment:
 
         for existing_pkg in uld.packages:
             if (
-                corners_to_check[0].x < existing_pkg.corners[1].x
-                and corners_to_check[1].x > existing_pkg.corners[0].x
-                and corners_to_check[0].y < existing_pkg.corners[1].y
-                and corners_to_check[1].y > existing_pkg.corners[0].y
-                and corners_to_check[0].z < existing_pkg.corners[1].z
-                and corners_to_check[1].z > existing_pkg.corners[0].z
+                corners_to_check[0].x <= existing_pkg.corners[1].x
+                and corners_to_check[1].x >= existing_pkg.corners[0].x
+                and corners_to_check[0].y <= existing_pkg.corners[1].y
+                and corners_to_check[1].y >= existing_pkg.corners[0].y
+                and corners_to_check[0].z <= existing_pkg.corners[1].z
+                and corners_to_check[1].z >= existing_pkg.corners[0].z
             ):
                 return True
 
@@ -248,14 +248,11 @@ class Environment:
         not_placed = packages - placed
 
         priority_ULDs = set(uld for uld in self.ULDs if uld.has_priority)
-        priority_pkgs = set(pkg for pkg in self.packages if pkg.is_priority)
-        priority_pkgs_placed = priority_pkgs & placed
 
         print(
             f"Number of packages placed: {len(placed)}\nNumber of packages not placed: {len(not_placed)}"
             f"\nNumber of ULDs that are priority: {len(priority_ULDs)}"
             f"\nPercentage volume filled: {round(sum(pkg.volume() for pkg in placed) / sum(uld.volume() for uld in self.ULDs) * 100, 3)}%"
-            f"\nPercentage of non-priority packages placed: {round((len(placed) - len(priority_pkgs_placed)) / (len(packages) - len(priority_pkgs)) * 100, 3)}%"
             f"\nCost ==> Priority: {priority_cost} + Delay: {delay_cost} = {priority_cost + delay_cost}"
         )
 
