@@ -89,6 +89,16 @@ class Environment:
             ):
                 return True
 
+            if (
+                corners_to_check[0].x == existing_pkg.corners[1].x
+                and corners_to_check[1].x == existing_pkg.corners[0].x
+                and corners_to_check[0].y == existing_pkg.corners[1].y
+                and corners_to_check[1].y == existing_pkg.corners[0].y
+                and corners_to_check[0].z == existing_pkg.corners[1].z
+                and corners_to_check[1].z == existing_pkg.corners[0].z
+            ):
+                return True
+
         return False
 
     def check_weight_limit(self, uld: ULD, pkg_weight: int):
