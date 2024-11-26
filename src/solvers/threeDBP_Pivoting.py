@@ -1,4 +1,5 @@
 import random
+import sys
 from itertools import permutations
 
 from algorithm_interface import PackingAlgorithm
@@ -117,7 +118,11 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
                     best_state = new_state[:]
                     best_cost = new_cost
 
-                print(f"Iteration: {i + 1}, Best Cost: {best_cost}")
+                print(
+                    f"Iteration: {i}/{num_iterations}   \t Cost: {best_cost}",
+                    file=sys.stderr,
+                )
+
                 i += 1
 
             return best_state
@@ -133,11 +138,14 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
             reverse=True,
         )
 
+        print(f"{"="*20}\nAnnealing for Priority Packages\n{"="*20}", file=sys.stderr)
         priority_pkgs = simulated_annealing(priority_pkgs, num_iterations=50)
         pkgs = priority_pkgs + economy_pkgs
+        print(f"{"="*20}\nAnnealing for Economy Packages\n{"="*20}", file=sys.stderr)
         pkgs = simulated_annealing(
-            pkgs, bounds=[len(priority_pkgs), len(pkgs)], num_iterations=100
+            pkgs, bounds=[len(priority_pkgs), len(pkgs)], num_iterations=15
         )
+        print(f"{"="*60}\n", file=sys.stderr)
 
         env.reset()
         for uld in sorted_ULDs:
