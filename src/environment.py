@@ -59,6 +59,8 @@ class Environment:
 
         for pkg in self.packages:
             pkg.reset()
+        
+        self.pkg_addition_order = []
 
     def check_collision(self, uld: ULD, corners_to_check: tuple[Point, Point]):
         """
@@ -259,7 +261,7 @@ class Environment:
             f"\nCost ==> Priority: {priority_cost} + Delay: {delay_cost} = {priority_cost + delay_cost}"
         )
 
-    def animate(self):
+    def animate(self, repeat=False):
         """
         Animate the process of adding packages to the ULDs
         """
@@ -344,7 +346,7 @@ class Environment:
             fig,
             update,
             frames=frames,
-            repeat=False,
+            repeat=repeat,
         )
         plt.tight_layout()
         fig.subplots_adjust(top=0.9)
