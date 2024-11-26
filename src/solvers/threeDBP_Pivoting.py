@@ -1,6 +1,7 @@
 import math
 import random
 from itertools import permutations
+import copy
 
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
@@ -151,57 +152,60 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
         sorted_ULDs = sorted(env.ULDs, key=lambda uld: uld.volume(), reverse=True)
 
         # Simulated Annealing to change the order of packages and see if it improves the solution
-        def simulated_annealing(pkgs, initial_temp=1000, cooling_rate=0.95, num_iterations=100):
+        def simulated_annealing(
+            pkgs,
+            num_iterations=1000,
+        ):
             env.reset()
-            temp = initial_temp
-            current_solution = pkgs[:]
-            best_solution = pkgs[:]
-            for uld in sorted_ULDs:
-                for pkg in current_solution:
+            uld_list = sorted_ULDs
+            best_state = pkgs[:]
+            for uld in uld_list:
+                for pkg in best_state:
                     pack_to_ULD(pkg, uld)
-            current_cost = sum(env.cost())
-            best_cost = current_cost
+            best_cost = sum(env.cost(priority_check=False))
             i = 0
             while i < num_iterations:
                 env.reset()
-                new_solution = current_solution[:]
+                new_state = best_state[:]
 
-                idx1, idx2 = random.sample(range(len(new_solution)), 2)
-                new_solution[idx1], new_solution[idx2] = (
-                    new_solution[idx2],
-                    new_solution[idx1],
+                idx1, idx2 = random.sample(range(len(new_state)), 2)
+                new_state[idx1], new_state[idx2] = (
+                    new_state[idx2],
+                    new_state[idx1],
                 )
-                for uld in sorted_ULDs:
-                    for pkg in new_solution:
+                for uld in uld_list:
+                    for pkg in new_state:
                         pack_to_ULD(pkg, uld)
-                new_cost = sum(env.cost())
+                new_cost = sum(env.cost(priority_check=False))
                 if new_cost == float("inf"):
                     continue
 
-                if new_cost < current_cost or random.uniform(0, 1) < math.exp(
-                    (current_cost - new_cost) / temp
-                ):
-                    current_solution = new_solution[:]
-                    current_cost = new_cost
-
-                if current_cost < best_cost:
-                    best_solution = current_solution[:]
-                    best_cost = current_cost
+                if new_cost < best_cost:
+                    best_state = new_state[:]
+                    best_cost = new_cost
 
                 print(f"Iteration: {i}, Best Cost: {best_cost}")
-                temp *= cooling_rate
                 i += 1
 
-            env.reset()
-            return best_solution
+            return best_state
 
-        sorted_pkgs = sorted(
-            env.packages, key=lambda pkg: pkg.cost**2 / pkg.volume(), reverse=True
+        priority_pkgs = sorted(
+            [pkg for pkg in env.packages if pkg.is_priority],
+            key=lambda pkg: pkg.volume(),
+            reverse=True,
         )
-        sorted_pkgs = simulated_annealing(
-            sorted_pkgs, num_iterations=1000
+        economy_pkgs = sorted(
+            [pkg for pkg in env.packages if not pkg.is_priority],
+            key=lambda pkg: pkg.cost**2 / pkg.volume(),
+            reverse=True,
         )
+
+        priority_pkgs = simulated_annealing(priority_pkgs, num_iterations=100)
+        economy_pkgs = simulated_annealing(economy_pkgs, num_iterations=10)
+
+        env.reset()
+        pkgs = priority_pkgs + economy_pkgs
 
         for uld in sorted_ULDs:
-            for pkg in sorted_pkgs:
+            for pkg in pkgs:
                 pack_to_ULD(pkg, uld)
