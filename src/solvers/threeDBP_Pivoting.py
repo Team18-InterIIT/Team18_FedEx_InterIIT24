@@ -7,13 +7,13 @@ from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
 
+random.seed(42)
 
 class ThreeDBP_Pivoting(PackingAlgorithm):
     def solve(self, env: Environment):
         """
         https://github.com/enzoruiz/3dbinpacking/blob/master/erick_dube_507-034.pdf
         """
-
         def pivot_package(
             pkg: Package, uld: ULD, pivot: Point, signs: tuple[int, int, int]
         ) -> bool:
@@ -75,7 +75,7 @@ class ThreeDBP_Pivoting(PackingAlgorithm):
 
         sorted_ULDs = sorted(env.ULDs, key=lambda uld: uld.volume(), reverse=True)
         sorted_pkgs = sorted(
-            env.packages, key=lambda pkg: pkg.cost**2 / pkg.volume(), reverse=True
+            env.packages, key=lambda pkg: pkg.cost**1.5 / pkg.volume(), reverse=True
         )
 
         for uld in sorted_ULDs:
