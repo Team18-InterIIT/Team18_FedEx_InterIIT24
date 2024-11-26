@@ -1,8 +1,10 @@
+import os
+
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from entity import ULD, Package, Point
-from matplotlib.animation import FuncAnimation
 
 
 class Environment:
@@ -338,7 +340,7 @@ class Environment:
         frames_to_skip = 1
         frames = range(0, len(self.pkg_addition_order), frames_to_skip)
 
-        FuncAnimation(
+        ani = FuncAnimation(
             fig,
             update,
             frames=frames,
@@ -349,8 +351,14 @@ class Environment:
         plt.show()
         plt.close()
 
-    def write(self):
-        with open("output.txt", "w") as f:
+    def write(self, file_path):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        file_path = os.path.join(project_root, file_path)
+        if not os.path.exists(os.path.dirname(file_path)):
+            os.makedirs(os.path.dirname(file_path))
+
+        with open(file_path, "w") as f:
             cost = sum(self.cost())
             if cost != float("inf"):
                 cost = int(cost)
@@ -359,5 +367,31 @@ class Environment:
             )
             for pkg in self.packages:
                 f.write(
-                    f"{pkg.id},{pkg.uld_id},{pkg.corners[0].x},{pkg.corners[0].y},{pkg.corners[0].z},{pkg.corners[1].x},{pkg.corners[1].y},{pkg.corners[1].z}\n"
+                    f"P-{pkg.id},ULD-{pkg.uld_id},{pkg.corners[0].x},{pkg.corners[0].y},{pkg.corners[0].z},{pkg.corners[1].x},{pkg.corners[1].y},{pkg.corners[1].z}\n"
                 )
+
+    def read(self, file_path):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        file_path = os.path.join(project_root, file_path)
+
+        with open(file_path, "r") as f:
+            lines = f.readlines()
+            for line in lines[1:]:
+                pkg_id, uld_id, x1, y1, z1, x2, y2, z2 = line.strip().split(",")
+                pkg_id = int(pkg_id.split("-")[1])
+                uld_id = int(uld_id.split("-")[1])
+                x1, y1, z1, x2, y2, z2 = map(int, (x1, y1, z1, x2, y2, z2))
+
+                pkg = self.packages[pkg_id - 1]
+                pkg.uld_id = uld_id
+                pkg.corners = (Point(x1, y1, z1), Point(x2, y2, z2))
+
+            for pkg in self.packages:
+                if pkg.uld_id == 0:
+                    continue
+                self.ULDs[pkg.uld_id - 1].packages.append(pkg)
+
+            for uld in self.ULDs:
+                uld.has_priority = any(pkg.is_priority for pkg in uld.packages)
+                uld.weight = sum(pkg.weight for pkg in uld.packages)
