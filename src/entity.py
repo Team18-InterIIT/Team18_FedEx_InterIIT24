@@ -69,7 +69,7 @@ class Package:
 
     def __init__(self, pkg_row: list[str]):
         self.id: int = int(pkg_row[0])
-        self.dim: Dim = Dim(int(pkg_row[1]), int(pkg_row[2]), int(pkg_row[3]))
+        self.dim: Dim = Dim(*map(int, pkg_row[1:4]))
         self.weight: int = int(pkg_row[4])
         self.is_priority: bool = pkg_row[5] == "Priority"
         self.cost: float = float("inf") if self.is_priority else float(pkg_row[6])
@@ -77,9 +77,26 @@ class Package:
         self.uld_id: int = 0
         self.corners: tuple[Point, Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
 
+    def new(self):
+        return Package(["0", "0", "0", "0", "0", "Economy", "0"])
+
     def reset(self):
         self.uld_id = 0
         self.corners = (Point(-1, -1, -1), Point(-1, -1, -1))
+
+    def copy_from(self, pkg):
+        self.id = pkg.id
+        self.dim = pkg.dim
+        self.weight = pkg.weight
+        self.is_priority = pkg.is_priority
+        self.cost = pkg.cost
+        self.uld_id = pkg.uld_id
+        self.corners = pkg.corners
+
+    def copy(self):
+        new_pkg = self.new()
+        new_pkg.copy_from(self)
+        return new_pkg
 
     def volume(self):
         return self.dim.l * self.dim.w * self.dim.h
@@ -117,17 +134,33 @@ class ULD:
 
     def __init__(self, uld_row: list[str]):
         self.id: int = int(uld_row[0])
-        self.dim: Dim = Dim(int(uld_row[1]), int(uld_row[2]), int(uld_row[3]))
+        self.dim: Dim = Dim(*map(int, uld_row[1:4]))
         self.weight_limit: int = int(uld_row[4])
 
         self.has_priority: bool = False
         self.weight: int = 0
         self.packages: list[Package] = list()
 
+    def new(self):
+        return ULD(["0", "0", "0", "0", "0"])
+
     def reset(self):
         self.has_priority = False
         self.weight = 0
         self.packages = []
+
+    def copy_from(self, uld):
+        self.id = uld.id
+        self.dim = uld.dim
+        self.weight_limit = uld.weight_limit
+        self.has_priority = uld.has_priority
+        self.weight = uld.weight
+        self.packages = [pkg.copy() for pkg in uld.packages]
+
+    def copy(self):
+        new_uld = self.new()
+        new_uld.copy_from(self)
+        return new_uld
 
     def volume(self):
         return self.dim.l * self.dim.w * self.dim.h

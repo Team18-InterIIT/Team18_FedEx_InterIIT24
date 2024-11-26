@@ -53,14 +53,28 @@ class Environment:
 
         self.pkg_addition_order = []
 
+    def new(self):
+        return Environment(self.K, [], [])
+
     def reset(self):
         for uld in self.ULDs:
             uld.reset()
 
         for pkg in self.packages:
             pkg.reset()
-        
+
         self.pkg_addition_order = []
+
+    def copy_from(self, other: "Environment"):
+        self.K = other.K
+        self.packages = [pkg.copy() for pkg in other.packages]
+        self.ULDs = [uld.copy() for uld in other.ULDs]
+        self.pkg_addition_order = other.pkg_addition_order.copy()
+
+    def copy(self):
+        new_env = self.new()
+        new_env.copy_from(self)
+        return new_env
 
     def check_collision(self, uld: ULD, corners_to_check: tuple[Point, Point]):
         """
@@ -80,12 +94,19 @@ class Environment:
 
         for existing_pkg in uld.packages:
             if (
-                corners_to_check[0].x <= existing_pkg.corners[1].x
-                and corners_to_check[1].x >= existing_pkg.corners[0].x
-                and corners_to_check[0].y <= existing_pkg.corners[1].y
-                and corners_to_check[1].y >= existing_pkg.corners[0].y
-                and corners_to_check[0].z <= existing_pkg.corners[1].z
-                and corners_to_check[1].z >= existing_pkg.corners[0].z
+                corners_to_check[0].x < existing_pkg.corners[1].x
+                and corners_to_check[1].x > existing_pkg.corners[0].x
+                and corners_to_check[0].y < existing_pkg.corners[1].y
+                and corners_to_check[1].y > existing_pkg.corners[0].y
+                and corners_to_check[0].z < existing_pkg.corners[1].z
+                and corners_to_check[1].z > existing_pkg.corners[0].z
+            ) or (
+                corners_to_check[0].x == existing_pkg.corners[1].x
+                and corners_to_check[1].x == existing_pkg.corners[0].x
+                and corners_to_check[0].y == existing_pkg.corners[1].y
+                and corners_to_check[1].y == existing_pkg.corners[0].y
+                and corners_to_check[0].z == existing_pkg.corners[1].z
+                and corners_to_check[1].z == existing_pkg.corners[0].z
             ):
                 return True
 
@@ -213,7 +234,7 @@ class Environment:
                     [(x[p[0]], y[p[1]], z[p[2]]) for p in point] for point in points
                 ]
 
-                color = "lightblue" if not pkg.is_priority else "cyan"
+                color = "green" if not pkg.is_priority else "cyan"
 
                 ax.add_collection3d(
                     Poly3DCollection(
@@ -327,7 +348,7 @@ class Environment:
                     [(x[p[0]], y[p[1]], z[p[2]]) for p in point] for point in points
                 ]
 
-                color = "lightblue" if not pkg.is_priority else "cyan"
+                color = "green" if not pkg.is_priority else "cyan"
 
                 ax.add_collection3d(
                     Poly3DCollection(
