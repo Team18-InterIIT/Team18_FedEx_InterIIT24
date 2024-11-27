@@ -2,6 +2,9 @@ import random
 import sys
 from itertools import permutations
 
+import mlrose_ky as mlrose
+import numpy as np
+
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
@@ -76,76 +79,147 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
 
         sorted_ULDs = sorted(env.ULDs, key=lambda uld: uld.volume(), reverse=True)
 
-        # Simulated Annealing to change the order of packages and see if it improves the solution
-        def simulated_annealing(
-            pkgs,
-            neighbor_mode="swap",
-            bounds=None,
-            num_iterations=1000,
-        ):
-            if bounds is None:
-                bounds = [0, len(pkgs)]
-
-            env.reset()
-            uld_list = sorted_ULDs
-            best_state = pkgs[:]
-            for uld in uld_list:
-                for pkg in best_state:
-                    pack_to_ULD(pkg, uld)
-            best_cost = sum(env.cost(priority_check=False))
-            i = 0
-            while i < num_iterations:
-                env.reset()
-                new_state = best_state[:]
-
-                idx1, idx2 = random.sample(range(*bounds), 2)
-                if neighbor_mode == "swap":
-                    new_state[idx1], new_state[idx2] = (
-                        new_state[idx2],
-                        new_state[idx1],
-                    )
-                elif neighbor_mode == "reverse":
-                    new_state[idx1:idx2] = new_state[idx1:idx2][::-1]
-
-                for uld in uld_list:
-                    for pkg in new_state:
-                        pack_to_ULD(pkg, uld)
-                new_cost = sum(env.cost(priority_check=False))
-                if new_cost == float("inf"):
-                    continue
-
-                if new_cost < best_cost:
-                    best_state = new_state[:]
-                    best_cost = new_cost
-
-                print(
-                    f"Iteration: {i}/{num_iterations}   \t Cost: {best_cost}",
-                    file=sys.stderr,
-                )
-
-                i += 1
-
-            return best_state
-
         priority_pkgs = sorted(
             [pkg for pkg in env.packages if pkg.is_priority],
             key=lambda pkg: pkg.volume(),
             reverse=True,
         )
+        i = 1
+
+        def priority_cost(state):
+            nonlocal i
+            env.reset()
+            pkgs = [priority_pkgs[i] for i in state]
+
+            for uld in sorted_ULDs:
+                for pkg in pkgs:
+                    pack_to_ULD(pkg, uld)
+
+            cost = sum(env.cost(priority_check=False))
+            print(f"Iteration {i}:    \t Cost: {cost}")
+            i += 1
+            return cost
+
+        priority_fitness = mlrose.CustomFitness(priority_cost)
+
+        # Inheriting the Problem object to overload functions
+        class Priority_DiscreteOpt(mlrose.DiscreteOpt):
+            def __init__(
+                self,
+                length,
+                fitness_fn,
+                maximize=True,
+                max_val=2,
+                crossover=None,
+                mutator=None,
+            ):
+                super().__init__(
+                    length, fitness_fn, maximize, max_val, crossover, mutator
+                )
+
+            def random_neighbor(self):
+                idx1, idx2 = random.sample(range(self.length), 2)
+                new_state = np.copy(self.state)
+                new_state[idx1], new_state[idx2] = new_state[idx2], new_state[idx1]
+                return new_state
+
+        priority_problem = Priority_DiscreteOpt(
+            length=len(priority_pkgs),
+            fitness_fn=priority_fitness,
+            maximize=False,
+            max_val=len(priority_pkgs),
+        )
+        priority_schedule = mlrose.GeomDecay()
+        init_state = np.array(list(range(len(priority_pkgs))))
+
+        priority_state = mlrose.simulated_annealing(
+            priority_problem,
+            schedule=priority_schedule,
+            max_attempts=10,
+            max_iters=100,
+            init_state=init_state,
+            random_state=None,
+        )
+
+        priority_pkgs = [priority_pkgs[i] for i in priority_state[0]]
+
         economy_pkgs = sorted(
             [pkg for pkg in env.packages if not pkg.is_priority],
             key=lambda pkg: pkg.cost**2 / pkg.volume(),
             reverse=True,
         )
+        i = 1
 
-        print(f"{"="*20}\nAnnealing for Priority Packages\n{"="*20}", file=sys.stderr)
-        priority_pkgs = simulated_annealing(priority_pkgs, num_iterations=50)
-        pkgs = priority_pkgs + economy_pkgs
-        print(f"{"="*20}\nAnnealing for Economy Packages\n{"="*20}", file=sys.stderr)
-        pkgs = simulated_annealing(
-            pkgs, bounds=[len(priority_pkgs), len(pkgs)], num_iterations=15
+        def economy_cost(state):
+            nonlocal i
+            env.reset()
+            pkgs = priority_pkgs + [economy_pkgs[i] for i in state]
+
+            for uld in sorted_ULDs:
+                for pkg in pkgs:
+                    pack_to_ULD(pkg, uld)
+
+            cost = sum(env.cost(priority_check=False))
+            print(f"Iteration {i}:    \t Cost: {cost}")
+            i += 1
+            return cost
+
+        economy_fitness = mlrose.CustomFitness(economy_cost)
+
+        # Inheriting the Problem object to overload functions
+        class Economy_DiscreteOpt(mlrose.DiscreteOpt):
+            def __init__(
+                self,
+                length,
+                fitness_fn,
+                maximize=True,
+                max_val=2,
+                crossover=None,
+                mutator=None,
+                priority_bounds=None,
+                economy_bounds=None,
+            ):
+                super().__init__(
+                    length, fitness_fn, maximize, max_val, crossover, mutator
+                )
+                if priority_bounds is None:
+                    priority_bounds = [0, length]
+                if economy_bounds is None:
+                    economy_bounds = [0, length]
+
+                self.priority_bounds = priority_bounds
+                self.economy_bounds = economy_bounds
+
+            def random_neighbor(self):
+                new_state = np.copy(self.state)
+                idx1, idx2 = random.sample(range(*self.economy_bounds), 2)
+                new_state[idx1], new_state[idx2] = new_state[idx2], new_state[idx1]
+                idx1, idx2 = random.sample(range(*self.priority_bounds), 2)
+                new_state[idx1], new_state[idx2] = new_state[idx2], new_state[idx1]
+                return new_state
+
+        economy_problem = Economy_DiscreteOpt(
+            length=len(economy_pkgs),
+            fitness_fn=economy_fitness,
+            maximize=False,
+            max_val=len(economy_pkgs),
+            priority_bounds=[0, len(priority_pkgs)],
+            economy_bounds=[0, len(economy_pkgs)],
         )
-        print(f"{"="*60}\n", file=sys.stderr)
+        economy_schedule = mlrose.GeomDecay(init_temp=10000, decay=0.9)
+        init_state = np.array(list(range(len(economy_pkgs))))
+
+        economy_state = mlrose.simulated_annealing(
+            economy_problem,
+            schedule=economy_schedule,
+            max_attempts=10,
+            max_iters=1000,
+            init_state=init_state,
+            random_state=None,
+        )
+        economy_pkgs = [economy_pkgs[i] for i in economy_state[0]]
+
+        pkgs = priority_pkgs + economy_pkgs
 
         env.reset()
         for uld in sorted_ULDs:
