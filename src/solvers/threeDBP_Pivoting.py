@@ -6,7 +6,7 @@ from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
 import numpy as np
-import copy
+
 
 class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
     def solve(self, env: Environment):
@@ -83,57 +83,8 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
             neighbor_mode="swap",
             bounds=None,
             num_iterations=1000,
-        ):
-            if bounds is None:
-                bounds = [0, len(pkgs)]
-
-            env.reset()
-            uld_list = sorted_ULDs
-            best_state = pkgs[:]
-            for uld in uld_list:
-                for pkg in best_state:
-                    pack_to_ULD(pkg, uld)
-            best_cost = sum(env.cost(priority_check=False))
-            i = 0
-            while i < num_iterations:
-                env.reset()
-                new_state = best_state[:]
-
-                idx1, idx2 = random.sample(range(*bounds), 2)
-                if neighbor_mode == "swap":
-                    new_state[idx1], new_state[idx2] = (
-                        new_state[idx2],
-                        new_state[idx1],
-                    )
-                elif neighbor_mode == "reverse":
-                    new_state[idx1:idx2] = new_state[idx1:idx2][::-1]
-
-                for uld in uld_list:
-                    for pkg in new_state:
-                        pack_to_ULD(pkg, uld)
-                new_cost = sum(env.cost(priority_check=False))
-                if new_cost == float("inf"):
-                    continue
-
-                if new_cost < best_cost:
-                    best_state = new_state[:]
-                    best_cost = new_cost
-
-                print(
-                    f"Iteration: {i}/{num_iterations}   \t Cost: {best_cost}",
-                    file=sys.stderr,
-                )
-
-                i += 1
-
-            return best_state
-
-
-        def simulated_annealing2(
-            pkgs,
-            neighbor_mode="swap",
-            bounds=None,
-            num_iterations=1000,
+            temp=10000,
+            decay=0.9,
         ):
             if bounds is None:
                 bounds = [0, len(pkgs)]
@@ -145,17 +96,15 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
             for uld in uld_list:
                 for pkg in current_state:
                     pack_to_ULD(pkg, uld)
-            best_cost = sum(env.cost(priority_check=False))
+            best_cost = sum(env.cost(priority_check=True))
             current_cost = best_cost
             i = 0
-            T = 8000
-            alpha = 0.95
             while i < num_iterations:
                 env.reset()
                 new_state = current_state[:]
                 idx1, idx2 = random.sample(range(*bounds), 2)
                 bounds = [0, len(pkgs)]
-                idx3, idx4 = random.sample(range(*bounds), 2) 
+                idx3, idx4 = random.sample(range(*bounds), 2)
 
                 if neighbor_mode == "swap":
                     new_state[idx1], new_state[idx2] = (
@@ -172,35 +121,34 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
                 for uld in uld_list:
                     for pkg in new_state:
                         pack_to_ULD(pkg, uld)
-                new_cost = sum(env.cost(priority_check=False))
+                new_cost = sum(env.cost(priority_check=True))
                 if new_cost == float("inf"):
                     continue
 
-                arg = (current_cost-new_cost)/T
-                T*=alpha
-             
-                p = np.exp(arg)
-                y = random.random()
-                print(p,y)
-                
                 if new_cost <= best_cost:
-                    best_state = new_state[:]
                     best_cost = new_cost
-                    current_cost = new_cost
-                    current_state = new_state[:]
-                if new_cost <= current_cost or y<p:
+                    best_state = new_state[:]
                     current_cost = new_cost
                     current_state = new_state[:]
 
+                    if temp != 0:
+                        delta = (current_cost - new_cost) / temp
+                        p = np.exp(delta)
+                        y = random.random()
+                        if y < p:
+                            current_cost = new_cost
+                            current_state = new_state[:]
 
                 print(
                     f"Iteration: {i}/{num_iterations}   \t Cost: {current_cost} \t Best Cost: {best_cost}",
                     file=sys.stderr,
                 )
 
+                temp *= decay
                 i += 1
 
             return best_state
+
         priority_pkgs = sorted(
             [pkg for pkg in env.packages if pkg.is_priority],
             key=lambda pkg: pkg.volume(),
@@ -212,13 +160,14 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
             reverse=True,
         )
 
-
         print(f"{"="*20}\nAnnealing for Priority Packages\n{"="*20}", file=sys.stderr)
-        priority_pkgs = simulated_annealing(priority_pkgs, num_iterations=10)
+        priority_pkgs = simulated_annealing(priority_pkgs, num_iterations=10, temp=0)
         pkgs = priority_pkgs + economy_pkgs
         print(f"{"="*20}\nAnnealing for Economy Packages\n{"="*20}", file=sys.stderr)
-        pkgs = simulated_annealing2(
-            pkgs, bounds=[len(priority_pkgs), len(pkgs)]  ,num_iterations=1000
+        pkgs = simulated_annealing(
+            pkgs,
+            bounds=[len(priority_pkgs), len(pkgs)],
+            num_iterations=1000,
         )
         print(f"{"="*60}\n", file=sys.stderr)
 
