@@ -125,6 +125,7 @@ class Environment:
         pkg: Package,
         uld: ULD,
         corners: tuple[Point, Point],
+        simulate: bool = False,
         collision_check: bool = True,
         weight_limit_check: bool = True,
         floating_check: bool = True,
@@ -143,14 +144,15 @@ class Environment:
         if weight_limit_check and self.check_weight_limit(uld, pkg.weight):
             return False
 
-        self.pkg_addition_order.append(pkg.id)
+        if not simulate:
+            self.pkg_addition_order.append(pkg.id)
 
-        pkg.uld_id = uld.id
-        pkg.corners = corners
+            pkg.uld_id = uld.id
+            pkg.corners = corners
 
-        uld.packages.append(pkg)
-        uld.weight += pkg.weight
-        uld.has_priority = uld.has_priority or pkg.is_priority
+            uld.packages.append(pkg)
+            uld.weight += pkg.weight
+            uld.has_priority = uld.has_priority or pkg.is_priority
 
         return True
 
