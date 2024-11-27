@@ -10,7 +10,8 @@ from entity import Package
 # from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
 
 # For Example:
-from solvers.Caving_COA import COA as PackingAlgorithm
+# from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
+from solvers.layerstratwithOR import LayerPacking
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
@@ -24,7 +25,7 @@ pkg_list = parser.get_pkg_list()
 
 env = Environment(K, uld_list, pkg_list)
 
-model = PackingAlgorithm()
+model = LayerPacking()
 
 model.solve(env)
 # To read from a solution file, use the following line instead of the above line
