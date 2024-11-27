@@ -5,8 +5,8 @@ from environment import Environment
 from algorithm_interface import PackingAlgorithm as PackingAlgorithm
 
 # For Example:
-from solvers.threeDBP_Pivoting import (
-    ThreeDBP_Pivoting_Simul_Annealing as PackingAlgorithm,
+from solvers.RV_Sol import (
+    LPBinPacking as PackingAlgorithm,
 )
 
 K = parser.get_K()
@@ -18,7 +18,7 @@ env = Environment(K, uld_list, pkg_list)
 model = PackingAlgorithm()
 model.solve(env)
 
-# env.plot()
+env.plot()
 env.animate()
 env.summary()
 env.write()
