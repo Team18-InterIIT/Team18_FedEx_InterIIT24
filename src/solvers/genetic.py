@@ -1,16 +1,16 @@
-import parser
+# import parser
 import itertools
 import random
-from main import Package, ULD, Dim
+# from main import Package, ULD, Dim
 
 # Initialize data
-K = parser.get_K()
-uld_list = parser.get_uld_list()
-pkg_list = parser.get_pkg_list()
+# K = parser.get_K()
+# uld_list = parser.get_uld_list()
+# pkg_list = parser.get_pkg_list()
 
-# Create ULD and Package objects
-containers = [ULD(row) for row in uld_list]
-packages = [Package(row) for row in pkg_list]
+# # Create ULD and Package objects
+# containers = [ULD(row) for row in uld_list]
+# packages = [Package(row) for row in pkg_list]
 
 # EMS: Empty Maximal Spaces
 class EMS:
@@ -43,7 +43,7 @@ def initialize_population(pop_size, packages, containers):
     population = []
     # Create a structured chromosome by sorting packages
     # Sort by volume (or another criterion) in descending order
-    sorted_packages = sorted(packages, key=lambda pkg: pkg.get_volume(), reverse=True)
+    sorted_packages = sorted(packages, key=lambda pkg: pkg.volume(), reverse=True)
 
     # Add a chromosome with sorted packages
     population.append((sorted_packages, random.sample(containers, len(containers))))
@@ -90,7 +90,7 @@ def is_overlapping(space, box_dims, placement_coords):
 
     return True  # Overlap exists
 
-
+# OLD EMS for 3 surfaces
 def generate_new_ems(space, box_dims, placement_coords):
     """
     Generate new EMS regions when a box is placed in a space.
@@ -120,6 +120,97 @@ def generate_new_ems(space, box_dims, placement_coords):
         )
 
     return new_ems_list
+
+# NEW EMS for 6 surfaces
+# def generate_new_ems(space, box_dims, placement_coords):
+#     """
+#     Generate new EMS regions for all six faces of a placed box.
+#     """
+#     new_ems_list = []
+#     box_min = placement_coords
+#     box_max = tuple(placement_coords[i] + box_dims[i] for i in range(3))
+#     space_min = space.min_coords
+#     space_max = space.max_coords
+
+#     # Generate new EMS to the right of the box
+#     if box_max[0] < space_max[0]:
+#         new_ems_list.append(
+#             EMS(
+#                 box_max[0],
+#                 space_min[1],
+#                 space_min[2],
+#                 space_max[0],
+#                 space_max[1],
+#                 space_max[2],
+#             )
+#         )
+
+#     # Generate new EMS above the box
+#     if box_max[1] < space_max[1]:
+#         new_ems_list.append(
+#             EMS(
+#                 space_min[0],
+#                 box_max[1],
+#                 space_min[2],
+#                 space_max[0],
+#                 space_max[1],
+#                 space_max[2],
+#             )
+#         )
+
+#     # Generate new EMS in front of the box
+#     if box_max[2] < space_max[2]:
+#         new_ems_list.append(
+#             EMS(
+#                 space_min[0],
+#                 space_min[1],
+#                 box_max[2],
+#                 space_max[0],
+#                 space_max[1],
+#                 space_max[2],
+#             )
+#         )
+
+#     # Generate new EMS to the left of the box
+#     if box_min[0] > space_min[0]:
+#         new_ems_list.append(
+#             EMS(
+#                 space_min[0],
+#                 space_min[1],
+#                 space_min[2],
+#                 box_min[0],
+#                 space_max[1],
+#                 space_max[2],
+#             )
+#         )
+
+#     # Generate new EMS below the box
+#     if box_min[1] > space_min[1]:
+#         new_ems_list.append(
+#             EMS(
+#                 space_min[0],
+#                 space_min[1],
+#                 space_min[2],
+#                 space_max[0],
+#                 box_min[1],
+#                 space_max[2],
+#             )
+#         )
+
+#     # Generate new EMS behind the box
+#     if box_min[2] > space_min[2]:
+#         new_ems_list.append(
+#             EMS(
+#                 space_min[0],
+#                 space_min[1],
+#                 space_min[2],
+#                 space_max[0],
+#                 space_max[1],
+#                 box_min[2],
+#             )
+#         )
+
+#     return new_ems_list
 
 
 def eliminate_redundant_ems(ems_list):
@@ -200,7 +291,7 @@ def select_best_placement(bps, ems_list, k_b=3, k_e=3):
                     continue
 
                 # Calculate fill ratio and margin
-                box_volume = box.get_volume()
+                box_volume = box.volume()
                 space_volume = space.get_dimensions()[0] * space.get_dimensions()[1] * space.get_dimensions()[2]
                 fill_ratio = box_volume / space_volume
 
@@ -340,13 +431,13 @@ def find_placement_coords(space, box_dims):
 #     fitness = fill_ratio - penalty_unplaced_boxes - penalty_priority_ULDs
 #     return fitness
 
-def fitness_function(chromosome):
+def fitness_function(chromosome, K):
     """
     Evaluate fitness based on the sum of costs of unplaced economy packages and priority ULDs.
     If any priority package is left unplaced, the fitness is set to -inf.
     """
     # from parser import get_K  # Import the function to get K from parser
-    K = parser.get_K()  # Get the value of K
+    # K = parser.get_K()  # Get the value of K
 
     bps, cls = chromosome
     packing_solution, unplaced_packages = best_match_placement(bps, cls)
@@ -399,48 +490,60 @@ def select_parents(population, fitness_scores, tournament_size=2, prob_t=0.85):
 # Crossover
 def crossover(parent1, parent2):
     """
-    Perform Partially Matched Crossover (PMX) on BPS and CLS.
+    Perform Partially Matched Crossover (PMX) on BPS and CLS to generate two children.
     """
     bps1, cls1 = parent1
     bps2, cls2 = parent2
 
     # Crossover for BPS
-    child_bps = pmx_crossover(bps1, bps2)
+    child_bps1, child_bps2 = pmx_crossover(bps1, bps2)
 
     # Crossover for CLS
-    child_cls = pmx_crossover(cls1, cls2)
+    child_cls1, child_cls2 = pmx_crossover(cls1, cls2)
 
-    return (child_bps, child_cls)
+    # Combine BPS and CLS for two offspring
+    child1 = (child_bps1, child_cls1)
+    child2 = (child_bps2, child_cls2)
+
+    return child1, child2
 
 
-def pmx_crossover(seq1, seq2):
+
+def pmx_crossover(cls1, cls2):
     """
-    Perform PMX crossover on two sequences (e.g., BPS or CLS).
+    Partially Matched Crossover (PMX) for order-based encoding.
+    Silently handles the edge case where the CLS size is less than 2 by skipping crossover.
     """
-    size = len(seq1)
-    child = [-1] * size
+    size = len(cls1)
 
-    # Select two random crossover points
+    # Handle edge case where there is only one ULD
+    if size < 2:
+        return cls1, cls2  # No crossover; return parents unchanged
+
+    # Select two crossover points
     point1, point2 = sorted(random.sample(range(size), 2))
 
-    # Copy the segment between the points from the first parent
-    child[point1:point2] = seq1[point1:point2]
+    # PMX crossover logic
+    child1 = [None] * size
+    child2 = [None] * size
 
-    # Resolve conflicts using the second parent
-    for i in range(point1, point2):
-        if seq2[i] not in child:
-            # Find a position to insert the element from the second parent
-            pos = i
-            while child[pos] != -1:
-                pos = seq2.index(seq1[pos])
-            child[pos] = seq2[i]
+    # Copy segments between crossover points
+    child1[point1:point2] = cls1[point1:point2]
+    child2[point1:point2] = cls2[point1:point2]
 
-    # Fill the remaining positions with elements from the second parent
+    # Fill remaining positions
     for i in range(size):
-        if child[i] == -1:
-            child[i] = seq2[i]
+        if i < point1 or i >= point2:
+            value1, value2 = cls2[i], cls1[i]
+            while value1 in child1:
+                value1 = cls2[cls1.index(value1)]
+            while value2 in child2:
+                value2 = cls1[cls2.index(value2)]
+            child1[i] = value1
+            child2[i] = value2
 
-    return child
+    return child1, child2
+
 
 
 
@@ -450,6 +553,9 @@ def mutate(chromosome, mutation_rate=0.1):
     Apply mutation to the chromosome (BPS and CLS) with a given probability.
     """
     bps, cls = chromosome
+
+    if len(bps) < 2 or len(cls) < 2:
+        return (bps, cls)
 
     # Mutate BPS
     if random.random() < mutation_rate:
@@ -520,7 +626,7 @@ def mutate(chromosome, mutation_rate=0.1):
 #     # Step 7: Return the best solution found
 #     return best_solution
 
-def genetic_algorithm(pop_size, generations, mutation_rate=0.1, elitism_count=1):
+def genetic_algorithm(K, containers, packages, pop_size, generations, mutation_rate=0.1, elitism_count=1):
     """
     Genetic Algorithm with a simplified fitness function.
     """
@@ -529,11 +635,11 @@ def genetic_algorithm(pop_size, generations, mutation_rate=0.1, elitism_count=1)
 
     # Track the best solution
     best_solution = population[0]
-    best_fitness = fitness_function(best_solution)
+    best_fitness = fitness_function(best_solution, K)
 
     for generation in range(generations):
         # Evaluate fitness for the population
-        fitness_scores = [fitness_function(chromosome) for chromosome in population]
+        fitness_scores = [fitness_function(chromosome, K) for chromosome in population]
 
         # Find the best chromosome in the current generation
         current_best_index = fitness_scores.index(max(fitness_scores))
@@ -553,19 +659,21 @@ def genetic_algorithm(pop_size, generations, mutation_rate=0.1, elitism_count=1)
         for i in range(0, len(parents), 2):
             parent1 = parents[i]
             parent2 = parents[i + 1 if i + 1 < len(parents) else 0]
-            child1 = crossover(parent1, parent2)
-            child2 = crossover(parent2, parent1)
+
+            child1, child2 = crossover(parent1, parent2)
             next_generation.extend([child1, child2])
 
         next_generation = [mutate(chromosome, mutation_rate) for chromosome in next_generation]
-        elites = sorted(population, key=lambda chromo: fitness_function(chromo), reverse=True)[:elitism_count]
+        elites = sorted(population, key=lambda chromo: fitness_function(chromo, K), reverse=True)[:elitism_count]
         next_generation[-elitism_count:] = elites
         population = next_generation[:pop_size]
 
     return best_solution
 
 
-def output_placement_to_file(packing_solution, bps, output_file="placement_output.txt"):
+
+
+def output_placement_to_file(cost, packing_solution, bps, output_file="placement_output.txt"):
     """
     Write the packing solution to a file in the specified format.
     
@@ -581,6 +689,7 @@ def output_placement_to_file(packing_solution, bps, output_file="placement_outpu
                 file.write(f"{box.id},NONE,-1,-1,-1,-1,-1,-1\n")
     else:
         with open(output_file, "w") as file:
+            file.write(f"{cost}\n")
             placed_packages = {box.id for box, *_ in packing_solution}
 
             # Write details for placed packages
@@ -596,10 +705,8 @@ def output_placement_to_file(packing_solution, bps, output_file="placement_outpu
                 if box.id not in placed_packages:
                     file.write(f"{box.id},NONE,-1,-1,-1,-1,-1,-1\n")
 
-
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
 
 def plot_packing_solution_subplots(packing_solution, containers):
     """
@@ -667,31 +774,69 @@ def plot_packing_solution_subplots(packing_solution, containers):
     plt.tight_layout()
     plt.show()
 
+def print_solution_statistics(packing_solution, unplaced_packages, total_containers, total_packages, fitness_function_result, bps, output_file="placement_output.txt"):
+    """
+    Prints the solution statistics and writes the cost as the first value in the output file.
+    Statistics:
+    1. Number of packages packed (placed into ULDs).
+    2. Number of packages not packed.
+    3. Number of priority ULDs.
+    4. Percentage of non-priority packages placed.
+    5. Cost (negative of fitness function value).
+    """
+    # Calculate statistics
+    num_packed = len(packing_solution)
+    num_not_packed = len(unplaced_packages)
+    priority_ULDs = set()
+    for box, container, *_ in packing_solution:
+        if box.is_priority:
+            priority_ULDs.add(container)
+    # num_priority_ULDs = sum( for cont, *_ in packing_solution if cont.has_priority)
+    num_priority_ULDs = len(priority_ULDs)
+    total_non_priority = sum(1 for pkg in total_packages if not pkg.is_priority)
+    placed_non_priority = sum(1 for pkg, *_ in packing_solution if not pkg.is_priority)
+    percent_non_priority_placed = (placed_non_priority / total_non_priority) * 100 if total_non_priority > 0 else 0
+    cost = -fitness_function_result  # Negative of the fitness value
 
-# Set an initial default solution
-best_solution = initialize_population(1, packages, containers)[0]  # First random chromosome
-best_fitness = 0
+    # Print statistics
+    print(f"Number of packages packed: {num_packed}")
+    print(f"Number of packages not packed: {num_not_packed}")
+    print(f"Number of priority ULDs: {num_priority_ULDs}")
+    print(f"Percentage of non-priority packages placed: {percent_non_priority_placed:.2f}%")
+    print(f"Cost: {cost}")
+
+    # Write to output file
+    output_placement_to_file(cost, packing_solution, bps, output_file)
 
 
-# Run the GA
-best_solution = genetic_algorithm(pop_size=50, generations= 10, mutation_rate=0.01)
 
-# Generate packing solution for the best chromosome
-bps, cls = best_solution
-packing_solution = best_match_placement(bps, cls)[0]
 
-# Calculate and print packing fraction
-if packing_solution:
-    packed_volume = sum(box.get_volume() for box, _, _, _ in packing_solution)
-    total_container_volume = sum(container.get_volume() for container in containers)
-    packing_fraction = packed_volume / total_container_volume if total_container_volume > 0 else 0
-    print(f"Packing Fraction: {packing_fraction:.2%}")
+# Due to this file being changed to a solver file, these next parts were shifted to main.py #
 
-if packing_solution is not None:
-    plot_packing_solution_subplots(packing_solution, containers)
-else:
-    print("No feasible packing solution found.")
 
-# Output the solution to a file
-output_placement_to_file(packing_solution, bps, output_file="placement_output.txt")
-print("Placement solution written to 'placement_output.txt'")
+# # Set an initial default solution
+# best_solution = initialize_population(1, packages, containers)[0]  # First random chromosome
+# best_fitness = 0
+
+# # Run the GA
+# best_solution = genetic_algorithm(pop_size=50, generations= 10, mutation_rate=0.01)
+
+# # Generate packing solution for the best chromosome
+# bps, cls = best_solution
+# packing_solution = best_match_placement(bps, cls)[0]
+
+# # Calculate and print packing fraction
+# if packing_solution:
+#     packed_volume = sum(box.get_volume() for box, _, _, _ in packing_solution)
+#     total_container_volume = sum(container.get_volume() for container in containers)
+#     packing_fraction = packed_volume / total_container_volume if total_container_volume > 0 else 0
+#     print(f"Packing Fraction: {packing_fraction:.2%}")
+
+# if packing_solution is not None:
+#     plot_packing_solution_subplots(packing_solution, containers)
+# else:
+#     print("No feasible packing solution found.")
+
+# # Output the solution to a file
+# output_placement_to_file(packing_solution, bps, output_file="placement_output.txt")
+# print("Placement solution written to 'placement_output.txt'")
