@@ -8,6 +8,7 @@ from algorithm_interface import PackingAlgorithm as PackingAlgorithm
 
 # For Example:
 # from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
+from solvers.layerstratwithOR import LayerPacking
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
@@ -21,7 +22,7 @@ pkg_list = parser.get_pkg_list()
 
 env = Environment(K, uld_list, pkg_list)
 
-model = PackingAlgorithm()
+model = LayerPacking()
 
 model.solve(env)
 # To read from a solution file, use the following line instead of the above line
@@ -29,7 +30,7 @@ model.solve(env)
 
 env.summary()
 # env.plot()
-# env.animate()
+env.animate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
 )
