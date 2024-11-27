@@ -3,6 +3,8 @@ import os
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+import matplotlib
+matplotlib.use("TkAgg")
 
 from entity import ULD, Package, Point
 
