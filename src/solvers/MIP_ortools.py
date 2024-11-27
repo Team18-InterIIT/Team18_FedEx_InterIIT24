@@ -8,7 +8,7 @@ class ORToolsBinPacking(PackingAlgorithm):
     def __init__(self, M=10000):
         self.M = M  # Big-M constant for constraints
         self.set1 = True
-        self.set2 = True
+        self.set2 = False
         self.set3 = True
 
     def create_variable_dict(
@@ -51,7 +51,7 @@ class ORToolsBinPacking(PackingAlgorithm):
         self.box_dimensions = [
             (pkg.dim.l, pkg.dim.w, pkg.dim.h) for pkg in environment.packages
         ]
-        self.inf = 1e18  # Large value for infinity
+        self.inf = 1e9
         self.box_values = [
             pkg.cost if pkg.cost != float("inf") else self.inf
             for pkg in environment.packages
@@ -133,36 +133,36 @@ class ORToolsBinPacking(PackingAlgorithm):
                             + fij[(i, j)]
                             + uij[(i, j)]
                             + oij[(i, j)]
-                            >= si[i] + si[j] - 1,
+                            == si[i] + si[j] - 1,
                             f"Non-overlap_relation_{i}_{j}",
                         )
-                # for j in range(n):
-                #     if i != j:
-                #         wj, hj, dj = self.box_dimensions[j]
-                #         solver.Add(
-                #             x[i] - x[j] + W * lij[(i, j)] <= W - wi,
-                #         )
-                #         solver.Add(
-                #             x[j] - x[i] + W * rij[(i, j)] <= W - wj,
-                #         )
-                #         solver.Add(
-                #             y[i] - y[j] + H * uij[(i, j)] <= H - hi,
-                #         )
-                #         solver.Add(
-                #             y[j] - y[i] + H * oij[(i, j)] <= H - hj,
-                #         )
-                #         solver.Add(
-                #             z[i] - z[j] + D * bij[(i, j)] <= D - di,
-                #         )
-                #         solver.Add(
-                #             z[j] - z[i] + D * fij[(i, j)] <= D - dj,
-                #         )
-                # solver.Add(x[i] >= 0)
-                # solver.Add(y[i] >= 0)
-                # solver.Add(z[i] >= 0)
-                # solver.Add(x[i] + wi <= W)
-                # solver.Add(y[i] + hi <= H)
-                # solver.Add(z[i] + di <= D)
+                for j in range(n):
+                    if i != j:
+                        wj, hj, dj = self.box_dimensions[j]
+                        solver.Add(
+                            x[i] - x[j] + W * lij[(i, j)] <= W - wi,
+                        )
+                        solver.Add(
+                            x[j] - x[i] + W * rij[(i, j)] <= W - wj,
+                        )
+                        solver.Add(
+                            y[i] - y[j] + H * uij[(i, j)] <= H - hi,
+                        )
+                        solver.Add(
+                            y[j] - y[i] + H * oij[(i, j)] <= H - hj,
+                        )
+                        solver.Add(
+                            z[i] - z[j] + D * bij[(i, j)] <= D - di,
+                        )
+                        solver.Add(
+                            z[j] - z[i] + D * fij[(i, j)] <= D - dj,
+                        )
+                solver.Add(x[i] >= 0)
+                solver.Add(y[i] >= 0)
+                solver.Add(z[i] >= 0)
+                solver.Add(x[i] + wi <= W)
+                solver.Add(y[i] + hi <= H)
+                solver.Add(z[i] + di <= D)
 
                 # Set 2: Non-Overlapping Constraints
                 for j in range(n):
@@ -493,7 +493,6 @@ class ORToolsBinPacking(PackingAlgorithm):
                             (bij[(i, j)], "bij"),
                             (fij[(i, j)], "fij"),
                             (uij[(i, j)], "uij"),
-                            (oij[(i, j)], "oij"),
                         ]:
                             solver.Add(var >= 0, f"binary_{name}_lower_{i}_{j}")
                             solver.Add(var <= 1, f"binary_{name}_upper_{i}_{j}")
@@ -559,21 +558,18 @@ class ORToolsBinPacking(PackingAlgorithm):
             print("Objective value =", solver.Objective().Value())
             for i in range(n):
                 print(f"Box {i}: {si[i].solution_value()}")
-                Xval = round(x[i].solution_value())
-                Yval = round(y[i].solution_value())
-                Zval = round(z[i].solution_value())
                 if si[i].solution_value() > 0.5:
                     pkg = environment.packages[i]
                     coords = (
                         Point(
-                            Xval,
-                            Yval,
-                            Zval,
+                            x[i].solution_value(),
+                            y[i].solution_value(),
+                            z[i].solution_value(),
                         ),
                         Point(
-                            Xval + self.box_dimensions[i][0],
-                            Yval + self.box_dimensions[i][1],
-                            Zval + self.box_dimensions[i][2],
+                            x[i].solution_value() + self.box_dimensions[i][0],
+                            y[i].solution_value() + self.box_dimensions[i][1],
+                            z[i].solution_value() + self.box_dimensions[i][2],
                         ),
                     )
                     environment.add_package(pkg, container, coords)
