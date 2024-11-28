@@ -68,8 +68,9 @@ class LayerPacking(PackingAlgorithm):
 
         def selectrects_2d(dimension, packages,assigned_pkgs):
             rects = []
+            i = 0
             for pkg in packages :
-                if(assigned_pkgs[] == 0):
+                if(assigned_pkgs[i] == 0):
                     (l,b,h) = (pkg.dim.l,pkg.dim.w,pkg.dim.h)
                     if(l == dimension):
                         rects.append(Rect(pkg.id, pkg.cost, w=b, h=h))
@@ -77,6 +78,7 @@ class LayerPacking(PackingAlgorithm):
                         rects.append(Rect(pkg.id, pkg.cost, w=l, h=b))  
                     if(b == dimension):
                         rects.append(Rect(pkg.id, pkg.cost, w=l, h=h))
+                i += 1
             return rects
 
         def bp2d(layer : Layer,selectedrects):
