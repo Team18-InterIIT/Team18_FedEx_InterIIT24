@@ -7,11 +7,11 @@ from insert_package import PackageInserter
 from entity import Package
 
 # The following import statement should be replaced with the correct import statement
-# from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
+from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
 
 # For Example:
 # from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
-from solvers.layerstratwithOR import LayerPacking
+
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
@@ -25,7 +25,7 @@ pkg_list = parser.get_pkg_list()
 
 env = Environment(K, uld_list, pkg_list)
 
-model = LayerPacking()
+model = PackingAlgorithm()
 
 model.solve(env)
 # To read from a solution file, use the following line instead of the above line
