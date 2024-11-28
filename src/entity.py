@@ -46,6 +46,10 @@ class Dim:
     def __repr__(self):
         return f"{self.l}x{self.w}x{self.h}"
 
+    def __iter__(self):
+        # Makes the Dim object iterable (e.g., (length, width, height))
+        return iter((self.l, self.w, self.h))
+
 
 class Package:
     """Represents a package
