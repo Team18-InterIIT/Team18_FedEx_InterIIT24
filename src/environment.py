@@ -73,6 +73,7 @@ class Environment:
         self.packages = [pkg.copy() for pkg in other.packages]
         self.ULDs = [uld.copy() for uld in other.ULDs]
         self.pkg_addition_order = other.pkg_addition_order.copy()
+        self.running_cost = other.running_cost
 
     def copy(self):
         new_env = self.new()
@@ -125,7 +126,7 @@ class Environment:
 
     def add_package(
         self,
-        pkg: Package,
+        pkg: Package | int,
         uld: ULD,
         corners: tuple[Point, Point],
         simulate: bool = False,
@@ -141,6 +142,12 @@ class Environment:
 
         Returns **True if the package is successfully added, False otherwise**
         """
+        if isinstance(pkg, int):
+            pkg = self.packages[pkg - 1]
+        
+        if isinstance(uld, int):
+            uld = self.ULDs[uld - 1]
+
         if collision_check and self.check_collision(uld, corners):
             return False
 
@@ -420,7 +427,9 @@ class Environment:
                 pkg.uld_id = uld_id
                 pkg.corners = (Point(x1, y1, z1), Point(x2, y2, z2))
 
-                self.running_cost -= pkg.cost if (not pkg.is_priority and pkg.uld_id != 0) else 0
+                self.running_cost -= (
+                    pkg.cost if (not pkg.is_priority and pkg.uld_id != 0) else 0
+                )
 
             for pkg in self.packages:
                 if pkg.uld_id == 0:
