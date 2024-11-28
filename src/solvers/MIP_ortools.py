@@ -115,58 +115,58 @@ class ORToolsBinPacking(PackingAlgorithm):
                         for wj, hj, dj in permutations(self.box_dimensions[j]):
                             l += 1
                             solver.Add(
-                                x[i, k] - x[j, l] + W * lij[(i, k), (j, l)] <= W - wi + self.M * (2 - si[(i, k)] - si[(j, l)]),
+                                x[(i, k)] - x[(j, l)] + W * lij[(i, k), (j, l)] <= W - wi,
                             )
                             solver.Add(
-                                x[j, l] - x[i, k] + W * rij[(i, k), (j, l)] <= W - wj + self.M * (2 - si[(i, k)] - si[(j, l)]),
+                                x[(j, l)] - x[(i, k)] + W * rij[(i, k), (j, l)] <= W - wj,
                             )
                             solver.Add(
-                                y[i, k] - y[j, l] + H * uij[(i, k), (j, l)] <= H - hi + self.M * (2 - si[(i, k)] - si[(j, l)]),
+                                y[(i, k)] - y[(j, l)] + H * uij[(i, k), (j, l)] <= H - hi,
                             )
                             solver.Add(
-                                y[j, l] - y[i, k] + H * fij[(i, k), (j, l)] <= H - hj + self.M * (2 - si[(i, k)] - si[(j, l)]),
+                                y[(j, l)] - y[(i, k)] + H * fij[(i, k), (j, l)] <= H - hj,
                             )
                             solver.Add(
-                                z[i, k] - z[j, l] + D * oij[(i, k), (j, l)] <= D - di + self.M * (2 - si[(i, k)] - si[(j, l)]),
+                                z[(i, k)] - z[(j, l)] + D * oij[(i, k), (j, l)] <= D - di,
                             )
                             solver.Add(
-                                z[j, l] - z[i, k] + D * bij[(i, k), (j, l)] <= D - dj + self.M * (2 - si[(i, k)] - si[(j, l)]),
+                                z[(j, l)] - z[(i, k)] + D * bij[(i, k), (j, l)] <= D - dj,
                             )
-                        solver.Add(x[i, k] >= 0)
-                        solver.Add(y[i, k] >= 0)
-                        solver.Add(z[i, k] >= 0)
-                        solver.Add(x[i, k] + wi <= W)
-                        solver.Add(y[i, k] + hi <= H)
-                        solver.Add(z[i, k] + di <= D)
+                solver.Add(x[(i, k)] >= 0)
+                solver.Add(y[(i, k)] >= 0)
+                solver.Add(z[(i, k)] >= 0)
+                solver.Add(x[(i, k)] + wi <= W)
+                solver.Add(y[(i, k)] + hi <= H)
+                solver.Add(z[(i, k)] + di <= D)
 
-        # Set 18: Binary constraints for rij,lij,bij,fij,uij
-        for j in range(n):
-            if i != j:
-                for k in range(6):
-                    for l in range(6):
-                        for var, name in [
-                            (rij[(i, k), (j, l)], "rij"),
-                            (lij[(i, k), (j, l)], "lij"),
-                            (bij[(i, k), (j, l)], "bij"),
-                            (fij[(i, k), (j, l)], "fij"),
-                            (uij[(i, k), (j, l)], "uij"),
-                            (oij[(i, k), (j, l)], "oij"),
-                        ]:
-                            solver.Add(var >= 0, f"binary_{name}_lower_{i}_{j}")
-                            solver.Add(var <= 1, f"binary_{name}_upper_{i}_{j}")
-        
-        for k in range(6):
+            # Set 18: Binary constraints for rij,lij,bij,fij,uij
+            for j in range(n):
+                if i != j:
+                    for k in range(6):
+                        for l in range(6):
+                            for var, name in [
+                                (rij[(i, k), (j, l)], "rij"),
+                                (lij[(i, k), (j, l)], "lij"),
+                                (bij[(i, k), (j, l)], "bij"),
+                                (fij[(i, k), (j, l)], "fij"),
+                                (uij[(i, k), (j, l)], "uij"),
+                                (oij[(i, k), (j, l)], "oij"),
+                            ]:
+                                solver.Add(var >= 0, f"binary_{name}_lower_{i}_{j}")
+                                solver.Add(var <= 1, f"binary_{name}_upper_{i}_{j}")
+            
+            for k in range(6):
 
-            # Set 21: Binary constraints for si and Cs variables
-            solver.Add(si[(i, k)] >= 0, f"binary_si_lower_{i}")
-            solver.Add(si[(i, k)] <= 1, f"binary_si_upper_{i}")
+                # Set 21: Binary constraints for si and Cs variables
+                solver.Add(si[(i, k)] >= 0, f"binary_si_lower_{i}")
+                solver.Add(si[(i, k)] <= 1, f"binary_si_upper_{i}")
 
-            # Set 22: Non-negativity constraints for coordinates
-            solver.Add(x[(i, k)] >= 0, f"nonnegative_x_{i}")
-            solver.Add(y[(i, k)] >= 0, f"nonnegative_y_{i}")
-            solver.Add(z[(i, k)] >= 0, f"nonnegative_z_{i}")
-        
-        solver.Add(sum(si[(i, k)] for k in range(6)) <= 1, f"single_box_{i}")
+                # Set 22: Non-negativity constraints for coordinates
+                solver.Add(x[(i, k)] >= 0, f"nonnegative_x_{i}")
+                solver.Add(y[(i, k)] >= 0, f"nonnegative_y_{i}")
+                solver.Add(z[(i, k)] >= 0, f"nonnegative_z_{i}")
+            
+            solver.Add(si[(i, 0)] + si[(i, 1)] + si[(i, 2)] + si[(i, 3)] + si[(i, 4)] + si[(i, 5)] <= 1, f"one_orientation_{i}")
 
         print("All constraints added")
         print("Number of variables =", solver.NumVariables())
@@ -178,32 +178,34 @@ class ORToolsBinPacking(PackingAlgorithm):
             print("Solution:")
             print("Objective value =", solver.Objective().Value())
             for i in range(n):
-                print(f"Box {i}: {si[i].solution_value()}")
-                if si[i].solution_value() > 0.5:
-                    pkg = environment.packages[i]
-                    coords = (
-                        Point(
-                            x[i].solution_value(),
-                            y[i].solution_value(),
-                            z[i].solution_value(),
-                        ),
-                        Point(
-                            x[i].solution_value() + self.box_dimensions[i][0],
-                            y[i].solution_value() + self.box_dimensions[i][1],
-                            z[i].solution_value() + self.box_dimensions[i][2],
-                        ),
-                    )
-                    environment.add_package(pkg, container, coords)
-                    print(f"Box {i} packed at {coords}")
+                for k in range(6):
+                    if si[(i, k)].solution_value() > 0.5:
+                        print(si[(i, k)].solution_value())
+                        print(f"Box {i} orientation {k} at ({x[(i, k)].solution_value()}, {y[(i, k)].solution_value()}, {z[(i, k)].solution_value()})")
+                        pkg = environment.packages[i]
+                        coords = (
+                            Point(
+                                x[(i, k)].solution_value(),
+                                y[(i, k)].solution_value(),
+                                z[(i, k)].solution_value(),
+                            ),
+                            Point(
+                                x[(i, k)].solution_value() + self.box_dimensions[i][0],
+                                y[(i, k)].solution_value() + self.box_dimensions[i][1],
+                                z[(i, k)].solution_value() + self.box_dimensions[i][2],
+                            ),
+                        )
+                        environment.add_package(pkg, container, coords)
+                        print(f"Box {(i, k)} packed at {coords}")
             packed_value = sum(
-                self.box_values[i] for i in range(n) if si[i].solution_value() > 0.5
-            )
+                self.box_values[i] for i in range(n) for k in range(6) if si[(i, k)].solution_value() > 0.5
+            )                               
             used_volume = sum(
                 self.box_dimensions[i][0]
                 * self.box_dimensions[i][1]
                 * self.box_dimensions[i][2]
                 for i in range(n)
-                if si[i].solution_value() > 0.5
+                for k in range(6) if si[(i, k)].solution_value() > 0.5
             )
             total_volume = W * H * D
             print(f"Total packed value: {packed_value}")

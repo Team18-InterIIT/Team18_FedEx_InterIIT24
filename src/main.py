@@ -12,7 +12,7 @@ from solvers.MIP_ortools import ORToolsBinPacking as PackingAlgorithm
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
 else:
-    test_file = "test/testcases/tc2.txt"
+    test_file = "test/testcases/tc3.txt"
 
 parser = parser.Parser(test_file)
 K = parser.get_K()
