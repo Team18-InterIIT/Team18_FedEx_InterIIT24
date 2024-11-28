@@ -144,7 +144,7 @@ class Environment:
         """
         if isinstance(pkg, int):
             pkg = self.packages[pkg - 1]
-        
+
         if isinstance(uld, int):
             uld = self.ULDs[uld - 1]
 
@@ -184,23 +184,20 @@ class Environment:
         """
         if collision_check:
             for uld in self.ULDs:
-                sorted_pkgs = sorted(uld.packages, key=lambda p: p.corners[0].x)
-                active = []
-
-                for pkg in sorted_pkgs:
-                    active = [p for p in active if p.corners[1].x > pkg.corners[0].x]
-
-                    for other in active:
+                for pkg1_id in range(len(uld.packages)):
+                    pkg1 = uld.packages[pkg1_id]
+                    for pkg2_id in range(pkg1_id + 1, len(uld.packages)):
+                        pkg2 = uld.packages[pkg2_id]
                         if (
-                            pkg.corners[0].y < other.corners[1].y
-                            and pkg.corners[1].y > other.corners[0].y
-                            and pkg.corners[0].z < other.corners[1].z
-                            and pkg.corners[1].z > other.corners[0].z
+                            pkg1.corners[0].x < pkg2.corners[1].x
+                            and pkg1.corners[1].x > pkg2.corners[0].x
+                            and pkg1.corners[0].y < pkg2.corners[1].y
+                            and pkg1.corners[1].y > pkg2.corners[0].y
+                            and pkg1.corners[0].z < pkg2.corners[1].z
+                            and pkg1.corners[1].z > pkg2.corners[0].z
                         ):
-                            print(f"Collision detected between {pkg.id} and {other.id}")
+                            print(f"Collision detected between {pkg1.id} and {pkg2.id}")
                             return float("inf"), float("inf")
-
-                        active.append(pkg)
 
         priority_cost = 0
         for uld in self.ULDs:
