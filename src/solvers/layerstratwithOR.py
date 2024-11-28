@@ -25,26 +25,26 @@ class LayerPacking(PackingAlgorithm):
 
 
     def solve(self, env: Environment):
-        ULDs = {
-            1: {"dimensions": (224, 318, 162), "weight_limit": 2500},
-            2: {"dimensions": (224, 318, 162), "weight_limit": 2500},
-            3: {"dimensions": (244, 318, 244), "weight_limit": 2800},
-            4: {"dimensions": (244, 318, 244), "weight_limit": 2800},
-            5: {"dimensions": (244, 318, 285), "weight_limit": 3500},
-            6: {"dimensions": (244, 318, 285), "weight_limit": 3500},
-        }
+        # ULDs = {
+        #     1: {"dimensions": (224, 318, 162), "weight_limit": 2500},
+        #     2: {"dimensions": (224, 318, 162), "weight_limit": 2500},
+        #     3: {"dimensions": (244, 318, 244), "weight_limit": 2800},
+        #     4: {"dimensions": (244, 318, 244), "weight_limit": 2800},
+        #     5: {"dimensions": (244, 318, 285), "weight_limit": 3500},
+        #     6: {"dimensions": (244, 318, 285), "weight_limit": 3500},
+        # }
+        ULDs = env.ULDs
         class Layer:
             def __init__(self, pe, packed_list, length, breadth, height, uldno, cost):
                 self.packing_eff = pe
                 self.packedrects : list[Rect] = []
                 self.dim : Dim = Dim(length,breadth,height)
                 self.uldno = uldno
-                self.cost = cost
+                self.cost = cost if cost != float("inf") else 1e9
+
             def add_rect(self, rect):
                 self.packedrects.append(rect)
-                self.cost += rect.cost
-
-
+                self.cost += rect.cost if rect.cost != float("inf") else 1e9
 
         class Rect:
             def __init__(self, id, cost, x=0, y=0, w=0, h=0):
@@ -59,29 +59,28 @@ class LayerPacking(PackingAlgorithm):
         def get_dim_freq(packages):
             dimension_frequency = collections.Counter()
             for pkg in packages:
-                for dim in pkg.dim:
+                for dim in pkg.dim: # made Dim iterable
                     dimension_frequency[dim] += 1
             dimension_frequency = sorted(
                 dimension_frequency.items(), key=lambda x: x[1], reverse=True
             )
             return dimension_frequency
 
-        def selectrects_2d(dimension, packages,assigned_pkgs):
+        def selectrects_2d(dimension, packages, assigned_pkgs):
             rects = []
-            i = 0
-            for pkg in packages :
-                if(assigned_pkgs[i] == 0):
-                    (l,b,h) = (pkg.dim.l,pkg.dim.w,pkg.dim.h)
-                    if(l == dimension):
+            for i, pkg in enumerate(packages):
+                if assigned_pkgs[i] == 0:
+                    l, b, h = pkg.dim.l, pkg.dim.w, pkg.dim.h
+                    # Check if the dimension matches any of the package dimensions
+                    if l == dimension:
                         rects.append(Rect(pkg.id, pkg.cost, w=b, h=h))
-                    if(h == dimension):
-                        rects.append(Rect(pkg.id, pkg.cost, w=l, h=b))  
-                    if(b == dimension):
+                    if h == dimension:
+                        rects.append(Rect(pkg.id, pkg.cost, w=l, h=b))
+                    if b == dimension:
                         rects.append(Rect(pkg.id, pkg.cost, w=l, h=h))
-                i += 1
             return rects
 
-        def bp2d(layer : Layer,selectedrects):
+        def bp2d(layer : Layer, selectedrects):
             packer = rp.newPacker()
             for rect in selectedrects:     
                 packer.add_rect(rect.w, rect.h, rect.id)
@@ -97,10 +96,11 @@ class LayerPacking(PackingAlgorithm):
                         rect.wasPacked = True
                         break
             return layer
+        
         def make_layers(packages, length,breadth):
             layers = []
             dimension_frequency = get_dim_freq(packages)
-            assigned_pkgs = [0]*len(packages)
+            assigned_pkgs = [0] * (len(packages) + 1)
             for dim in dimension_frequency:
                 selectedrects = selectrects_2d(int(dim[0]), packages,assigned_pkgs)
                 layers.append(bp2d(Layer(0, [], length, breadth, int(dim[0]), 0, 0), selectedrects))
@@ -108,7 +108,7 @@ class LayerPacking(PackingAlgorithm):
                     assigned_pkgs[rect.id] = 1
             return layers
 
-        layers = make_layers(env.packages, ULDs[6]["dimensions"][0], ULDs[6]["dimensions"][1])
+        layers = make_layers(env.packages, ULDs[5].dim.l, ULDs[5].dim.w)
         """
         -----------------------------------------------------------------------------------------------------------------------------
         Google OR Tools
@@ -119,10 +119,10 @@ class LayerPacking(PackingAlgorithm):
         data = {}
         data["weights"] = []
         data["values"] = []
-        data["layers"] = layers
+        # data["layers"] = layers
 
         for layer in layers:
-            data["weights"].append(layer.height)
+            data["weights"].append(layer.dim.h)
             data["values"].append(layer.cost)
 
         assert len(data["weights"]) == len(data["values"])
@@ -130,8 +130,8 @@ class LayerPacking(PackingAlgorithm):
         data["all_items"] = range(data["num_items"])
 
         data["bin_capacities"] = []
-        for i in range(3, 7):
-            data["bin_capacities"].append(ULDs[i]["dimensions"][2])
+        for i in range(2, 6):
+            data["bin_capacities"].append(ULDs[i].dim.h)
         data["num_bins"] = len(data["bin_capacities"])
         data["all_bins"] = range(data["num_bins"])
 
@@ -181,7 +181,6 @@ class LayerPacking(PackingAlgorithm):
                 for i in data["all_items"]:
                     if x[i, b].solution_value() > 0:
                         selectedlayers.append(i)
-                        bin_weight
                         print(
                             f"Layer {i} sum of heights: {data['weights'][i]} total_cost_p200:"
                             f" {data['values'][i]}",
@@ -216,10 +215,9 @@ class LayerPacking(PackingAlgorithm):
                 p2 = Point(*row[3])
                 # pkg.corners=(p1,p2)
 
-                uld = env.ULDs[uld_id - 1]
+                uld = env.ULDs[uld_id]
                 # uld.packages.append(pkg)
                 # uld.has_priority = uld.has_priority or pkg.is_priority
                 env.add_package(pkg, uld, (p1, p2))
-
         else:
             print("The problem does not have an optimal solution.")
