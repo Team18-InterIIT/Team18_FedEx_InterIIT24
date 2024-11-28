@@ -7,9 +7,7 @@ from environment import Environment
 from algorithm_interface import PackingAlgorithm as PackingAlgorithm
 
 # For Example:
-from solvers.threeDBP_Pivoting import (
-    ThreeDBP_Pivoting_Simul_Annealing as PackingAlgorithm,
-)
+from solvers.Caving_COA import COA as PackingAlgorithm
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
@@ -31,7 +29,7 @@ model.solve(env)
 
 env.summary()
 # env.plot()
-env.animate()
+# env.animate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
 )

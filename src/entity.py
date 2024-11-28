@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class Point:
     """
     Represents a point in 3D space
@@ -101,6 +104,20 @@ class Package:
     def volume(self):
         return self.dim.l * self.dim.w * self.dim.h
 
+    def get_corners(self):
+        x_min, y_min, z_min = self.corners[0].x, self.corners[0].y, self.corners[0].z
+        x_max, y_max, z_max = self.corners[1].x, self.corners[1].y, self.corners[1].z
+        return [
+            Point(x_min, y_min, z_min),
+            Point(x_min, y_min, z_max),
+            Point(x_min, y_max, z_min),
+            Point(x_min, y_max, z_max),
+            Point(x_max, y_min, z_min),
+            Point(x_max, y_min, z_max),
+            Point(x_max, y_max, z_min),
+            Point(x_max, y_max, z_max),
+        ]
+
     def __repr__(self):
         return f"Package {self.id}\t {self.dim}\t {self.weight}\t {self.is_priority}\t {self.cost}\t {self.uld_id}\t {self.corners}"
 
@@ -123,6 +140,8 @@ class ULD:
         The total weight of the packages in the ULD
     packages: list[Package]
         The packages packed in the ULD
+    filled: list[list[list[bool]]]
+        The 3D matrix representing the filled space in the ULD
 
     Methods
     -------
@@ -136,6 +155,7 @@ class ULD:
         self.id: int = int(uld_row[0])
         self.dim: Dim = Dim(*map(int, uld_row[1:4]))
         self.weight_limit: int = int(uld_row[4])
+        # self.filled: np.ndarray = np.ndarray((self.dim.l, self.dim.w, self.dim.h), dtype=bool)
 
         self.has_priority: bool = False
         self.weight: int = 0
