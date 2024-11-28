@@ -36,43 +36,43 @@ class COA(PackingAlgorithm):
                     x1_min == x0_max
                     and y0_min <= y1_min < y0_max
                     and z0_min <= z1_min < z0_max
-                    and y0_min < y1_max <= y0_max
-                    and z0_min < z1_max <= z0_max
+                    # and y0_min < y1_max <= y0_max
+                    # and z0_min < z1_max <= z0_max
                 )
                 + (
                     x1_max == x0_min
                     and y0_min <= y1_min < y0_max
                     and z0_min <= z1_min < z0_max
-                    and y0_min < y1_max <= y0_max
-                    and z0_min < z1_max <= z0_max
+                    # and y0_min < y1_max <= y0_max
+                    # and z0_min < z1_max <= z0_max
                 )
                 + (
                     y1_min == y0_max
                     and x0_min <= x1_min < x0_max
                     and z0_min <= z1_min < z0_max
-                    and x0_min < x1_max <= x0_max
-                    and z0_min < z1_max <= z0_max
+                    # and x0_min < x1_max <= x0_max
+                    # and z0_min < z1_max <= z0_max
                 )
                 + (
                     y1_max == y0_min
                     and x0_min <= x1_min < x0_max
                     and z0_min <= z1_min < z0_max
-                    and x0_min < x1_max <= x0_max
-                    and z0_min < z1_max <= z0_max
+                    # and x0_min < x1_max <= x0_max
+                    # and z0_min < z1_max <= z0_max
                 )
                 + (
                     z1_min == z0_max
                     and x0_min <= x1_min < x0_max
                     and y0_min <= y1_min < y0_max
-                    and x0_min < x1_max <= x0_max
-                    and y0_min < y1_max <= y0_max
+                    # and x0_min < x1_max <= x0_max
+                    # and y0_min < y1_max <= y0_max
                 )
                 + (
                     z1_max == z0_min
                     and x0_min <= x1_min < x0_max
                     and y0_min <= y1_min < y0_max
-                    and x0_min < x1_max <= x0_max
-                    and y0_min < y1_max <= y0_max
+                    # and x0_min < x1_max <= x0_max
+                    # and y0_min < y1_max <= y0_max
                 )
             )
 
@@ -196,8 +196,8 @@ class COA(PackingAlgorithm):
 
         return (x_distance, y_distance, z_distance)
 
-    def distance_coa(uld: ULD, point1: Point, point2: Point) -> int:
-        paste_number_value = COA.paste_number(uld, point1, point2)
+    def distance_coa(uld: ULD, point_min: Point, point_max: Point) -> int:
+        paste_number_value = COA.paste_number(uld, point_min, point_max)
         if paste_number_value == 6:
             return 0
 
@@ -210,8 +210,8 @@ class COA(PackingAlgorithm):
             dx, dy, dz = COA.distance(
                 existing_pkg.corners[0],
                 existing_pkg.corners[1],
-                point1,
-                point2,
+                point_min,
+                point_max,
             )
             if dx == 0 or dy == 0 or dz == 0:
                 continue
@@ -222,31 +222,40 @@ class COA(PackingAlgorithm):
 
         return min(Dx, Dy, Dz)
 
-    def caving_degree(uld: ULD, point1: Point, point2: Point):
-        x_min, y_min, z_min = point1.x, point1.y, point1.z
-        x_max, y_max, z_max = point2.x, point2.y, point2.z
+    def caving_degree(uld: ULD, point_min: Point, point_max: Point):
+        x_min, y_min, z_min = point_min.x, point_min.y, point_min.z
+        x_max, y_max, z_max = point_max.x, point_max.y, point_max.z
         volume = (x_max - x_min) * (y_max - y_min) * (z_max - z_min)
-        return 1 - COA.distance_coa(uld, point1, point2) / ((volume) ** (1 / 3))
+        return 1 - COA.distance_coa(uld, point_min, point_max) / ((volume) ** (1 / 3))
 
     def get_best_state(
-        COAs: list[Point], pkgs: list[Package], uld: ULD, env: Environment
+        uld_COAs: dict[int, list[Point]],
+        pkgs: list[Package],
+        env: Environment,
+        priority_list: list[str] = None,
+        allowed_ULDs: list[int] = None,
     ) -> tuple[Point, Package, Point]:
         best_coa = None
         best_pkg = None
         best_orientation = None
+        best_uld = None
 
-        priority_list = [
-            "cost",
-            "paste_number",
-            "largest_dim",
-            "z_gravity",
-            "caving_degree",
-            "paste_ratio",
-            "middle_dim",
-            "smallest_dim",
-            "y_gravity",
-            "x_gravity",
-        ]
+        if priority_list is None:
+            priority_list = [
+                "cost",
+                "paste_number",
+                "largest_dim",
+                "z_gravity",
+                "caving_degree",
+                "paste_ratio",
+                "middle_dim",
+                "smallest_dim",
+                "y_gravity",
+                "x_gravity",
+            ]
+
+        if allowed_ULDs is None:
+            allowed_ULDs = list(range(len(env.ULDs)))
 
         values = {
             "paste_number": -1,
@@ -259,50 +268,62 @@ class COA(PackingAlgorithm):
             "y_gravity": float("-inf"),
             "x_gravity": float("-inf"),
             "cost": float("-inf"),
+            "priority_cost": float("-inf"),
         }
 
-        for coa in COAs:
-            for pkg in pkgs:
-                if pkg.uld_id != 0:
-                    continue
-                for x_inc, y_inc, z_inc in permutations(
-                    (pkg.dim.l, pkg.dim.w, pkg.dim.h)
-                ):
-                    point1 = Point(coa.x, coa.y, coa.z)
-                    orientation = Point(coa.x + x_inc, coa.y + y_inc, coa.z + z_inc)
+        for uld_id, COAs in uld_COAs.items():
+            if uld_id not in allowed_ULDs:
+                continue
 
-                    if not env.add_package(
-                        pkg, uld, corners=(point1, orientation), simulate=True
+            uld = env.ULDs[uld_id]
+            for coa in COAs:
+                for pkg in pkgs:
+                    for x_inc, y_inc, z_inc in permutations(
+                        (pkg.dim.l, pkg.dim.w, pkg.dim.h)
                     ):
-                        continue
+                        point1 = Point(coa.x, coa.y, coa.z)
+                        orientation = Point(coa.x + x_inc, coa.y + y_inc, coa.z + z_inc)
 
-                    current_values = {
-                        "paste_number": COA.paste_number(uld, point1, orientation),
-                        "caving_degree": COA.caving_degree(uld, point1, orientation),
-                        "paste_ratio": COA.paste_ratio(uld, point1, orientation),
-                        "z_gravity": -(point1.z + orientation.z) / 2,
-                        "y_gravity": -(point1.y + orientation.y) / 2,
-                        "x_gravity": -(point1.x + orientation.x) / 2,
-                        "cost": pkg.cost**2 / pkg.volume(),
-                    }
-                    (
-                        current_values["largest_dim"],
-                        current_values["middle_dim"],
-                        current_values["smallest_dim"],
-                    ) = sorted([x_inc, y_inc, z_inc], reverse=True)
+                        if not env.add_package(
+                            pkg, uld, corners=(point1, orientation), simulate=True
+                        ):
+                            continue
 
-                    for param in priority_list:
-                        if current_values[param] < values[param]:
-                            break
-                        if current_values[param] > values[param]:
-                            values = current_values
+                        current_values = {
+                            "priority_cost": -(
+                                env.running_cost + env.K
+                                if (not uld.has_priority and pkg.is_priority)
+                                else 0
+                            ),
+                            "paste_number": COA.paste_number(uld, point1, orientation),
+                            "caving_degree": COA.caving_degree(
+                                uld, point1, orientation
+                            ),
+                            "paste_ratio": COA.paste_ratio(uld, point1, orientation),
+                            "z_gravity": -(point1.z + orientation.z) / 2,
+                            "y_gravity": -(point1.y + orientation.y) / 2,
+                            "x_gravity": -(point1.x + orientation.x) / 2,
+                            "cost": pkg.cost**2 / pkg.volume(),
+                        }
+                        (
+                            current_values["largest_dim"],
+                            current_values["middle_dim"],
+                            current_values["smallest_dim"],
+                        ) = sorted([x_inc, y_inc, z_inc], reverse=True)
 
-                            best_coa = coa
-                            best_pkg = pkg
-                            best_orientation = orientation
-                            break
+                        for param in priority_list:
+                            if current_values[param] < values[param]:
+                                break
+                            if current_values[param] > values[param]:
+                                values = current_values
 
-        return best_coa, best_pkg, best_orientation
+                                best_coa = coa
+                                best_pkg = pkg
+                                best_orientation = orientation
+                                best_uld = uld
+                                break
+
+        return best_coa, best_pkg, best_orientation, best_uld
 
     def solve(self, env: Environment):
         """
@@ -315,7 +336,7 @@ class COA(PackingAlgorithm):
         economy_pkgs = [pkg for pkg in env.packages if not pkg.is_priority]
 
         uld_COAs = {
-            uld.id: [
+            uld.id - 1: [
                 Point(0, 0, 0),
                 Point(uld.dim.l, 0, 0),
                 Point(0, uld.dim.w, 0),
@@ -325,46 +346,67 @@ class COA(PackingAlgorithm):
         }
 
         package_no = 0
+        total_pkgs = len(priority_pkgs)
 
-        for uld in sorted_ULDs:
-            COAs = uld_COAs[uld.id]
-            while COAs:
-                best_coa, best_pkg, best_orientation = COA.get_best_state(
-                    COAs, priority_pkgs, uld, env
+        priority_heurestic = [
+            "priority_cost",
+            "paste_number",
+            "largest_dim",
+            "middle_dim",
+            "smallest_dim",
+            "paste_ratio",
+            "caving_degree",
+            "z_gravity",
+            "y_gravity",
+            "x_gravity",
+        ]
+
+        while any(len(COA_freq) != 0 for COA_freq in uld_COAs.values()):
+            best_coa, best_pkg, best_orientation, best_uld = COA.get_best_state(
+                uld_COAs,
+                priority_pkgs,
+                env,
+                allowed_ULDs=[2, 3, 4, 5],
+                priority_list=priority_heurestic,
+            )
+            if best_coa is None:
+                break
+
+            if env.add_package(
+                best_pkg, best_uld, corners=(best_coa, best_orientation)
+            ):
+                package_no += 1
+                print(
+                    f"Priority Package   ==>\t {package_no}/{total_pkgs}",
+                    file=sys.stderr,
                 )
-                if best_coa is None:
-                    break
 
-                if env.add_package(best_pkg, uld, corners=(best_coa, best_orientation)):
-                    package_no += 1
-                    print(
-                        f"Priority Package  ==>\t{package_no}/{len(priority_pkgs)}",
-                        file=sys.stderr,
-                    )
+            priority_pkgs.remove(best_pkg)
+            uld_COAs[best_uld.id - 1].remove(best_coa)
+            for corner_idx in (1, 2, 4):
+                uld_COAs[best_uld.id - 1].append(best_pkg.get_corners()[corner_idx])
 
-                COAs.remove(best_coa)
-                for corner_idx in (1, 2, 4):
-                    COAs.append(best_pkg.get_corners()[corner_idx])
-
-        print(f"{"="*60}", file=sys.stderr)
+        print(f"{'='*60}", file=sys.stderr)
         package_no = 0
+        total_pkgs = len(economy_pkgs)
 
-        for uld in sorted_ULDs:
-            COAs = uld_COAs[uld.id]
+        while any(len(COA_freq) != 0 for COA_freq in uld_COAs.values()):
+            best_coa, best_pkg, best_orientation, best_uld = COA.get_best_state(
+                uld_COAs, economy_pkgs, env, allowed_ULDs=None, priority_list=None
+            )
+            if best_coa is None:
+                break
 
-            while COAs:
-                best_coa, best_pkg, best_orientation = COA.get_best_state(
-                    COAs, economy_pkgs, uld, env
+            if env.add_package(
+                best_pkg, best_uld, corners=(best_coa, best_orientation)
+            ):
+                package_no += 1
+                print(
+                    f"Economy Package   ==>\t {package_no}/{total_pkgs}",
+                    file=sys.stderr,
                 )
-                if best_coa is None:
-                    break
 
-                if env.add_package(best_pkg, uld, corners=(best_coa, best_orientation)):
-                    package_no += 1
-                    print(
-                        f"Economy Package   ==>\t {package_no}/{len(economy_pkgs)}",
-                        file=sys.stderr,
-                    )
-                COAs.remove(best_coa)
-                for corner_idx in (1, 2, 4):
-                    COAs.append(best_pkg.get_corners()[corner_idx])
+            economy_pkgs.remove(best_pkg)
+            uld_COAs[best_uld.id - 1].remove(best_coa)
+            for corner_idx in (1, 2, 4):
+                uld_COAs[best_uld.id - 1].append(best_pkg.get_corners()[corner_idx])
