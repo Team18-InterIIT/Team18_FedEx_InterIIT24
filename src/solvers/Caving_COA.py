@@ -241,9 +241,6 @@ class COA(PackingAlgorithm):
         init_uld: ULD = None,
         logging: bool = True,
     ):
-        for uld in env.ULDs:
-            COA.dp[uld.id] = {}
-
         if heurestic is None:
             heurestic = [
                 "cost",
@@ -297,8 +294,8 @@ class COA(PackingAlgorithm):
                     ):
                         continue
 
-                    if (coa, orientation) in COA.dp[uld.id]:
-                        current_values = COA.dp[uld.id][(coa, orientation)]
+                    if (coa, orientation) in COA.dp[uld.id - 1]:
+                        current_values = COA.dp[uld.id - 1][(coa, orientation)]
                     else:
                         current_values = {
                             "priority_cost": -(
@@ -322,7 +319,7 @@ class COA(PackingAlgorithm):
                             current_values["smallest_dim"],
                         ) = sorted([x_inc, y_inc, z_inc], reverse=True)
 
-                        COA.dp[uld.id][(coa, orientation)] = current_values
+                        COA.dp[uld.id - 1][(coa, orientation)] = current_values
 
                     for param in heurestic:
                         if current_values[param] < max_values[param]:
@@ -385,8 +382,8 @@ class COA(PackingAlgorithm):
                             ):
                                 continue
 
-                            if (coa, orientation) in COA.dp[uld.id]:
-                                current_values = COA.dp[uld.id][(coa, orientation)]
+                            if (coa, orientation) in COA.dp[uld.id - 1]:
+                                current_values = COA.dp[uld.id - 1][(coa, orientation)]
                             else:
                                 current_values = {
                                     "priority_cost": -(
@@ -414,7 +411,7 @@ class COA(PackingAlgorithm):
                                     current_values["smallest_dim"],
                                 ) = sorted([x_inc, y_inc, z_inc], reverse=True)
 
-                                COA.dp[uld.id][(coa, orientation)] = current_values
+                                COA.dp[uld.id - 1][(coa, orientation)] = current_values
 
                             for param in heurestic:
                                 if current_values[param] < max_values[param]:
@@ -506,11 +503,13 @@ class COA(PackingAlgorithm):
 
             if best_pkg is None:
                 break
-            env.packages[best_pkg.id - 1].copy_from(best_pkg)
-            best_pkg = env.packages[best_pkg.id - 1]
 
-            env.add_package(best_pkg, min_uld, corners=best_pkg.corners)
-            pkgs.remove(best_pkg)
+            pkg_id = best_pkg.id
+            uld_id = min_uld.id
+            env.add_package(pkg_id, uld_id, corners=(min_coa, best_pkg.corners[1]))
+
+            pkg = env.packages[pkg_id - 1]
+            pkgs.remove(pkg)
             uld_COAs[min_uld.id - 1].remove(min_coa)
             for corner_idx in (1, 2, 4):
                 uld_COAs[min_uld.id - 1].append(best_pkg.get_corners()[corner_idx])
@@ -541,6 +540,9 @@ class COA(PackingAlgorithm):
             ]
             for uld in sorted_ULDs
         }
+
+        for uld in sorted_ULDs:
+            COA.dp[uld.id - 1] = {}
 
         priority_heurestic = [
             # "priority_cost",
@@ -580,10 +582,12 @@ class COA(PackingAlgorithm):
         ]
 
         for uld in sorted_ULDs:
+            print(f"{'='*60}", file=sys.stderr)
+            print(f"ULD {uld.id}", file=sys.stderr)
             COA.A1(
                 uld_COAs,
                 env,
                 economy_pkgs,
-                economy_heurestic,
+                heurestic=economy_heurestic,
                 allowed_ULDs=[uld.id - 1],
             )
