@@ -4,8 +4,8 @@ from ortools.linear_solver import pywraplp
 from environment import Environment
 from entity import Point,Package,Dim
 import rectpack as rp
-
 from algorithm_interface import PackingAlgorithm
+import uuid
 
 
 class LayerPacking(PackingAlgorithm):
@@ -25,15 +25,6 @@ class LayerPacking(PackingAlgorithm):
 
 
     def solve(self, env: Environment):
-        # ULDs = {
-        #     1: {"dimensions": (224, 318, 162), "weight_limit": 2500},
-        #     2: {"dimensions": (224, 318, 162), "weight_limit": 2500},
-        #     3: {"dimensions": (244, 318, 244), "weight_limit": 2800},
-        #     4: {"dimensions": (244, 318, 244), "weight_limit": 2800},
-        #     5: {"dimensions": (244, 318, 285), "weight_limit": 3500},
-        #     6: {"dimensions": (244, 318, 285), "weight_limit": 3500},
-        # }
-        ULDs = env.ULDs
         class Layer:
             def __init__(self, pe, packed_list, length, breadth, height, uldno, cost):
                 self.packing_eff = pe
@@ -41,10 +32,13 @@ class LayerPacking(PackingAlgorithm):
                 self.dim : Dim = Dim(length,breadth,height)
                 self.uldno = uldno
                 self.cost = cost if cost != float("inf") else 1e9
+                self.area = 0
 
             def add_rect(self, rect):
                 self.packedrects.append(rect)
                 self.cost += rect.cost if rect.cost != float("inf") else 1e9
+                self.area += rect.w * rect.h
+                self.packing_eff = self.area / (self.dim.l * self.dim.w)
 
         class Rect:
             def __init__(self, id, cost, x=0, y=0, w=0, h=0):
@@ -74,9 +68,9 @@ class LayerPacking(PackingAlgorithm):
                     # Check if the dimension matches any of the package dimensions
                     if l == dimension:
                         rects.append(Rect(pkg.id, pkg.cost, w=b, h=h))
-                    if h == dimension:
+                    elif h == dimension:
                         rects.append(Rect(pkg.id, pkg.cost, w=l, h=b))
-                    if b == dimension:
+                    elif b == dimension:
                         rects.append(Rect(pkg.id, pkg.cost, w=l, h=h))
             return rects
 
@@ -88,13 +82,16 @@ class LayerPacking(PackingAlgorithm):
             packer.pack()
             for r in packer.rect_list():
                 b, x, y, w, h, rid = r
+
                 for rect in selectedrects:
                     if rect.id == rid:
                         rect.x = x
                         rect.y = y
+                        rect.w = w
+                        rect.h = h
                         layer.add_rect(rect)
                         rect.wasPacked = True
-                        break
+                        break  
             return layer
         
         def make_layers(packages, length,breadth):
@@ -104,120 +101,83 @@ class LayerPacking(PackingAlgorithm):
             for dim in dimension_frequency:
                 selectedrects = selectrects_2d(int(dim[0]), packages,assigned_pkgs)
                 layers.append(bp2d(Layer(0, [], length, breadth, int(dim[0]), 0, 0), selectedrects))
-                for rect in layers[-1].packedrects:
-                    assigned_pkgs[rect.id] = 1
-            return layers
+            for rect in layers[-1].packedrects:
+                assigned_pkgs[rect.id] = 1
 
-        layers = make_layers(env.packages, ULDs[5].dim.l, ULDs[5].dim.w)
+            return layers
+        
+        layers = [l for l in make_layers(env.packages, env.ULDs[0].dim.l, env.ULDs[0].dim.w) if l.packing_eff > 0.82]
+        layers = sorted(layers, key=lambda x: x.packing_eff, reverse=True)
+        for layer in layers:
+            print(layer.packing_eff,layer.cost,layer.dim.h)
+        #for layer in layers:
+        #     print(len(layer.packedrects),layer.dim.h,layer.packing_eff,layer.cost)
+        #     for rect in layer.packedrects:
+        #         print(rect.id,rect.x,rect.y,rect.w,rect.h)
+        # print(len(layers))
         """
         -----------------------------------------------------------------------------------------------------------------------------
         Google OR Tools
         ------------------------------------------------------------------------------------------------------------------------------
         """
-
         prefinal_sol = []
-        data = {}
-        data["weights"] = []
-        data["values"] = []
-        # data["layers"] = layers
 
-        for layer in layers:
-            data["weights"].append(layer.dim.h)
-            data["values"].append(layer.cost)
-
-        assert len(data["weights"]) == len(data["values"])
-        data["num_items"] = len(data["weights"])
-        data["all_items"] = range(data["num_items"])
-
-        data["bin_capacities"] = []
-        for i in range(2, 6):
-            data["bin_capacities"].append(ULDs[i].dim.h)
-        data["num_bins"] = len(data["bin_capacities"])
-        data["all_bins"] = range(data["num_bins"])
-
-        solver = pywraplp.Solver.CreateSolver("SCIP")
+        solver = pywraplp.Solver.CreateSolver("SAT")
         if solver is None:
             print("SCIP solver unavailable.")
             return
-
-        # Variables.
-        # x[i, b] = 1 if item i is packed in bin b.
+        # Variables
         x = {}
-        for i in data["all_items"]:
-            for b in data["all_bins"]:
+        for i in range(len(layers)):
+            for b in range(len(env.ULDs)):
                 x[i, b] = solver.BoolVar(f"x_{i}_{b}")
-
+        
         # Constraints.
         # Each item is assigned to at most one bin.
-        for i in data["all_items"]:
-            solver.Add(sum(x[i, b] for b in data["all_bins"]) <= 1)
+        for i in range(len(layers)):
+            solver.Add(sum(x[i, b] for b in range(len(env.ULDs))) <= 1)
 
         # The amount packed in each bin cannot exceed its capacity.
-        for b in data["all_bins"]:
+        for b in range(len(env.ULDs)):
             solver.Add(
-                sum(x[i, b] * data["weights"][i] for i in data["all_items"])
-                <= data["bin_capacities"][b]
+            sum(x[i, b] * layers[i].dim.h for i in range(len(layers)))
+            <= env.ULDs[b].dim.h
             )
 
         # Objective.
         # Maximize total value of packed items.
         objective = solver.Objective()
-        for i in data["all_items"]:
-            for b in data["all_bins"]:
-                objective.SetCoefficient(x[i, b], data["values"][i])
+        for i in range(len(layers)):
+            for b in range(len(env.ULDs)):
+                objective.SetCoefficient(x[i, b], layers[i].cost)
         objective.SetMaximization()
-
+        print(len(layers),len(env.ULDs))
         print(f"Solving with {solver.SolverVersion()}")
+        print(solver.NumVariables(), "variables")
+        print(solver.NumConstraints(), "constraints")
         status = solver.Solve()
 
-        selectedlayers = []
+
+        def add_layer(env,layer,ULD_num):
+            for rect in layer.packedrects:
+                # Find the package from environment using rect.id
+                for pkg in env.packages:
+                    if pkg.id == rect.id:
+                        # Create placement points
+                        p1 = Point(rect.x, rect.y, bin_weight)
+                        p2 = Point(rect.x + rect.w,rect.y + rect.h, bin_weight + layers[i].dim.h)
+                        # Add package to environment with corresponding ULD
+                        env.add_package(pkg, env.ULDs[ULD_num], (p1, p2))
+                        break
+            return env
         if status == pywraplp.Solver.OPTIMAL:
-            print(f"Total packed value: {objective.Value()}")
             total_weight = 0
-            for b in data["all_bins"]:
-                print(f"Bin {b}")
+            for b in range(len(env.ULDs)):
                 bin_weight = 0
-                bin_value = 0
-                for i in data["all_items"]:
-                    if x[i, b].solution_value() > 0:
-                        selectedlayers.append(i)
-                        print(
-                            f"Layer {i} sum of heights: {data['weights'][i]} total_cost_p200:"
-                            f" {data['values'][i]}",
-                        )
-                        for rect in data["layers"][i].packedlist:
-                            prefinal_sol.append(
-                                [
-                                    rect.id,
-                                    f"U{b+3}",
-                                    (rect.x, rect.y, bin_weight),
-                                    (
-                                        rect.x + rect.w,
-                                        rect.y + rect.h,
-                                        bin_weight + data["weights"][i],
-                                    ),
-                                ]
-                            )
-                        bin_weight += data["weights"][i]
-                        bin_value += data["values"][i]
-                print(f"Packed bin weight: {bin_weight}")
-                print(f"Packed bin value: {bin_value}\n")
-                total_weight += bin_weight
-            print(f"Total packed weight: {total_weight}")
-            print("FINALLY: ", prefinal_sol)
-
-            for row in prefinal_sol:
-                pkg_id = int(row[0][2:])
-                uld_id = int(row[1][1:])
-                pkg = env.packages[pkg_id - 1]
-                # pkg.uld_id = uld_id
-                p1 = Point(*row[2])
-                p2 = Point(*row[3])
-                # pkg.corners=(p1,p2)
-
-                uld = env.ULDs[uld_id]
-                # uld.packages.append(pkg)
-                # uld.has_priority = uld.has_priority or pkg.is_priority
-                env.add_package(pkg, uld, (p1, p2))
+                for i in range(len(layers)):
+                    if x[i,b].solution_value() > 0:
+                        env = add_layer(env,layers[i], b)
+                        bin_weight += layers[i].dim.h
+                        print("Packing effieciency",layers[i].packing_eff)
         else:
             print("The problem does not have an optimal solution.")
