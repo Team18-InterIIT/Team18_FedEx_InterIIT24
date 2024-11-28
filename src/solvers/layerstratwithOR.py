@@ -2,13 +2,28 @@ import csv
 import collections
 from ortools.linear_solver import pywraplp
 from environment import Environment
-from entity import Point
-
+from entity import Point,Package,Dim
+import rectpack as rp
 
 from algorithm_interface import PackingAlgorithm
 
 
 class LayerPacking(PackingAlgorithm):
+
+    # class layer:
+    #     def __init__(self):
+    #         self.packages: list[Package] = list()
+    #         self.height = 0
+    #         self.uldno = 0
+    #         self.cost = 0
+    #     def __repr__(self):
+    #         return f"Layer: {self.packages} Height: {self.height} ULD: {self.uldno} Cost: {self.cost}"
+        
+    #     def add_package(self, pkg: Package):
+    #         self.packages.append(pkg)
+    #         self.cost += pkg.cost
+
+
     def solve(self, env: Environment):
         ULDs = {
             1: {"dimensions": (224, 318, 162), "weight_limit": 2500},
@@ -18,66 +33,18 @@ class LayerPacking(PackingAlgorithm):
             5: {"dimensions": (244, 318, 285), "weight_limit": 3500},
             6: {"dimensions": (244, 318, 285), "weight_limit": 3500},
         }
-        packages = []
-
-        filePath = "/Users/krishnaiitm/Desktop/datanew3.csv"
-        with open(filePath, "r", newline="", encoding="utf-8") as file:
-            csv_reader = list(csv.reader(file))
-            # k = int(csv_reader[0][0])
-            for row in csv_reader:
-                if row:
-                    if row[0][0] == "P":
-                        packages.append(row)
-
-        dimension_frequency = collections.Counter()
-        for pkg in packages:
-            l, b, h = pkg[1:4]
-            dimension_frequency[l] += 1
-            dimension_frequency[b] += 1
-            dimension_frequency[h] += 1
-
-        dimension_frequency = sorted(
-            dimension_frequency.items(), key=lambda x: x[1], reverse=True
-        )
-
-        def selectboxes_2d(dimension, package):
-            selected = []
-            area = 0
-            for pkg in package:
-                l = int(pkg[1])
-                b = int(pkg[2])
-                h = int(pkg[3])
-                m = int(pkg[4])
-
-                if l == dimension:
-                    if pkg[6] != "-":
-                        selected.append((pkg[0], b, h, m, int(pkg[6])))
-                    else:
-                        selected.append((pkg[0], b, h, m, 200))
-
-                    area += b * h
-                elif b == dimension:
-                    if pkg[6] != "-":
-                        selected.append((pkg[0], b, h, m, int(pkg[6])))
-                    else:
-                        selected.append((pkg[0], b, h, m, 200))
-                    area += l * h
-                elif h == dimension:
-                    if pkg[6] != "-":
-                        selected.append((pkg[0], b, h, m, int(pkg[6])))
-                    else:
-                        selected.append((pkg[0], b, h, m, 200))
-                    area += l * b
-
-            return selected
-
         class Layer:
-            def __init__(self, pe, packed_list, height, uldno, cost):
+            def __init__(self, pe, packed_list, length, breadth, height, uldno, cost):
                 self.packing_eff = pe
-                self.packedlist = packed_list
-                self.height = height
+                self.packedrects : list[Rect] = []
+                self.dim : Dim = Dim(length,breadth,height)
                 self.uldno = uldno
                 self.cost = cost
+            def add_rect(self, rect):
+                self.packedrects.append(rect)
+                self.cost += rect.cost
+
+
 
         class Rect:
             def __init__(self, id, cost, x=0, y=0, w=0, h=0):
@@ -87,125 +54,59 @@ class LayerPacking(PackingAlgorithm):
                 self.y = 0  # y-coordinate of the rectangle's top-left corner
                 self.w = w  # width of the rectangle
                 self.h = h  # height of the rectangle
-                self.wasPacked = False  # flag to track if the rectangle is packed
+                self.wasPacked = False  # flag to track if the rectangle is packed        
 
-        def pack_rects_in_container(rects, container_width, container_height):
-            # Create a grid to represent the container, initialized to False (empty)
-            list_of_packed_rects = []
-            Value = 0
-            container = [
-                [False for _ in range(container_width)] for _ in range(container_height)
-            ]
-            rects.sort(key=lambda rect: rect.h, reverse=True)
-            a = 0
-            A = container_height * container_width
+        def get_dim_freq(packages):
+            dimension_frequency = collections.Counter()
+            for pkg in packages:
+                for dim in pkg.dim:
+                    dimension_frequency[dim] += 1
+            dimension_frequency = sorted(
+                dimension_frequency.items(), key=lambda x: x[1], reverse=True
+            )
+            return dimension_frequency
 
-            for rect in rects:
-                if rect.wasPacked:
-                    continue  # Skip packed rectangles
-                else:
-                    packed = False
+        def selectrects_2d(dimension, packages,assigned_pkgs):
+            rects = []
+            for pkg in packages :
+                if(assigned_pkgs[] == 0):
+                    (l,b,h) = (pkg.dim.l,pkg.dim.w,pkg.dim.h)
+                    if(l == dimension):
+                        rects.append(Rect(pkg.id, pkg.cost, w=b, h=h))
+                    if(h == dimension):
+                        rects.append(Rect(pkg.id, pkg.cost, w=l, h=b))  
+                    if(b == dimension):
+                        rects.append(Rect(pkg.id, pkg.cost, w=l, h=h))
+            return rects
 
-                    # Try to find an empty spot for the rectangle
-                    for y in range(container_height - rect.h + 1):
-                        if rect.wasPacked:
-                            break
-                        for x in range(container_width - rect.w + 1):
-                            if rect.wasPacked:
-                                break
-                            can_fit = True
-                            # Check if the rectangle fits in the current position (no overlap)
-                            for iy in range(y, y + rect.h):
-                                if rect.wasPacked:
-                                    break
-                                for ix in range(x, x + rect.w):
-                                    if rect.wasPacked:
-                                        break
-                                    if container[iy][
-                                        ix
-                                    ]:  # If any pixel is already occupied
-                                        can_fit = False
-                                        break
-                                if not can_fit:
-                                    break
-
-                            # If the rectangle fits, place it in the container
-                            if can_fit:
-                                # Mark the occupied cells in the container as True
-                                for iy in range(y, y + rect.h):
-                                    for ix in range(x, x + rect.w):
-                                        container[iy][ix] = True
-
-                                # Set rectangle's packed status and position
-                                rect.x = x
-                                rect.y = y
-                                Value += rect.cost
-                                rect.wasPacked = True  # Mark it as packed
-                                packed = True
-                                list_of_packed_rects.append(rect)
-                                # print(f"Packed rectangle {rect.w}x{rect.h} at position ({x}, {y}) in uld ")
-                                break  # No need to check further once packed
-
-                    # If the rectangle could not be packed, mark it as not packed
-                    if not packed:
-                        # print(f"Rectangle {rect.w}x{rect.h} could not be packed in uld ")
-                        rect.wasPacked = False
-
-                    else:
+        def bp2d(layer : Layer,selectedrects):
+            packer = rp.newPacker()
+            for rect in selectedrects:     
+                packer.add_rect(rect.w, rect.h, rect.id)
+            packer.add_bin(layer.dim.l, layer.dim.w)
+            packer.pack()
+            for r in packer.rect_list():
+                b, x, y, w, h, rid = r
+                for rect in selectedrects:
+                    if rect.id == rid:
+                        rect.x = x
+                        rect.y = y
+                        layer.add_rect(rect)
                         rect.wasPacked = True
-                        a += rect.w * rect.h
-            packing_efficiency = a / A
-            # print("Area Efficiency ",packing_efficiency,"for dimension ",dimension,"uld ")
-
-            return rects, packing_efficiency, list_of_packed_rects, Value
-
-        # Define some rectangles
-
-        # Define the container size
-
-        # Pack the rectangles in the container
-        def make_layers(remainingpackages, uldno):
-            layer_info = []
-            if not remainingpackages:
-                return layer_info
-
-            container_width = ULDs[uldno]["dimensions"][0]
-            container_height = ULDs[uldno]["dimensions"][1]
+                        break
+            return layer
+        def make_layers(packages, length,breadth):
+            layers = []
+            dimension_frequency = get_dim_freq(packages)
+            assigned_pkgs = [0]*len(packages)
             for dim in dimension_frequency:
-                selected = selectboxes_2d(int(dim[0]), remainingpackages)
-                # print(selected , int(dim))
+                selectedrects = selectrects_2d(int(dim[0]), packages,assigned_pkgs)
+                layers.append(bp2d(Layer(0, [], length, breadth, int(dim[0]), 0, 0), selectedrects))
+                for rect in layers[-1].packedrects:
+                    assigned_pkgs[rect.id] = 1
+            return layers
 
-                rectangles = []
-                for pkg in selected:
-                    rectangles.append(
-                        Rect(id=pkg[0], cost=pkg[4], w=int(pkg[1]), h=int(pkg[2]))
-                    )
-
-                packed_rects, pe, listpacked, Cost = pack_rects_in_container(
-                    rectangles, container_width, container_height
-                )
-
-                for pack in listpacked:
-                    remainingpackages = [y for y in remainingpackages if y[0] != pack]
-                layer_info.append(Layer(pe, listpacked, int(dim[0]), uldno, Cost))
-                print("| ", end="")
-
-            layer_info.sort(key=lambda x: x.packing_eff, reverse=True)
-            print("______________________________________________________________")
-
-            return layer_info
-            """Structure of layer_info
-            layer_info = [packing_eff,
-                        ['P-1','P-13' ......] (list of the ids of the packets),
-                        height,
-                        ULD-Number,
-                        Cost of the whole Layer.
-
-            ]"""
-
-        layers = make_layers(packages, 6)
-        container_width = ULDs[6]["dimensions"][0]
-        container_height = ULDs[6]["dimensions"][1]
+        layers = make_layers(env.packages, ULDs[6]["dimensions"][0], ULDs[6]["dimensions"][1])
         """
         -----------------------------------------------------------------------------------------------------------------------------
         Google OR Tools
