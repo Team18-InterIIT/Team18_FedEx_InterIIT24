@@ -35,45 +35,33 @@ class COA(PackingAlgorithm):
             paste_number_value += (
                 (
                     x1_min == x0_max
-                    and y0_min <= y1_min < y0_max
-                    and z0_min <= z1_min < z0_max
-                    # and y0_min < y1_max <= y0_max
-                    # and z0_min < z1_max <= z0_max
+                    and (y0_min <= y1_min < y0_max or y0_min < y1_max <= y0_max)
+                    and (z0_min <= z1_min < z0_max or z0_min < z1_max <= z0_max)
                 )
                 + (
                     x1_max == x0_min
-                    and y0_min <= y1_min < y0_max
-                    and z0_min <= z1_min < z0_max
-                    # and y0_min < y1_max <= y0_max
-                    # and z0_min < z1_max <= z0_max
+                    and (y0_min <= y1_min < y0_max or y0_min < y1_max <= y0_max)
+                    and (z0_min <= z1_min < z0_max or z0_min < z1_max <= z0_max)
                 )
                 + (
                     y1_min == y0_max
-                    and x0_min <= x1_min < x0_max
-                    and z0_min <= z1_min < z0_max
-                    # and x0_min < x1_max <= x0_max
-                    # and z0_min < z1_max <= z0_max
+                    and (x0_min <= x1_min < x0_max or x0_min < x1_max <= x0_max)
+                    and (z0_min <= z1_min < z0_max or z0_min < z1_max <= z0_max)
                 )
                 + (
                     y1_max == y0_min
-                    and x0_min <= x1_min < x0_max
-                    and z0_min <= z1_min < z0_max
-                    # and x0_min < x1_max <= x0_max
-                    # and z0_min < z1_max <= z0_max
+                    and (x0_min <= x1_min < x0_max or x0_min < x1_max <= x0_max)
+                    and (z0_min <= z1_min < z0_max or z0_min < z1_max <= z0_max)
                 )
                 + (
                     z1_min == z0_max
-                    and x0_min <= x1_min < x0_max
-                    and y0_min <= y1_min < y0_max
-                    # and x0_min < x1_max <= x0_max
-                    # and y0_min < y1_max <= y0_max
+                    and (x0_min <= x1_min < x0_max or x0_min < x1_max <= x0_max)
+                    and (y0_min <= y1_min < y0_max or y0_min < y1_max <= y0_max)
                 )
                 + (
                     z1_max == z0_min
-                    and x0_min <= x1_min < x0_max
-                    and y0_min <= y1_min < y0_max
-                    # and x0_min < x1_max <= x0_max
-                    # and y0_min < y1_max <= y0_max
+                    and (x0_min <= x1_min < x0_max or x0_min < x1_max <= x0_max)
+                    and (y0_min <= y1_min < y0_max or y0_min < y1_max <= y0_max)
                 )
             )
 
@@ -122,56 +110,56 @@ class COA(PackingAlgorithm):
 
             if (
                 x1_min == x0_max
-                and y0_min <= y1_min < y0_max
-                and z0_min <= z1_min < z0_max
+                and (y0_min <= y1_min < y0_max or y0_min < y1_max <= y0_max)
+                and (z0_min <= z1_min < z0_max or z0_min < z1_max <= z0_max)
             ):
-                paste_area += (min(y0_max, y1_max) - y1_min) * (
-                    min(z0_max, z1_max) - z1_min
+                paste_area += (min(y0_max, y1_max) - max(y0_min, y1_min)) * (
+                    min(z0_max, z1_max) - max(z0_min, z1_min)
                 )
 
             if (
                 x1_max == x0_min
-                and y0_min <= y1_min < y0_max
-                and z0_min <= z1_min < z0_max
+                and (y0_min <= y1_min < y0_max or y0_min < y1_max <= y0_max)
+                and (z0_min <= z1_min < z0_max or z0_min < z1_max <= z0_max)
             ):
-                paste_area += (min(y0_max, y1_max) - y1_min) * (
-                    min(z0_max, z1_max) - z1_min
+                paste_area += (min(y0_max, y1_max) - max(y0_min, y1_min)) * (
+                    min(z0_max, z1_max) - max(z0_min, z1_min)
                 )
 
             if (
                 y1_min == y0_max
-                and x0_min <= x1_min < x0_max
-                and z0_min <= z1_min < z0_max
+                and (x0_min <= x1_min < x0_max or x0_min < x1_max <= x0_max)
+                and (z0_min <= z1_min < z0_max or z0_min < z1_max <= z0_max)
             ):
-                paste_area += (min(x0_max, x1_max) - x1_min) * (
-                    min(z0_max, z1_max) - z1_min
+                paste_area += (min(x0_max, x1_max) - max(x0_min, x1_min)) * (
+                    min(z0_max, z1_max) - max(z0_min, z1_min)
                 )
 
             if (
                 y1_max == y0_min
-                and x0_min <= x1_min < x0_max
-                and z0_min <= z1_min < z0_max
+                and (x0_min <= x1_min < x0_max or x0_min < x1_max <= x0_max)
+                and (z0_min <= z1_min < z0_max or z0_min < z1_max <= z0_max)
             ):
-                paste_area += (min(x0_max, x1_max) - x1_min) * (
-                    min(z0_max, z1_max) - z1_min
+                paste_area += (min(x0_max, x1_max) - max(x0_min, x1_min)) * (
+                    min(z0_max, z1_max) - max(z0_min, z1_min)
                 )
 
             if (
                 z1_min == z0_max
-                and x0_min <= x1_min < x0_max
-                and y0_min <= y1_min < y0_max
+                and (x0_min <= x1_min < x0_max or x0_min < x1_max <= x0_max)
+                and (y0_min <= y1_min < y0_max or y0_min < y1_max <= y0_max)
             ):
-                paste_area += (min(x0_max, x1_max) - x1_min) * (
-                    min(y0_max, y1_max) - y1_min
+                paste_area += (min(x0_max, x1_max) - max(x0_min, x1_min)) * (
+                    min(y0_max, y1_max) - max(y0_min, y1_min)
                 )
 
             if (
                 z1_max == z0_min
-                and x0_min <= x1_min < x0_max
-                and y0_min <= y1_min < y0_max
+                and (x0_min <= x1_min < x0_max or x0_min < x1_max <= x0_max)
+                and (y0_min <= y1_min < y0_max or y0_min < y1_max <= y0_max)
             ):
-                paste_area += (min(x0_max, x1_max) - x1_min) * (
-                    min(y0_max, y1_max) - y1_min
+                paste_area += (min(x0_max, x1_max) - max(x0_min, x1_min)) * (
+                    min(y0_max, y1_max) - max(y0_min, y1_min)
                 )
 
         return (
@@ -286,11 +274,10 @@ class COA(PackingAlgorithm):
                 for x_inc, y_inc, z_inc in permutations(
                     (pkg.dim.l, pkg.dim.w, pkg.dim.h)
                 ):
-                    point1 = Point(coa.x, coa.y, coa.z)
                     orientation = Point(coa.x + x_inc, coa.y + y_inc, coa.z + z_inc)
 
                     if not env.add_package(
-                        pkg, uld, corners=(point1, orientation), simulate=True
+                        pkg, uld, corners=(coa, orientation), simulate=True
                     ):
                         continue
 
@@ -303,14 +290,12 @@ class COA(PackingAlgorithm):
                                 if (not uld.has_priority and pkg.is_priority)
                                 else 0
                             ),
-                            "paste_number": COA.paste_number(uld, point1, orientation),
-                            "caving_degree": COA.caving_degree(
-                                uld, point1, orientation
-                            ),
-                            "paste_ratio": COA.paste_ratio(uld, point1, orientation),
-                            "z_gravity": -(point1.z + orientation.z) / 2,
-                            "y_gravity": -(point1.y + orientation.y) / 2,
-                            "x_gravity": -(point1.x + orientation.x) / 2,
+                            "paste_number": COA.paste_number(uld, coa, orientation),
+                            "caving_degree": COA.caving_degree(uld, coa, orientation),
+                            "paste_ratio": COA.paste_ratio(uld, coa, orientation),
+                            "z_gravity": -(coa.z + orientation.z) / 2,
+                            "y_gravity": -(coa.y + orientation.y) / 2,
+                            "x_gravity": -(coa.x + orientation.x) / 2,
                             "cost": pkg.cost**2 / pkg.volume(),
                         }
                         (
@@ -342,7 +327,7 @@ class COA(PackingAlgorithm):
 
             first_pkg = copy.deepcopy(best_pkg)
 
-        while any(len(COAs) != 0 for COAs in uld_COAs.values()):
+        while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
             best_coa = None
             best_pkg = None
             best_orientation = None
@@ -372,13 +357,12 @@ class COA(PackingAlgorithm):
                         for x_inc, y_inc, z_inc in permutations(
                             (pkg.dim.l, pkg.dim.w, pkg.dim.h)
                         ):
-                            point1 = Point(coa.x, coa.y, coa.z)
                             orientation = Point(
                                 coa.x + x_inc, coa.y + y_inc, coa.z + z_inc
                             )
 
                             if not env.add_package(
-                                pkg, uld, corners=(point1, orientation), simulate=True
+                                pkg, uld, corners=(coa, orientation), simulate=True
                             ):
                                 continue
 
@@ -391,19 +375,19 @@ class COA(PackingAlgorithm):
                                         if (not uld.has_priority and pkg.is_priority)
                                         else 0
                                     ),
+                                    "cost": pkg.cost**1.5 / pkg.volume() ** 0.8,
                                     "paste_number": COA.paste_number(
-                                        uld, point1, orientation
+                                        uld, coa, orientation
                                     ),
                                     "caving_degree": COA.caving_degree(
-                                        uld, point1, orientation
+                                        uld, coa, orientation
                                     ),
                                     "paste_ratio": COA.paste_ratio(
-                                        uld, point1, orientation
+                                        uld, coa, orientation
                                     ),
-                                    "z_gravity": -(point1.z + orientation.z) / 2,
-                                    "y_gravity": -(point1.y + orientation.y) / 2,
-                                    "x_gravity": -(point1.x + orientation.x) / 2,
-                                    "cost": pkg.cost**2 / pkg.volume(),
+                                    "z_gravity": -(coa.z + orientation.z) / 2,
+                                    "y_gravity": -(coa.y + orientation.y) / 2,
+                                    "x_gravity": -(coa.x + orientation.x) / 2,
                                 }
                                 (
                                     current_values["largest_dim"],
@@ -467,20 +451,18 @@ class COA(PackingAlgorithm):
         if allowed_ULDs is None:
             allowed_ULDs = list(range(len(env.ULDs)))
 
-        pkg_no = 1
         total_pkgs = len(pkgs)
 
-        while any(len(COAs) != 0 for COAs in uld_COAs.values()):
+        while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
             min_cost = float("inf")
             min_uld, min_coa, best_pkg = None, None, None
             for uld_id, COAs in uld_COAs.items():
                 if uld_id not in allowed_ULDs:
                     continue
 
-                init_uld = copy.deepcopy(env.ULDs[uld_id])
-
                 for coa in COAs:
                     init_coa = copy.deepcopy(coa)
+                    init_uld = copy.deepcopy(env.ULDs[uld_id])
                     new_uld_COAs = copy.deepcopy(uld_COAs)
                     new_env = env.copy()
                     new_pkgs = copy.deepcopy(pkgs)
@@ -489,7 +471,7 @@ class COA(PackingAlgorithm):
                         new_env,
                         new_pkgs,
                         heurestic,
-                        allowed_ULDs=[uld_id],
+                        allowed_ULDs=None,
                         init_coa=init_coa,
                         init_uld=init_uld,
                         logging=False,
@@ -510,16 +492,18 @@ class COA(PackingAlgorithm):
 
             pkg = env.packages[pkg_id - 1]
             pkgs.remove(pkg)
-            uld_COAs[min_uld.id - 1].remove(min_coa)
+            for i, coa in enumerate(uld_COAs[min_uld.id - 1]):
+                if coa == min_coa:
+                    uld_COAs[min_uld.id - 1].pop(i)
+                    break
             for corner_idx in (1, 2, 4):
                 uld_COAs[min_uld.id - 1].append(best_pkg.get_corners()[corner_idx])
 
             if logging:
                 print(
-                    f"Package {pkg_no}/{total_pkgs}",
+                    f"Package {total_pkgs - len(pkgs)}/{total_pkgs}",  # TODO: fix the denominator
                     file=sys.stderr,
                 )
-            pkg_no += 1
 
     def solve(self, env: Environment):
         """
@@ -570,21 +554,21 @@ class COA(PackingAlgorithm):
 
         economy_heurestic = [
             "cost",
-            "paste_number",
-            "largest_dim",
             "z_gravity",
+            "largest_dim",
+            "paste_number",
             "caving_degree",
             "paste_ratio",
-            "middle_dim",
-            "smallest_dim",
             "y_gravity",
             "x_gravity",
+            "middle_dim",
+            "smallest_dim",
         ]
 
         for uld in sorted_ULDs:
             print(f"{'='*60}", file=sys.stderr)
             print(f"ULD {uld.id}", file=sys.stderr)
-            COA.A1(
+            COA.A0(
                 uld_COAs,
                 env,
                 economy_pkgs,
