@@ -1,6 +1,7 @@
 import random
 import sys
 from itertools import permutations
+import copy
 
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
@@ -261,6 +262,88 @@ class COA(PackingAlgorithm):
             allowed_ULDs = list(range(len(env.ULDs)))
 
         total_pkgs = len(pkgs)
+        first_pkg = None
+
+        if init_coa is not None and init_uld is not None:
+            best_pkg = None
+            best_orientation = None
+
+            max_values = {
+                "paste_number": -1,
+                "z_gravity": float("-inf"),
+                "caving_degree": -1,
+                "paste_ratio": -1,
+                "largest_dim": -1,
+                "middle_dim": -1,
+                "smallest_dim": -1,
+                "y_gravity": float("-inf"),
+                "x_gravity": float("-inf"),
+                "cost": float("-inf"),
+                "priority_cost": float("-inf"),
+            }
+
+            coa = init_coa
+            uld = init_uld
+
+            for pkg in pkgs:
+                for x_inc, y_inc, z_inc in permutations(
+                    (pkg.dim.l, pkg.dim.w, pkg.dim.h)
+                ):
+                    point1 = Point(coa.x, coa.y, coa.z)
+                    orientation = Point(coa.x + x_inc, coa.y + y_inc, coa.z + z_inc)
+
+                    if not env.add_package(
+                        pkg, uld, corners=(point1, orientation), simulate=True
+                    ):
+                        continue
+
+                    if (coa, orientation) in COA.dp[uld.id]:
+                        current_values = COA.dp[uld.id][(coa, orientation)]
+                    else:
+                        current_values = {
+                            "priority_cost": -(
+                                env.running_cost + env.K
+                                if (not uld.has_priority and pkg.is_priority)
+                                else 0
+                            ),
+                            "paste_number": COA.paste_number(uld, point1, orientation),
+                            "caving_degree": COA.caving_degree(
+                                uld, point1, orientation
+                            ),
+                            "paste_ratio": COA.paste_ratio(uld, point1, orientation),
+                            "z_gravity": -(point1.z + orientation.z) / 2,
+                            "y_gravity": -(point1.y + orientation.y) / 2,
+                            "x_gravity": -(point1.x + orientation.x) / 2,
+                            "cost": pkg.cost**2 / pkg.volume(),
+                        }
+                        (
+                            current_values["largest_dim"],
+                            current_values["middle_dim"],
+                            current_values["smallest_dim"],
+                        ) = sorted([x_inc, y_inc, z_inc], reverse=True)
+
+                        COA.dp[uld.id][(coa, orientation)] = current_values
+
+                    for param in heurestic:
+                        if current_values[param] < max_values[param]:
+                            break
+                        if current_values[param] > max_values[param]:
+                            max_values = current_values
+
+                            best_pkg = pkg
+                            best_orientation = orientation
+                            break
+
+            if best_pkg is None:
+                return float("inf"), None
+
+            env.add_package(best_pkg, uld, corners=(coa, best_orientation))
+            pkgs.remove(best_pkg)
+            uld_COAs[uld.id - 1].remove(coa)
+            for corner_idx in (1, 2, 4):
+                uld_COAs[uld.id - 1].append(best_pkg.get_corners()[corner_idx])
+
+            first_pkg = copy.deepcopy(best_pkg)
 
         while any(len(COAs) != 0 for COAs in uld_COAs.values()):
             best_coa = None
@@ -360,7 +443,84 @@ class COA(PackingAlgorithm):
                     file=sys.stderr,
                 )
 
-        return env.running_cost
+        return (env.running_cost, first_pkg)
+
+    def A1(
+        uld_COAs: dict[int, list[Point]],
+        env: Environment,
+        pkgs: list[Package],
+        heurestic: list[str] = None,
+        allowed_ULDs: list[int] = None,
+        logging: bool = True,
+    ):
+        if heurestic is None:
+            heurestic = [
+                "cost",
+                "paste_number",
+                "largest_dim",
+                "z_gravity",
+                "caving_degree",
+                "paste_ratio",
+                "middle_dim",
+                "smallest_dim",
+                "y_gravity",
+                "x_gravity",
+            ]
+
+        if allowed_ULDs is None:
+            allowed_ULDs = list(range(len(env.ULDs)))
+
+        pkg_no = 1
+        total_pkgs = len(pkgs)
+
+        while any(len(COAs) != 0 for COAs in uld_COAs.values()):
+            min_cost = float("inf")
+            min_uld, min_coa, best_pkg = None, None, None
+            for uld_id, COAs in uld_COAs.items():
+                if uld_id not in allowed_ULDs:
+                    continue
+
+                init_uld = copy.deepcopy(env.ULDs[uld_id])
+
+                for coa in COAs:
+                    init_coa = copy.deepcopy(coa)
+                    new_uld_COAs = copy.deepcopy(uld_COAs)
+                    new_env = env.copy()
+                    new_pkgs = copy.deepcopy(pkgs)
+                    cost, pkg = COA.A0(
+                        new_uld_COAs,
+                        new_env,
+                        new_pkgs,
+                        heurestic,
+                        allowed_ULDs=[uld_id],
+                        init_coa=init_coa,
+                        init_uld=init_uld,
+                        logging=False,
+                    )
+
+                    if cost < min_cost:
+                        min_cost = cost
+                        min_uld = init_uld.copy()
+                        min_coa = copy.deepcopy(init_coa)
+                        best_pkg = copy.deepcopy(pkg)
+
+            if best_pkg is None:
+                break
+            env.packages[best_pkg.id - 1].copy_from(best_pkg)
+            best_pkg = env.packages[best_pkg.id - 1]
+
+            env.add_package(best_pkg, min_uld, corners=best_pkg.corners)
+            pkgs.remove(best_pkg)
+            uld_COAs[min_uld.id - 1].remove(min_coa)
+            for corner_idx in (1, 2, 4):
+                uld_COAs[min_uld.id - 1].append(best_pkg.get_corners()[corner_idx])
+
+            if logging:
+                print(
+                    f"Package {pkg_no}/{total_pkgs}",
+                    file=sys.stderr,
+                )
+            pkg_no += 1
 
     def solve(self, env: Environment):
         """
@@ -381,9 +541,6 @@ class COA(PackingAlgorithm):
             ]
             for uld in sorted_ULDs
         }
-
-        for uld in env.ULDs:
-            COA.dp[uld.id] = {}
 
         priority_heurestic = [
             # "priority_cost",
@@ -423,7 +580,7 @@ class COA(PackingAlgorithm):
         ]
 
         for uld in sorted_ULDs:
-            COA.A0(
+            COA.A1(
                 uld_COAs,
                 env,
                 economy_pkgs,
