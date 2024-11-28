@@ -80,7 +80,7 @@ class Environment:
         new_env.copy_from(self)
         return new_env
 
-    def check_collision(self, uld: ULD, corners_to_check: tuple[Point, Point]):
+    def check_collision(self, uld: ULD, corners_to_check: tuple[Point, Point]) -> bool:
         """
         Check if the package with the given coordinates will collide with any other package in the ULD
 
@@ -116,7 +116,7 @@ class Environment:
 
         return False
 
-    def check_weight_limit(self, uld: ULD, pkg_weight: int):
+    def check_weight_limit(self, uld: ULD, pkg_weight: int) -> bool:
         """
         Check if the package with the given weight will exceed the weight limit of the ULD
 
@@ -127,7 +127,7 @@ class Environment:
     def add_package(
         self,
         pkg: Package | int,
-        uld: ULD,
+        uld: ULD | int,
         corners: tuple[Point, Point],
         simulate: bool = False,
         collision_check: bool = True,
@@ -135,7 +135,7 @@ class Environment:
         floating_check: bool = True,
         stability_check: bool = True,
         fragility_check: bool = True,
-    ):
+    ) -> bool:
         """
         Add a package to the ULD at the given coordinates,
         taking into account various constraints
