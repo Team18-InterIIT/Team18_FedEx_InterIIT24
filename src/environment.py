@@ -420,6 +420,8 @@ class Environment:
                 pkg.uld_id = uld_id
                 pkg.corners = (Point(x1, y1, z1), Point(x2, y2, z2))
 
+                self.running_cost -= pkg.cost if (not pkg.is_priority and pkg.uld_id != 0) else 0
+
             for pkg in self.packages:
                 if pkg.uld_id == 0:
                     continue
@@ -427,4 +429,5 @@ class Environment:
 
             for uld in self.ULDs:
                 uld.has_priority = any(pkg.is_priority for pkg in uld.packages)
+                self.running_cost += self.K if uld.has_priority else 0
                 uld.weight = sum(pkg.weight for pkg in uld.packages)
