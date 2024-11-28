@@ -18,7 +18,10 @@ class Point:
         self.z: int = z
 
     def __repr__(self):
-        return f"({self.x}, {self.y}, {self.z})"
+        return f"Point({self.x}, {self.y}, {self.z})"
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y and self.z == other.z
 
 
 class Dim:
@@ -186,7 +189,7 @@ class ULD:
         return self.dim.l * self.dim.w * self.dim.h
 
     def __repr__(self):
-        return f"ULD {self.id}\t {self.dim}\t {self.weight}/{self.weight_limit}\t {"Prioritised" if self.has_priority else "Not prioritised"}\t No. of packages: {len(self.packages)}"
+        return f"ULD {self.id}\t {self.dim}\t {self.weight}/{self.weight_limit}\t {'Prioritised' if self.has_priority else 'Not prioritised'}\t No. of packages: {len(self.packages)}"
 
     def summary(self):
         return (
