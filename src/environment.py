@@ -61,8 +61,6 @@ class Environment:
             self.ULDs.append(ULD(uld_data_row))
 
         self.pkg_addition_order = []
-        self.stable_coords = SortedList(key=Environment.sort_by_z)
-        self.stable = {}
 
     def new(self):
         return Environment(self.K, [], [])
@@ -217,24 +215,15 @@ class Environment:
         if weight_limit_check and self.check_weight_limit(uld, pkg.weight):
             return False
 
-        if simulate:
-            return True
-
-        self.pkg_addition_order.append(pkg.id)
-
-        pkg.uld_id = uld.id
-
-        if gravity:
-            if pkg.id in (65, 341):
-                pass
-            corners, _ = self.apply_gravity(uld.id - 1, corners)
-
-        pkg.corners = corners
-        if pkg not in self.packages: # For express packages
-            self.packages.append(pkg)
-        uld.packages.append(pkg)
-        uld.weight += pkg.weight
-        uld.has_priority = uld.has_priority or pkg.is_priority
+        if not simulate:
+            self.pkg_addition_order.append(pkg.id)
+            pkg.uld_id = uld.id
+            pkg.corners = corners
+            if pkg not in self.packages: # For express packages
+                self.packages.append(pkg)
+            uld.packages.append(pkg)
+            uld.weight += pkg.weight
+            uld.has_priority = uld.has_priority or pkg.is_priority
 
         return True
     
