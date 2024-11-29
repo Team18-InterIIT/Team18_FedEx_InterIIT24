@@ -13,7 +13,7 @@ class LayerPacking(PackingAlgorithm):
     def solve(self, env: Environment):
         
         
-        layers,assigned_pkgs = make_layers_fancy(env.packages,  env.ULDs[0].dim.l, env.ULDs[0].dim.w,rejection_threshold = 0.95,k_param=0)
+        layers,assigned_pkgs = make_layers_fancy([ pkg for pkg in env.packages if 1],  env.ULDs[0].dim.l, env.ULDs[0].dim.w,rejection_threshold = 0.95,k_param=0)
         layers = sorted(layers, key=lambda x: x.packing_eff, reverse=True)
         print(assigned_pkgs)
         for layer in layers:
@@ -31,6 +31,7 @@ class LayerPacking(PackingAlgorithm):
                 mapping[i].append(c)
                 c.uldno = i
             i+=1
+            i%=len(env.ULDs)
 
         if(mapping != None):
             for b in range(len(mapping)):

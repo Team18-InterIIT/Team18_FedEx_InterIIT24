@@ -135,7 +135,7 @@ def make_layers(packages,length,breadth,rejection_threshold = 0.8,assigned_pkgs 
     layers = []
     dimension_frequency = get_dim_freq(packages,margin)
     if(len(assigned_pkgs) == 0):
-        assigned_pkgs = [0]*(len(packages)+1)
+        assigned_pkgs = [0]*((max(pkg.id for pkg in packages))+1)
     for dim in dimension_frequency:
         selectedrects = selectrects_2d(int(dim[0]), packages,assigned_pkgs)
         area = sum([rect.w*rect.h for rect in selectedrects])
