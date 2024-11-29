@@ -1,6 +1,3 @@
-import numpy as np
-
-
 class Point:
     """
     Represents a point in 3D space
@@ -127,6 +124,9 @@ class Package:
     def __repr__(self):
         return f"Package {self.id}\t {self.dim}\t {self.weight}\t {self.is_priority}\t {self.cost}\t {self.uld_id}\t {self.corners}"
 
+    def __hash__(self):
+        return hash((self.id, self.uld_id, *self.corners))
+
 
 class ULD:
     """
@@ -146,8 +146,6 @@ class ULD:
         The total weight of the packages in the ULD
     packages: list[Package]
         The packages packed in the ULD
-    filled: list[list[list[bool]]]
-        The 3D matrix representing the filled space in the ULD
 
     Methods
     -------
@@ -161,7 +159,6 @@ class ULD:
         self.id: int = int(uld_row[0])
         self.dim: Dim = Dim(*map(int, uld_row[1:4]))
         self.weight_limit: int = int(uld_row[4])
-        # self.filled: np.ndarray = np.ndarray((self.dim.l, self.dim.w, self.dim.h), dtype=bool)
 
         self.has_priority: bool = False
         self.weight: int = 0
@@ -188,11 +185,17 @@ class ULD:
         new_uld.copy_from(self)
         return new_uld
 
-    def volume(self):
+    def volume(self) -> int:
         return self.dim.l * self.dim.w * self.dim.h
+
+    def volume_utilisation(self) -> float:
+        return sum(pkg.volume() for pkg in self.packages) / self.volume()
 
     def __repr__(self):
         return f"ULD {self.id}\t {self.dim}\t {self.weight}/{self.weight_limit}\t {'Prioritised' if self.has_priority else 'Not prioritised'}\t No. of packages: {len(self.packages)}"
+
+    def __hash__(self):
+        return hash((self.id, self.weight, len(self.packages)))
 
     def summary(self):
         return (
