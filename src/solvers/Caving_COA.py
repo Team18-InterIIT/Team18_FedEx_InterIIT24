@@ -383,7 +383,13 @@ class COA(PackingAlgorithm):
                             ) = sorted([x_inc, y_inc, z_inc], reverse=True)
 
                             current_values["priority_cost"] = -(
-                                env.running_cost + env.K
+                                sum(
+                                    pkg.cost
+                                    for pkg in env.packages
+                                    if (not pkg.is_priority and pkg.uld_id == 0)
+                                )
+                                + sum(env.K for uld in env.ULDs if uld.has_priority)
+                                + env.K
                                 if (not uld.has_priority and pkg.is_priority)
                                 else 0
                             )
