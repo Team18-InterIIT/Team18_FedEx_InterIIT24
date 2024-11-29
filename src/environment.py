@@ -151,9 +151,11 @@ class Environment:
             uld = self.ULDs[uld - 1]
 
         if collision_check and self.check_collision(uld, corners):
+            print("colliding")
             return False
 
         if weight_limit_check and self.check_weight_limit(uld, pkg.weight):
+            print("Weight problem")
             return False
 
         if not simulate:
