@@ -6,6 +6,9 @@ import copy
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
+from skopt import gp_minimize
+from skopt.space import Real, Integer
+import numpy as np
 
 
 class COA(PackingAlgorithm):
@@ -223,7 +226,7 @@ class COA(PackingAlgorithm):
 
     dp = {}
 
-    def A3(
+    def A_neg_one(
         uld_COAs: dict[int, list[Point]],
         env: Environment,
         pkgs: list[Package],
@@ -231,11 +234,11 @@ class COA(PackingAlgorithm):
         allowed_ULDs: list[int] = None,
         logging: bool = True,
     ):
+        print("I have awaken again")
         if heurestic is None:
             heurestic = {
-                "included_cost": 2,
+                "included_cost": 1,
                 "paste_number": 1000,
-                "caving_degree": 1,
                 "paste_ratio": 1,
                 "largest_dim": 100,
                 "middle_dim": 1,
@@ -249,7 +252,6 @@ class COA(PackingAlgorithm):
             allowed_ULDs = list(range(len(env.ULDs)))
 
         total_pkgs = len(pkgs)
-        first_pkg = None
 
         while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
             best_coa = None
@@ -280,30 +282,37 @@ class COA(PackingAlgorithm):
 
                             current_values = {
                                 "paste_number": COA.paste_number(uld, coa, orientation),
-                                "caving_degree": COA.caving_degree(
-                                    uld, coa, orientation
-                                ),
                                 "paste_ratio": COA.paste_ratio(uld, coa, orientation),
-                                "z_gravity": -(coa.z + orientation.z) / 2,
-                                "y_gravity": -(coa.y + orientation.y) / 2,
-                                "x_gravity": -(coa.x + orientation.x) / 2,
+                                "z_gravity": (coa.z + orientation.z) / 2,
+                                "y_gravity": (coa.y + orientation.y) / 2,
+                                "x_gravity": (coa.x + orientation.x) / 2,
                             }
                             (
                                 current_values["largest_dim"],
                                 current_values["middle_dim"],
                                 current_values["smallest_dim"],
                             ) = sorted([x_inc, y_inc, z_inc], reverse=True)
-                            current_values["priority_cost"] = -(
-                                env.running_cost + env.K
+
+                            current_values["priority_cost"] = (
+                                sum(
+                                    pkg.cost
+                                    for pkg in env.packages
+                                    if (not pkg.is_priority and pkg.uld_id == 0)
+                                )
+                                + sum(env.K for uld in env.ULDs if uld.has_priority)
+                                + env.K
                                 if (not uld.has_priority and pkg.is_priority)
                                 else 0
                             )
-                            current_values["cost"] = pkg.cost**1.5 / pkg.volume() ** 0.8
-
-                            current_value = sum(
-                                weight * current_values[param]
-                                for param, weight in heurestic.items()
+                            current_values["included_cost"] = (
+                                pkg.cost**1.5 / pkg.volume() ** 0.8
                             )
+
+                            current_value = 0
+                            for param, weight in heurestic.items():
+                                if weight == 0:
+                                    continue
+                                current_value += weight * current_values[param]
 
                             if current_value > max_value:
                                 max_value = current_value
@@ -328,7 +337,64 @@ class COA(PackingAlgorithm):
                     file=sys.stderr,
                 )
 
-        return (env.running_cost, first_pkg)
+        return sum(env.cost(priority_check=False))
+
+    def A3(
+        uld_COAs: dict[int, list[Point]],
+        env: Environment,
+        pkgs: list[Package],
+        allowed_ULDs: list[int] = None,
+        logging: bool = True,
+    ):
+        def objective(params):
+            heurestic = {
+                "included_cost": params[0],
+                "paste_number": params[1],
+                "paste_ratio": params[2],
+                "largest_dim": params[3],
+                "middle_dim": params[4],
+                "smallest_dim": params[5],
+                "z_gravity": params[6],
+                "y_gravity": params[7],
+                "x_gravity": params[8],
+            }
+
+            env_copy = copy.deepcopy(env)
+            uld_COAs_copy = copy.deepcopy(uld_COAs)
+            pkgs_copy = copy.deepcopy(pkgs)
+
+            return COA.A_neg_one(
+                uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, logging
+            )
+
+        space = [
+            Integer(10000, 10000000, name="included_cost"),
+            Integer(1, 10000, name="paste_number"),
+            Real(0.1, 100, name="paste_ratio"),
+            Integer(1, 1000, name="largest_dim"),
+            Integer(1, 1000, name="middle_dim"),
+            Integer(1, 1000, name="smallest_dim"),
+            Integer(-1000, 0, name="z_gravity"),
+            Integer(-1000, 0, name="y_gravity"),
+            Integer(-1000, 0, name="x_gravity"),
+        ]
+
+        res = gp_minimize(objective, space, n_calls=15, random_state=42)
+
+        best_params = res.x
+        best_heurestic = {
+            "included_cost": best_params[0],
+            "paste_number": best_params[1],
+            "paste_ratio": best_params[2],
+            "largest_dim": best_params[3],
+            "middle_dim": best_params[4],
+            "smallest_dim": best_params[5],
+            "z_gravity": best_params[6],
+            "y_gravity": best_params[7],
+            "x_gravity": best_params[8],
+        }
+
+        return best_heurestic
 
     def solve(self, env: Environment):
         """
@@ -353,7 +419,6 @@ class COA(PackingAlgorithm):
         priority_heurestic = {
             "priority_cost": 1,
             "paste_number": 1000,
-            "caving_degree": 1,
             "paste_ratio": 1,
             "largest_dim": 100,
             "middle_dim": 1,
@@ -364,7 +429,7 @@ class COA(PackingAlgorithm):
         }
 
         for uld in sorted_ULDs:
-            COA.A3(
+            COA.A_neg_one(
                 uld_COAs,
                 env,
                 priority_pkgs,
@@ -374,26 +439,19 @@ class COA(PackingAlgorithm):
 
         print(f"{'='*60}", file=sys.stderr)
 
-        economy_heurestic = {
-            "priority_cost": 1,
-            "paste_number": 1000,
-            "caving_degree": 1,
-            "paste_ratio": 1,
-            "largest_dim": 100,
-            "middle_dim": 1,
-            "smallest_dim": 100,
-            "z_gravity": -100,
-            "y_gravity": -100,
-            "x_gravity": -100,
-        }
-
         for uld in sorted_ULDs:
             print(f"ULD {uld.id}", file=sys.stderr)
-            COA.A3(
+            heurestic = COA.A3(
                 uld_COAs,
                 env,
                 economy_pkgs,
-                heurestic=economy_heurestic,
+                allowed_ULDs=[uld.id - 1],
+            )
+            COA.A_neg_one(
+                uld_COAs,
+                env,
+                economy_pkgs,
+                heurestic=heurestic,
                 allowed_ULDs=[uld.id - 1],
             )
         print(f"{'='*60}", file=sys.stderr)
