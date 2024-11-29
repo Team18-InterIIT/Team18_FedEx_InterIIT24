@@ -54,9 +54,6 @@ class Environment:
             self.ULDs.append(ULD(uld_data_row))
 
         self.pkg_addition_order = []
-        self.running_cost = sum(
-            pkg.cost for pkg in self.packages if not pkg.is_priority
-        )
 
     def new(self):
         return Environment(self.K, [], [])
@@ -75,7 +72,6 @@ class Environment:
         self.packages = [pkg.copy() for pkg in other.packages]
         self.ULDs = [uld.copy() for uld in other.ULDs]
         self.pkg_addition_order = other.pkg_addition_order.copy()
-        self.running_cost = other.running_cost
 
     def copy(self):
         new_env = self.new()
@@ -158,10 +154,6 @@ class Environment:
 
         if not simulate:
             self.pkg_addition_order.append(pkg.id)
-            if pkg.is_priority:
-                self.running_cost += self.K * 1 if not uld.has_priority else 0
-            else:
-                self.running_cost -= pkg.cost
 
             pkg.uld_id = uld.id
             pkg.corners = corners
@@ -219,7 +211,6 @@ class Environment:
                 else:
                     delay_cost += pkg.cost
 
-        assert delay_cost + priority_cost == self.running_cost, "Cost calculation error"
         return delay_cost, priority_cost
 
     def plot(self):
@@ -457,10 +448,6 @@ class Environment:
                 pkg.uld_id = uld_id
                 pkg.corners = (Point(x1, y1, z1), Point(x2, y2, z2))
 
-                self.running_cost -= (
-                    pkg.cost if (not pkg.is_priority and pkg.uld_id != 0) else 0
-                )
-
             for pkg in self.packages:
                 if pkg.uld_id == 0:
                     continue
@@ -468,5 +455,4 @@ class Environment:
 
             for uld in self.ULDs:
                 uld.has_priority = any(pkg.is_priority for pkg in uld.packages)
-                self.running_cost += self.K if uld.has_priority else 0
                 uld.weight = sum(pkg.weight for pkg in uld.packages)
