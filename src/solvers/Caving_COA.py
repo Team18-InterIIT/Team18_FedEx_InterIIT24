@@ -6,9 +6,15 @@ import copy
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
+
 from skopt import gp_minimize
 from skopt.space import Real, Integer
+import torch.nn as nn
+import torch
+
 import numpy as np
+
+torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class COA(PackingAlgorithm):
@@ -345,6 +351,8 @@ class COA(PackingAlgorithm):
         pkgs: list[Package],
         allowed_ULDs: list[int] = None,
         logging: bool = True,
+        optimizer: str = "gp_minimize",
+        n_calls: int = 20,
     ):
         def objective(params):
             heurestic = {
@@ -363,36 +371,107 @@ class COA(PackingAlgorithm):
             uld_COAs_copy = copy.deepcopy(uld_COAs)
             pkgs_copy = copy.deepcopy(pkgs)
 
-            return COA.A_neg_one(
+            cost = COA.A_neg_one(
                 uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, logging
             )
 
-        space = [
-            Integer(10000, 10000000, name="included_cost"),
-            Integer(1, 10000, name="paste_number"),
-            Real(0.1, 100, name="paste_ratio"),
-            Integer(1, 1000, name="largest_dim"),
-            Integer(1, 1000, name="middle_dim"),
-            Integer(1, 1000, name="smallest_dim"),
-            Integer(-1000, 0, name="z_gravity"),
-            Integer(-1000, 0, name="y_gravity"),
-            Integer(-1000, 0, name="x_gravity"),
-        ]
+            if logging:
+                print(f"Cost: {cost}", file=sys.stderr)
 
-        res = gp_minimize(objective, space, n_calls=15, random_state=42)
+            return cost
 
-        best_params = res.x
-        best_heurestic = {
-            "included_cost": best_params[0],
-            "paste_number": best_params[1],
-            "paste_ratio": best_params[2],
-            "largest_dim": best_params[3],
-            "middle_dim": best_params[4],
-            "smallest_dim": best_params[5],
-            "z_gravity": best_params[6],
-            "y_gravity": best_params[7],
-            "x_gravity": best_params[8],
-        }
+        best_heurestic = None
+
+        if optimizer == "gp_minimize":
+            space = [
+                Integer(10000, 10000000, name="included_cost"),
+                Integer(1, 10000, name="paste_number"),
+                Real(0.1, 100, name="paste_ratio"),
+                Integer(1, 1000, name="largest_dim"),
+                Integer(1, 1000, name="middle_dim"),
+                Integer(1, 1000, name="smallest_dim"),
+                Integer(-1000, 0, name="z_gravity"),
+                Integer(-1000, 0, name="y_gravity"),
+                Integer(-1000, 0, name="x_gravity"),
+            ]
+
+            res = gp_minimize(objective, space, n_calls=n_calls, random_state=42)
+
+            best_params = res.x
+            best_heurestic = {
+                "included_cost": best_params[0],
+                "paste_number": best_params[1],
+                "paste_ratio": best_params[2],
+                "largest_dim": best_params[3],
+                "middle_dim": best_params[4],
+                "smallest_dim": best_params[5],
+                "z_gravity": best_params[6],
+                "y_gravity": best_params[7],
+                "x_gravity": best_params[8],
+            }
+
+        elif optimizer == "torch":
+
+            class ParamTuner(nn.Module):
+                def __init__(self):
+                    super().__init__()
+                    self.params = nn.Parameter(
+                        torch.tensor(
+                            [1, 1, 1, 1, 1, 1, 1, 1, 1],
+                            dtype=torch.float,
+                            requires_grad=True,
+                        )
+                    )
+
+                def forward(self):
+                    return self.params
+
+            def torched_objective_function(params):
+                heurestic = {
+                    "included_cost": params[0],
+                    "paste_number": params[1],
+                    "paste_ratio": params[2],
+                    "largest_dim": params[3],
+                    "middle_dim": params[4],
+                    "smallest_dim": params[5],
+                    "z_gravity": params[6],
+                    "y_gravity": params[7],
+                    "x_gravity": params[8],
+                }
+
+                env_copy = copy.deepcopy(env)
+                uld_COAs_copy = copy.deepcopy(uld_COAs)
+                pkgs_copy = copy.deepcopy(pkgs)
+
+                cost = COA.A_neg_one(
+                    uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, logging
+                )
+
+                return torch.tensor(cost, dtype=torch.float, requires_grad=True)
+
+            tuner = ParamTuner()
+            optimizer = torch.optim.Adam(tuner.parameters(), lr=0.01)
+
+            for epoch in range(n_calls):
+                optimizer.zero_grad()
+                loss = torched_objective_function(tuner())
+                loss.backward()
+                optimizer.step()
+                if logging:
+                    print(f"Epoch {epoch}: {loss.item()}", file=sys.stderr)
+
+            best_params = tuner().detach().numpy()
+            best_heurestic = {
+                "included_cost": best_params[0],
+                "paste_number": best_params[1],
+                "paste_ratio": best_params[2],
+                "largest_dim": best_params[3],
+                "middle_dim": best_params[4],
+                "smallest_dim": best_params[5],
+                "z_gravity": best_params[6],
+                "y_gravity": best_params[7],
+                "x_gravity": best_params[8],
+            }
 
         return best_heurestic
 
@@ -454,4 +533,5 @@ class COA(PackingAlgorithm):
                 heurestic=heurestic,
                 allowed_ULDs=[uld.id - 1],
             )
+
         print(f"{'='*60}", file=sys.stderr)
