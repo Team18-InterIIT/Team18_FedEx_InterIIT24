@@ -29,7 +29,7 @@ model.solve(env)
 # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
 
 env.summary()
-env.plot()
+# env.plot()
 # env.animate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
