@@ -232,7 +232,7 @@ class COA(PackingAlgorithm):
 
     dp = {}
 
-    def A_neg_one(
+    def A3(
         uld_COAs: dict[int, list[Point]],
         env: Environment,
         pkgs: list[Package],
@@ -240,14 +240,13 @@ class COA(PackingAlgorithm):
         allowed_ULDs: list[int] = None,
         logging: bool = True,
     ):
-        print("I have awaken again")
         if heurestic is None:
             heurestic = {
-                "included_cost": 1,
+                "included_cost": 1000000,
                 "paste_number": 1000,
                 "paste_ratio": 1,
                 "largest_dim": 100,
-                "middle_dim": 1,
+                "middle_dim": 100,
                 "smallest_dim": 100,
                 "z_gravity": -100,
                 "y_gravity": -100,
@@ -258,6 +257,9 @@ class COA(PackingAlgorithm):
             allowed_ULDs = list(range(len(env.ULDs)))
 
         total_pkgs = len(pkgs)
+
+        if logging:
+            print(f"Total packages: {total_pkgs}", file=sys.stderr)
 
         while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
             best_coa = None
@@ -338,6 +340,12 @@ class COA(PackingAlgorithm):
                 uld_COAs[best_uld.id - 1].append(best_pkg.get_corners()[corner_idx])
 
             if logging:
+                cost = env.cost()
+                if cost[0] + cost[1] < 35000:
+                    print(
+                        f"Heurestic:\n{heurestic}\nCost: {cost}\n\n",
+                        file=open("heuristic.txt", "a"),
+                    )
                 print(
                     f"Package {total_pkgs - len(pkgs)}/{total_pkgs}",  # TODO: fix the denominator
                     file=sys.stderr,
@@ -345,14 +353,14 @@ class COA(PackingAlgorithm):
 
         return sum(env.cost(priority_check=False))
 
-    def A3(
+    def Ai(
         uld_COAs: dict[int, list[Point]],
         env: Environment,
         pkgs: list[Package],
         allowed_ULDs: list[int] = None,
         logging: bool = True,
         optimizer: str = "gp_minimize",
-        n_calls: int = 20,
+        n_calls: int = 10,
     ):
         def objective(params):
             heurestic = {
@@ -367,11 +375,11 @@ class COA(PackingAlgorithm):
                 "x_gravity": params[8],
             }
 
-            env_copy = copy.deepcopy(env)
             uld_COAs_copy = copy.deepcopy(uld_COAs)
+            env_copy = copy.deepcopy(env)
             pkgs_copy = copy.deepcopy(pkgs)
 
-            cost = COA.A_neg_one(
+            cost = COA.A3(
                 uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, logging
             )
 
@@ -386,13 +394,13 @@ class COA(PackingAlgorithm):
             space = [
                 Integer(10000, 10000000, name="included_cost"),
                 Integer(1, 10000, name="paste_number"),
-                Real(0.1, 100, name="paste_ratio"),
+                Real(0.1, 1000, name="paste_ratio"),
                 Integer(1, 1000, name="largest_dim"),
-                Integer(1, 1000, name="middle_dim"),
-                Integer(1, 1000, name="smallest_dim"),
-                Integer(-1000, 0, name="z_gravity"),
+                Integer(1, 500, name="middle_dim"),
+                Integer(1, 100, name="smallest_dim"),
+                Integer(-5000, 0, name="z_gravity"),
                 Integer(-1000, 0, name="y_gravity"),
-                Integer(-1000, 0, name="x_gravity"),
+                Integer(-250, 0, name="x_gravity"),
             ]
 
             res = gp_minimize(objective, space, n_calls=n_calls, random_state=42)
@@ -412,12 +420,12 @@ class COA(PackingAlgorithm):
 
         elif optimizer == "torch":
 
-            class ParamTuner(nn.Module):
+            class HeuresticTuner(nn.Module):
                 def __init__(self):
                     super().__init__()
                     self.params = nn.Parameter(
                         torch.tensor(
-                            [1, 1, 1, 1, 1, 1, 1, 1, 1],
+                            [1000000, 1000, 1, 100, 100, 100, 100, 100, 100],
                             dtype=torch.float,
                             requires_grad=True,
                         )
@@ -443,13 +451,13 @@ class COA(PackingAlgorithm):
                 uld_COAs_copy = copy.deepcopy(uld_COAs)
                 pkgs_copy = copy.deepcopy(pkgs)
 
-                cost = COA.A_neg_one(
+                cost = COA.A3(
                     uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, logging
                 )
 
                 return torch.tensor(cost, dtype=torch.float, requires_grad=True)
 
-            tuner = ParamTuner()
+            tuner = HeuresticTuner()
             optimizer = torch.optim.Adam(tuner.parameters(), lr=0.01)
 
             for epoch in range(n_calls):
@@ -458,7 +466,7 @@ class COA(PackingAlgorithm):
                 loss.backward()
                 optimizer.step()
                 if logging:
-                    print(f"Epoch {epoch}: {loss.item()}", file=sys.stderr)
+                    print(f"Epoch {epoch}: Cost: {loss.item()}", file=sys.stderr)
 
             best_params = tuner().detach().numpy()
             best_heurestic = {
@@ -473,7 +481,10 @@ class COA(PackingAlgorithm):
                 "x_gravity": best_params[8],
             }
 
-        return best_heurestic
+            if logging:
+                print(f"Cost: {loss.item()}", file=sys.stderr)
+
+        COA.A3(uld_COAs, env, pkgs, best_heurestic, allowed_ULDs, logging=logging)
 
     def solve(self, env: Environment):
         """
@@ -485,30 +496,22 @@ class COA(PackingAlgorithm):
         priority_pkgs = [pkg for pkg in env.packages if pkg.is_priority]
         economy_pkgs = [pkg for pkg in env.packages if not pkg.is_priority]
 
-        uld_COAs = {
-            uld.id - 1: [
-                Point(0, 0, 0),
-                Point(uld.dim.l, 0, 0),
-                Point(0, uld.dim.w, 0),
-                Point(uld.dim.l, uld.dim.w, 0),
-            ]
-            for uld in sorted_ULDs
-        }
+        uld_COAs = {uld.id - 1: [Point(0, 0, 0)] for uld in sorted_ULDs}
 
         priority_heurestic = {
-            "priority_cost": 1,
-            "paste_number": 1000,
-            "paste_ratio": 1,
-            "largest_dim": 100,
-            "middle_dim": 1,
+            "priority_cost": 1000000,
+            "paste_number": 100000,
+            "paste_ratio": 1000,
+            "largest_dim": 1000,
+            "middle_dim": 100,
             "smallest_dim": 100,
-            "z_gravity": -100,
+            "z_gravity": -1000,
             "y_gravity": -100,
             "x_gravity": -100,
         }
 
         for uld in sorted_ULDs:
-            COA.A_neg_one(
+            COA.A3(
                 uld_COAs,
                 env,
                 priority_pkgs,
@@ -520,18 +523,11 @@ class COA(PackingAlgorithm):
 
         for uld in sorted_ULDs:
             print(f"ULD {uld.id}", file=sys.stderr)
-            heurestic = COA.A3(
+            COA.Ai(
                 uld_COAs,
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld.id - 1],
+                n_calls=10,
             )
-            COA.A_neg_one(
-                uld_COAs,
-                env,
-                economy_pkgs,
-                heurestic=heurestic,
-                allowed_ULDs=[uld.id - 1],
-            )
-
-        print(f"{'='*60}", file=sys.stderr)
+            print(f"{'='*60}", file=sys.stderr)
