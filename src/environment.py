@@ -11,7 +11,6 @@ from sortedcontainers import SortedList
 import numpy as np
 import streamlit as st
 
-
 from entity import ULD, Package, Point
 from geometry_helpers import is_point_in_convex_hull, rectangle_intersection
 
@@ -391,8 +390,13 @@ class Environment:
             f"\nCost ==> Priority: {priority_cost} + Delay: {delay_cost} = {priority_cost + delay_cost}"
         )
 
-    def animate(self, repeat=False, stepped=True):
+    def animate(self, repeat=False, stepped=False):
         """
+        Animate the process of adding packages to the ULDs.
+
+        Parameters:
+        repeat (bool): If True, the animation will loop after reaching the last frame.
+        stepped (bool): If True, the animation will be drawn step-by-step.
         Animate the process of adding packages to the ULDs.
 
         Parameters:
@@ -406,8 +410,10 @@ class Environment:
         cols = (num_ULDs + 1) // 2
         axes = []
         gs = fig.add_gridspec(rows + 1, cols, height_ratios=[*[1] * rows, 0.1])
+        gs = fig.add_gridspec(rows + 1, cols, height_ratios=[*[1] * rows, 0.1])
 
         for i, uld in enumerate(self.ULDs):
+            ax = fig.add_subplot(gs[i], projection="3d")
             ax = fig.add_subplot(gs[i], projection="3d")
             ax.set_xlabel("Length")
             ax.set_ylabel("Width")
@@ -480,52 +486,35 @@ class Environment:
                 )
             if stepped:
                 plt.draw()
-
         if stepped:
+            # Navigation buttons
             ax_prev = fig.add_subplot(gs[-1, 0])
             ax_next = fig.add_subplot(gs[-1, -1])
             btn_prev = Button(ax_prev, "Previous")
             btn_next = Button(ax_next, "Next")
 
             # Current frame tracking
-            current_frame = -1
-
+            current_frame = [0]
             def next_frame(event):
-                nonlocal current_frame
-                if current_frame < len(self.pkg_addition_order) - 1:
-                    current_frame += 1
-                    update(current_frame)
-                    print(
-                        "Added package",
-                        self.pkg_addition_order[current_frame] - 1,
-                        "which is",
-                        Environment.stability_id[
-                            self.stable[self.pkg_addition_order[current_frame] - 1]
-                        ],
-                    )
+                if current_frame[0] < len(self.pkg_addition_order) - 1:
+                    current_frame[0] += 1
+                    update(current_frame[0])
 
             def prev_frame(event):
-                nonlocal current_frame
-                if current_frame >= 0:
-                    current_frame -= 1
-                    update(current_frame)
-                    print(
-                        "Removed package",
-                        self.pkg_addition_order[current_frame] - 1,
-                        "which is",
-                        Environment.stability_id[
-                            self.stable[self.pkg_addition_order[current_frame] - 1]
-                        ],
-                    )
+                if current_frame[0] > 0:
+                    current_frame[0] -= 1
+                    update(current_frame[0])
 
             # Connect buttons to frame navigation
             btn_next.on_clicked(next_frame)
             btn_prev.on_clicked(prev_frame)
 
+            # Initial update
+            update(0)
         else:
             frames = range(0, len(self.pkg_addition_order))
 
-            _ = FuncAnimation(
+            ani = FuncAnimation(
                 fig,
                 update,
                 frames=frames,
