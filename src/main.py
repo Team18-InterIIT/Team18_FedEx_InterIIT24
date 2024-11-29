@@ -3,15 +3,16 @@ import time
 import parser
 from environment import Environment
 from util import Util
+from util import Util
 from insert_package import PackageInserter
 from entity import Package
 
 # The following import statement should be replaced with the correct import statement
-from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
+# from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
 
 # For Example:
-# from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
-
+# from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting_Simul_Annealing as PackingAlgorithm
+from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
@@ -46,7 +47,7 @@ for uld_id, order_list in order.items():
 
 # env.summary()
 # env.plot()
-# env.animate()
+env.animate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
 )
