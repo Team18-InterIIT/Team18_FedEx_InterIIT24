@@ -221,8 +221,6 @@ class COA(PackingAlgorithm):
             COA.distance_coa(uld, point_min, point_max) / ((volume) ** (1 / 3))
         )
 
-    dp = {}
-
     def A0(
         uld_COAs: dict[int, list[Point]],
         env: Environment,
@@ -285,24 +283,19 @@ class COA(PackingAlgorithm):
                     ):
                         continue
 
-                    if (coa, orientation, uld) in COA.dp:
-                        current_values = COA.dp[(coa, orientation, uld)]
-                    else:
-                        current_values = {
-                            "paste_number": COA.paste_number(uld, coa, orientation),
-                            "caving_degree": COA.caving_degree(uld, coa, orientation),
-                            "paste_ratio": COA.paste_ratio(uld, coa, orientation),
-                            "z_gravity": -(coa.z + orientation.z) / 2,
-                            "y_gravity": -(coa.y + orientation.y) / 2,
-                            "x_gravity": -(coa.x + orientation.x) / 2,
-                        }
-                        (
-                            current_values["largest_dim"],
-                            current_values["middle_dim"],
-                            current_values["smallest_dim"],
-                        ) = sorted([x_inc, y_inc, z_inc], reverse=True)
-
-                        COA.dp[(coa, orientation, uld)] = current_values
+                    current_values = {
+                        "paste_number": COA.paste_number(uld, coa, orientation),
+                        "caving_degree": COA.caving_degree(uld, coa, orientation),
+                        "paste_ratio": COA.paste_ratio(uld, coa, orientation),
+                        "z_gravity": -(coa.z + orientation.z) / 2,
+                        "y_gravity": -(coa.y + orientation.y) / 2,
+                        "x_gravity": -(coa.x + orientation.x) / 2,
+                    }
+                    (
+                        current_values["largest_dim"],
+                        current_values["middle_dim"],
+                        current_values["smallest_dim"],
+                    ) = sorted([x_inc, y_inc, z_inc], reverse=True)
 
                     current_values["priority_cost"] = -(
                         env.running_cost + env.K
@@ -373,30 +366,21 @@ class COA(PackingAlgorithm):
                             ):
                                 continue
 
-                            if (coa, orientation, uld) in COA.dp:
-                                current_values = COA.dp[(coa, orientation, uld)]
-                            else:
-                                current_values = {
-                                    "paste_number": COA.paste_number(
-                                        uld, coa, orientation
-                                    ),
-                                    "caving_degree": COA.caving_degree(
-                                        uld, coa, orientation
-                                    ),
-                                    "paste_ratio": COA.paste_ratio(
-                                        uld, coa, orientation
-                                    ),
-                                    "z_gravity": -(coa.z + orientation.z) / 2,
-                                    "y_gravity": -(coa.y + orientation.y) / 2,
-                                    "x_gravity": -(coa.x + orientation.x) / 2,
-                                }
-                                (
-                                    current_values["largest_dim"],
-                                    current_values["middle_dim"],
-                                    current_values["smallest_dim"],
-                                ) = sorted([x_inc, y_inc, z_inc], reverse=True)
-
-                                COA.dp[(coa, orientation, uld)] = current_values
+                            current_values = {
+                                "paste_number": COA.paste_number(uld, coa, orientation),
+                                "caving_degree": COA.caving_degree(
+                                    uld, coa, orientation
+                                ),
+                                "paste_ratio": COA.paste_ratio(uld, coa, orientation),
+                                "z_gravity": -(coa.z + orientation.z) / 2,
+                                "y_gravity": -(coa.y + orientation.y) / 2,
+                                "x_gravity": -(coa.x + orientation.x) / 2,
+                            }
+                            (
+                                current_values["largest_dim"],
+                                current_values["middle_dim"],
+                                current_values["smallest_dim"],
+                            ) = sorted([x_inc, y_inc, z_inc], reverse=True)
 
                             current_values["priority_cost"] = -(
                                 env.running_cost + env.K
@@ -433,7 +417,7 @@ class COA(PackingAlgorithm):
                     file=sys.stderr,
                 )
 
-        return (env.running_cost, first_pkg)
+        return (sum(env.cost()), first_pkg)
 
     def A1(
         uld_COAs: dict[int, list[Point]],
@@ -465,6 +449,7 @@ class COA(PackingAlgorithm):
         while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
             min_cost = float("inf")
             min_uld, min_coa, best_pkg = None, None, None
+            max_vol_util = None
             for uld_id, COAs in uld_COAs.items():
                 if uld_id not in allowed_ULDs:
                     continue
@@ -480,7 +465,7 @@ class COA(PackingAlgorithm):
                         new_env,
                         new_pkgs,
                         heurestic,
-                        allowed_ULDs=None,
+                        allowed_ULDs=allowed_ULDs,
                         init_coa=init_coa,
                         init_uld=init_uld,
                         logging=False,
@@ -491,6 +476,28 @@ class COA(PackingAlgorithm):
                         min_uld = init_uld.copy()
                         min_coa = copy.deepcopy(init_coa)
                         best_pkg = copy.deepcopy(pkg)
+                        max_vol_util = new_env.ULDs[
+                            init_uld.id - 1
+                        ].volume_utilisation()
+
+                    elif cost == min_cost and min_cost != float("inf"):
+                        print("Equal cost. Checking Volume")
+                        new_vol_util = new_env.ULDs[
+                            init_uld.id - 1
+                        ].volume_utilisation()
+                        print(new_vol_util, max_vol_util)
+                        if new_vol_util > max_vol_util:
+                            min_cost = cost
+                            min_uld = init_uld
+                            min_coa = copy.deepcopy(init_coa)
+                            best_pkg = copy.deepcopy(pkg)
+                            max_vol_util = new_vol_util
+                            print(f"Found better volume utilisation: {max_vol_util}")
+
+                    if cost != float("inf"):
+                        print(
+                            f"Finished path(A0) with cost {cost}, best cost {min_cost}"
+                        )
 
             if best_pkg is None:
                 break
@@ -569,13 +576,23 @@ class COA(PackingAlgorithm):
             "smallest_dim",
         ]
 
-        for uld in sorted_ULDs:
+        for uld_id in [4, 5, 2, 3]:
             print(f"ULD {uld.id}", file=sys.stderr)
             COA.A0(
-            uld_COAs,
-            env,
-            economy_pkgs,
-            heurestic=economy_heurestic,
-            allowed_ULDs=[uld.id - 1],
-        )
+                uld_COAs,
+                env,
+                economy_pkgs,
+                heurestic=economy_heurestic,
+                allowed_ULDs=[uld_id],
+            )
         print(f"{'='*60}", file=sys.stderr)
+        for uld_id in [0, 1]:
+            uld = env.ULDs[uld_id]
+            print(f"ULD {uld.id}", file=sys.stderr)
+            COA.A1(
+                uld_COAs,
+                env,
+                economy_pkgs,
+                heurestic=economy_heurestic,
+                allowed_ULDs=[uld_id],
+            )
