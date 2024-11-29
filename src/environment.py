@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+from matplotlib.widgets import Button
+
 from entity import ULD, Package, Point
 
 
@@ -296,9 +298,13 @@ class Environment:
             f"\nCost ==> Priority: {priority_cost} + Delay: {delay_cost} = {priority_cost + delay_cost}"
         )
 
-    def animate(self, repeat=False):
+    def animate(self, repeat=False, stepped=False):
         """
-        Animate the process of adding packages to the ULDs
+        Animate the process of adding packages to the ULDs.
+
+        Parameters:
+        repeat (bool): If True, the animation will loop after reaching the last frame.
+        stepped (bool): If True, the animation will be drawn step-by-step.
         """
 
         fig = plt.figure(figsize=(15, 10))
@@ -306,9 +312,10 @@ class Environment:
         rows = 2
         cols = (num_ULDs + 1) // 2
         axes = []
+        gs = fig.add_gridspec(rows + 1, cols, height_ratios=[*[1] * rows, 0.1])
 
         for i, uld in enumerate(self.ULDs):
-            ax = fig.add_subplot(rows, cols, i + 1, projection="3d")
+            ax = fig.add_subplot(gs[i], projection="3d")
             ax.set_xlabel("Length")
             ax.set_ylabel("Width")
             ax.set_zlabel("Height")
@@ -373,18 +380,44 @@ class Environment:
                         alpha=0.2,
                     )
                 )
+            if stepped:
+                plt.draw()
+        if stepped:
+            # Navigation buttons
+            ax_prev = fig.add_subplot(gs[-1, 0])
+            ax_next = fig.add_subplot(gs[-1, -1])
+            btn_prev = Button(ax_prev, "Previous")
+            btn_next = Button(ax_next, "Next")
 
-        frames_to_skip = 1
-        frames = range(0, len(self.pkg_addition_order), frames_to_skip)
+            # Current frame tracking
+            current_frame = [0]
+            def next_frame(event):
+                if current_frame[0] < len(self.pkg_addition_order) - 1:
+                    current_frame[0] += 1
+                    update(current_frame[0])
 
-        ani = FuncAnimation(
-            fig,
-            update,
-            frames=frames,
-            repeat=repeat,
-        )
+            def prev_frame(event):
+                if current_frame[0] > 0:
+                    current_frame[0] -= 1
+                    update(current_frame[0])
+
+            # Connect buttons to frame navigation
+            btn_next.on_clicked(next_frame)
+            btn_prev.on_clicked(prev_frame)
+
+            # Initial update
+            update(0)
+        else:
+            frames = range(0, len(self.pkg_addition_order))
+
+            ani = FuncAnimation(
+                fig,
+                update,
+                frames=frames,
+                repeat=repeat,
+            )
+
         plt.tight_layout()
-        fig.subplots_adjust(top=0.9)
         plt.show()
         plt.close()
 
