@@ -203,6 +203,9 @@ class ULD:
     def __repr__(self):
         return f'ULD {self.id}\t {self.dim}\t {self.weight}/{self.weight_limit}\t {"Prioritised" if self.has_priority else "Not prioritised"}\t No. of packages: {len(self.packages)}'
 
+    def __hash__(self):
+        return hash((self.id, self.weight, len(self.packages)))
+
     def summary(self):
         return (
             f"ULD {self.id}\n"
