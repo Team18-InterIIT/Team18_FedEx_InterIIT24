@@ -146,7 +146,7 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
         #Hill climbing
         priority_state = mlrose.random_hill_climb(
             priority_problem,
-            max_iters=20,
+            max_iters=10,
             init_state=init_state,
             random_state=None,
         )
@@ -228,8 +228,8 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
         economy_state = mlrose.simulated_annealing(
             economy_problem,
             schedule=economy_schedule,
-            max_attempts=10,
-            max_iters=1000,
+            max_attempts=2,
+            max_iters=2,
             init_state=init_state,
             random_state=None,
         )
