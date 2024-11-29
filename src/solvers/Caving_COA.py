@@ -325,12 +325,13 @@ class COA(PackingAlgorithm):
             if best_pkg is None:
                 return float("inf"), None
 
-            env.add_package(best_pkg, uld, corners=(coa, best_orientation))
+            env.add_package(best_pkg.id, uld.id, corners=(coa, best_orientation))
             pkgs.remove(best_pkg)
             uld_COAs[uld.id - 1].remove(coa)
             for corner_idx in (1, 2, 4):
                 uld_COAs[uld.id - 1].append(best_pkg.get_corners()[corner_idx])
 
+            best_pkg.copy_from(env.packages[best_pkg.id - 1])
             first_pkg = copy.deepcopy(best_pkg)
 
         while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
@@ -500,10 +501,7 @@ class COA(PackingAlgorithm):
 
             pkg = env.packages[pkg_id - 1]
             pkgs.remove(pkg)
-            for i, coa in enumerate(uld_COAs[min_uld.id - 1]):
-                if coa == min_coa:
-                    uld_COAs[min_uld.id - 1].pop(i)
-                    break
+            uld_COAs[uld_id - 1].remove(min_coa)
             for corner_idx in (1, 2, 4):
                 uld_COAs[min_uld.id - 1].append(best_pkg.get_corners()[corner_idx])
 
@@ -524,7 +522,8 @@ class COA(PackingAlgorithm):
         economy_pkgs = [pkg for pkg in env.packages if not pkg.is_priority]
 
         uld_COAs = {
-            uld.id - 1: [
+            uld.id
+            - 1: [
                 Point(0, 0, 0),
                 Point(uld.dim.l, 0, 0),
                 Point(0, uld.dim.w, 0),
@@ -573,10 +572,10 @@ class COA(PackingAlgorithm):
         for uld in sorted_ULDs:
             print(f"ULD {uld.id}", file=sys.stderr)
             COA.A0(
-                uld_COAs,
-                env,
-                economy_pkgs,
-                heurestic=economy_heurestic,
-                allowed_ULDs=[uld.id - 1],
-            )
-            print(f"{'='*60}", file=sys.stderr)
+            uld_COAs,
+            env,
+            economy_pkgs,
+            heurestic=economy_heurestic,
+            allowed_ULDs=[uld.id - 1],
+        )
+        print(f"{'='*60}", file=sys.stderr)
