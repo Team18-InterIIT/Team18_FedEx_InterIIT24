@@ -2,13 +2,14 @@ import sys
 
 import parser
 from environment import Environment
+from util import Util
 
 # The following import statement should be replaced with the correct import statement
-from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
+# from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
 
 # For Example:
-# from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
-
+# from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting_Simul_Annealing as PackingAlgorithm
+from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
@@ -27,10 +28,14 @@ model = PackingAlgorithm()
 model.solve(env)
 # To read from a solution file, use the following line instead of the above line
 # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
+order = Util(env).order()
+env.pkg_addition_order = []
+for uld_id, order_list in order.items():
+    env.pkg_addition_order.extend(order_list)
 
 env.summary()
 # env.plot()
-# env.animate()
+env.animate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
 )
