@@ -6,6 +6,8 @@ from itertools import permutations
 from skopt import gp_minimize
 from skopt.space import Integer
 
+from scipy.optimize import minimize
+
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
@@ -468,7 +470,11 @@ class COA(PackingAlgorithm):
 
         sorted_ULD_ids = sorted(
             range(len(env.ULDs)),
-            key=lambda uld_id: env.ULDs[uld_id].volume(),
+            key=lambda uld_id: (
+                env.ULDs[uld_id].volume(),
+                env.ULDs[uld_id].weight,
+                uld_id,
+            ),
             reverse=True,
         )
         priority_pkgs = [pkg for pkg in env.packages if pkg.is_priority]
@@ -500,12 +506,13 @@ class COA(PackingAlgorithm):
 
         print(f"{'='*60}")
 
-        COA.Ai(
-            uld_COAs,
-            env,
-            economy_pkgs,
-            allowed_ULDs=sorted_ULD_ids,
-            # allowed_ULDs=[uld_id],
-            n_calls=10,
-        )
-        print(f"{'='*60}")
+        for uld_id in sorted_ULD_ids:
+            print(f"ULD: {uld_id + 1}")
+            COA.Ai(
+                uld_COAs,
+                env,
+                economy_pkgs,
+                allowed_ULDs=[uld_id],
+                n_calls=40,
+            )
+            print(f"{'='*60}")
