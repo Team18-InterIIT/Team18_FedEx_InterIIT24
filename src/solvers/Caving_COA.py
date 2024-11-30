@@ -248,15 +248,15 @@ class COA(PackingAlgorithm):
     ):
         if heuristic is None:
             heuristic = {
-                "included_cost": 7967464,
-                "paste_number": 1835,
-                "paste_ratio": 780,
-                "largest_dim": 2985,
-                "middle_dim": 223,
-                "smallest_dim": 11,
-                "z_gravity": -2704,
-                "y_gravity": -666,
-                "x_gravity": -214,
+                "included_cost": 30503351,
+                "paste_number": 9767,
+                "paste_ratio": 1,
+                "largest_dim": 2244,
+                "middle_dim": 1,
+                "smallest_dim": 33,
+                "z_gravity": -5000,
+                "y_gravity": -925,
+                "x_gravity": 0,
             }
 
         if allowed_ULDs is None:
@@ -508,7 +508,7 @@ class COA(PackingAlgorithm):
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            COA.Ai(
+            COA.A3(
                 uld_COAs,
                 env,
                 economy_pkgs,
