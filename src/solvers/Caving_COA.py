@@ -385,7 +385,14 @@ class COA(PackingAlgorithm):
         if logging:
             print("", file=sys.stderr)
 
-        return sum(env.cost(priority_check=False))
+        volume_utilization = 0
+        for uld_id in allowed_ULDs:
+            uld = env.ULDs[uld_id]
+            volume_utilization += uld.volume_utilisation()
+        volume_utilization/=len(allowed_ULDs) 
+        if logging:
+            print(f"Volume Utilization is {volume_utilization}")
+        return sum(env.cost(priority_check=False)) + 1000*(1-volume_utilization)
 
     def Ai(
         uld_COAs: dict[int, list[Point]],
@@ -650,11 +657,13 @@ class COA(PackingAlgorithm):
 
         print(f"{'='*60}", file=sys.stderr)
 
+        for uld_id in [5,4,3,2,1,0]:
+            print(f"ULD {uld_id}")
         COA.Ai(
             uld_COAs,
             env,
             economy_pkgs,
-            allowed_ULDs=sorted_ULD_ids,
+                allowed_ULDs=[uld_id],
             n_calls=40,
             optimizer="gp_minimize",
         )
