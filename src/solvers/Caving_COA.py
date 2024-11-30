@@ -3,8 +3,6 @@ import random
 import sys
 from itertools import permutations
 
-import torch
-import torch.nn as nn
 from deap import algorithms, base, creator, tools
 from skopt import gp_minimize
 from skopt.space import Integer
@@ -12,10 +10,6 @@ from skopt.space import Integer
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
-
-torch.manual_seed(42)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using {device} device")
 
 
 class COA(PackingAlgorithm):
@@ -245,14 +239,14 @@ class COA(PackingAlgorithm):
         uld_COAs: dict[int, list[Point]],
         env: Environment,
         pkgs: list[Package],
-        heurestic: dict[str, int] = None,
+        heuristic: dict[str, int] = None,
         allowed_ULDs: list[int] = None,
         verbose: bool = True,
         prune_COAs: bool = True,
         **kwargs,
     ):
-        if heurestic is None:
-            heurestic = {
+        if heuristic is None:
+            heuristic = {
                 "included_cost": 7967464,
                 "paste_number": 1835,
                 "paste_ratio": 780,
@@ -339,7 +333,7 @@ class COA(PackingAlgorithm):
 
                             current_value = sum(
                                 weight * current_values[param]
-                                for param, weight in heurestic.items()
+                                for param, weight in heuristic.items()
                             )
 
                             if current_value > max_value:
@@ -408,7 +402,7 @@ class COA(PackingAlgorithm):
         print(f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}")
 
         def objective(params):
-            heurestic = {
+            heuristic = {
                 "included_cost": params[0],
                 "paste_number": params[1],
                 "paste_ratio": params[2],
@@ -425,7 +419,7 @@ class COA(PackingAlgorithm):
             pkgs_copy = copy.deepcopy(pkgs)
 
             cost = COA.A3(
-                uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, verbose
+                uld_COAs_copy, env_copy, pkgs_copy, heuristic, allowed_ULDs, verbose
             )
 
             if verbose:
@@ -433,7 +427,7 @@ class COA(PackingAlgorithm):
 
             return cost
 
-        best_heurestic = None
+        best_heuristic = None
 
         if optimizer == "gp_minimize":
             space = [
@@ -451,7 +445,7 @@ class COA(PackingAlgorithm):
             res = gp_minimize(objective, space, n_calls=n_calls, random_state=42)
 
             best_params = res.x
-            best_heurestic = {
+            best_heuristic = {
                 "included_cost": best_params[0],
                 "paste_number": best_params[1],
                 "paste_ratio": best_params[2],
@@ -462,79 +456,13 @@ class COA(PackingAlgorithm):
                 "y_gravity": best_params[7],
                 "x_gravity": best_params[8],
             }
-
-        elif optimizer == "torch":
-
-            class HeuresticTuner(nn.Module):
-                def __init__(self):
-                    super().__init__()
-                    self.params = nn.Parameter(
-                        torch.tensor(
-                            [7967464, 1835, 780, 2985, 223, 11, -2704, -666, -214],
-                            dtype=torch.float,
-                            requires_grad=True,
-                        )
-                    )
-
-                def forward(self):
-                    return self.params
-
-            def torched_objective_function(params):
-                heurestic = {
-                    "included_cost": params[0],
-                    "paste_number": params[1],
-                    "paste_ratio": params[2],
-                    "largest_dim": params[3],
-                    "middle_dim": params[4],
-                    "smallest_dim": params[5],
-                    "z_gravity": params[6],
-                    "y_gravity": params[7],
-                    "x_gravity": params[8],
-                }
-
-                env_copy = copy.deepcopy(env)
-                uld_COAs_copy = copy.deepcopy(uld_COAs)
-                pkgs_copy = copy.deepcopy(pkgs)
-
-                cost = COA.A3(
-                    uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, verbose
-                )
-
-                return torch.tensor(cost, dtype=torch.float, requires_grad=True)
-
-            tuner = HeuresticTuner()
-            optimizer = torch.optim.Adam(tuner.parameters(), lr=0.01)
-
-            for epoch in range(n_calls):
-                optimizer.zero_grad()
-                loss = torched_objective_function(tuner())
-                loss.backward()
-                optimizer.step()
-                if verbose:
-                    print(f"Epoch {epoch}: Cost: {loss.item()}")
-
-            best_params = tuner().detach().numpy()
-            best_heurestic = {
-                "included_cost": best_params[0],
-                "paste_number": best_params[1],
-                "paste_ratio": best_params[2],
-                "largest_dim": best_params[3],
-                "middle_dim": best_params[4],
-                "smallest_dim": best_params[5],
-                "z_gravity": best_params[6],
-                "y_gravity": best_params[7],
-                "x_gravity": best_params[8],
-            }
-
-            if verbose:
-                print(f"Cost: {loss.item()}")
 
         elif optimizer == "genetic":
             creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
             creator.create("Individual", list, fitness=creator.FitnessMin)
 
             def eval_heuristic(individual):
-                heurestic = {
+                heuristic = {
                     "included_cost": individual[0],
                     "paste_number": individual[1],
                     "paste_ratio": individual[2],
@@ -551,7 +479,7 @@ class COA(PackingAlgorithm):
                 pkgs_copy = copy.deepcopy(pkgs)
 
                 cost = COA.A3(
-                    uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, verbose
+                    uld_COAs_copy, env_copy, pkgs_copy, heuristic, allowed_ULDs, verbose
                 )
 
                 return (cost,)
@@ -596,7 +524,7 @@ class COA(PackingAlgorithm):
             )
 
             best_individual = tools.selBest(population, k=1)[0]
-            best_heurestic = {
+            best_heuristic = {
                 "included_cost": best_individual[0],
                 "paste_number": best_individual[1],
                 "paste_ratio": best_individual[2],
@@ -608,11 +536,11 @@ class COA(PackingAlgorithm):
                 "x_gravity": best_individual[8],
             }
 
-        print(f"Best heurestic:\n{best_heurestic}\n\n", file=open("heuristic.log", "a"))
+        print(f"Best heuristic:\n{best_heuristic}\n\n", file=open("heuristic.log", "a"))
 
-        COA.A3(uld_COAs, env, pkgs, best_heurestic, allowed_ULDs, verbose=verbose)
+        COA.A3(uld_COAs, env, pkgs, best_heuristic, allowed_ULDs, verbose=verbose)
 
-        return best_heurestic
+        return best_heuristic
 
     def solve(self, env: Environment):
         """
@@ -630,7 +558,7 @@ class COA(PackingAlgorithm):
 
         uld_COAs = {uld.id - 1: [Point(0, 0, 0)] for uld in env.ULDs}
 
-        priority_heurestic = {
+        priority_heuristic = {
             "included_cost": 1000000,
             "paste_number": 100000,
             "paste_ratio": 1000,
@@ -647,7 +575,7 @@ class COA(PackingAlgorithm):
                 uld_COAs,
                 env,
                 priority_pkgs,
-                heurestic=priority_heurestic,
+                heuristic=priority_heuristic,
                 allowed_ULDs=[uld_id],
                 prune_COAs=False,
             )
@@ -660,8 +588,8 @@ class COA(PackingAlgorithm):
                 uld_COAs,
                 env,
                 economy_pkgs,
+                # allowed_ULDs=sorted_ULD_ids,
                 allowed_ULDs=[uld_id],
-                n_calls=40,
-                optimizer="gp_minimize",
+                n_calls=2,
             )
             print(f"{'='*60}")
