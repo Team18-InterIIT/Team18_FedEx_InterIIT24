@@ -400,6 +400,7 @@ class Environment:
                     )
 
             def prev_frame(event):
+                nonlocal current_frame
                 if current_frame >= 0:
                     current_frame -= 1
                     update(current_frame)
@@ -524,6 +525,8 @@ class Environment:
                     if stable_coords[i][0].z > curr_z:
                         right_z = i - 1
                         break
+                    elif stable_coords[i][0].z < curr_z:
+                        left_z = i + 1
                 else:
                     right_z = len(stable_coords) - 1
 
