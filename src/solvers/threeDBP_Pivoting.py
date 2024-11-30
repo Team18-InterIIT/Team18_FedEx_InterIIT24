@@ -5,7 +5,7 @@ from entity import ULD, Package, Point
 from environment import Environment
 
 
-class ThreeDBP_Pivoting(PackingAlgorithm):
+class Algorithm(PackingAlgorithm):
     def solve(self, env: Environment):
         """
         https://github.com/enzoruiz/3dbinpacking/blob/master/erick_dube_507-034.pdf
