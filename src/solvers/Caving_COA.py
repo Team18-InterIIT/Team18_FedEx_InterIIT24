@@ -231,6 +231,16 @@ class COA(PackingAlgorithm):
             COA.distance_coa(uld, point_min, point_max) / ((volume) ** (1 / 3))
         )
 
+    def generate_COAs(point_min: Point, point_max: Point) -> list[Point]:
+        x, y, z = point_min.x, point_min.y, point_min.z
+        l, w, h = point_max.x - x, point_max.y - y, point_max.z - z
+
+        return [
+            Point(x + l, y, z),
+            Point(x, y + w, z),
+            Point(x, y, z + h),
+        ]
+
     def A3(
         uld_COAs: dict[int, list[Point]],
         env: Environment,
@@ -260,7 +270,10 @@ class COA(PackingAlgorithm):
         total_pkgs = len(pkgs)
 
         if logging:
-            print(f"A3 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}", file=sys.stderr)
+            print(
+                f"A3 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}",
+                file=sys.stderr,
+            )
 
         while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
             best_coa = None
@@ -290,7 +303,10 @@ class COA(PackingAlgorithm):
                             )
 
                             if not env.add_package(
-                                pkg.id, uld.id, corners=(coa, orientation), simulate=True
+                                pkg.id,
+                                uld.id,
+                                corners=(coa, orientation),
+                                simulate=True,
                             ):
                                 continue
 
@@ -355,8 +371,8 @@ class COA(PackingAlgorithm):
 
             pkgs.remove(best_pkg)
             uld_COAs[best_uld.id - 1].remove(best_coa)
-            for corner_idx in (1, 2, 4):
-                uld_COAs[best_uld.id - 1].append(best_pkg.get_corners()[corner_idx])
+            for new_coa in COA.generate_COAs(best_coa, best_orientation):
+                uld_COAs[best_uld.id - 1].append(new_coa)
 
             if logging:
                 print(
@@ -383,7 +399,9 @@ class COA(PackingAlgorithm):
         if allowed_ULDs is None:
             allowed_ULDs = list(range(len(env.ULDs)))
 
-        print(f"Allowed ULDs: {allowed_ULDs}", file=sys.stderr)
+        print(
+            f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}", file=sys.stderr
+        )
 
         def objective(params):
             heurestic = {
@@ -637,6 +655,6 @@ class COA(PackingAlgorithm):
             env,
             economy_pkgs,
             allowed_ULDs=sorted_ULD_ids,
-            n_calls=20,
+            n_calls=40,
             optimizer="gp_minimize",
         )
