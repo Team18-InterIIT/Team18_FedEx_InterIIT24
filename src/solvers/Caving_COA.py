@@ -239,6 +239,8 @@ class COA(PackingAlgorithm):
         heurestic: dict[str, int] = None,
         allowed_ULDs: list[int] = None,
         logging: bool = True,
+        prune_COAs: bool = True,
+        **kwargs,
     ):
         if heurestic is None:
             heurestic = {
@@ -269,12 +271,17 @@ class COA(PackingAlgorithm):
 
             max_value = float("-inf")
 
-            for uld_id, COAs in uld_COAs.items():
-                if uld_id not in allowed_ULDs:
-                    continue
-
+            for uld_id in allowed_ULDs:
                 uld = env.ULDs[uld_id]
+                COAs = uld_COAs[uld_id]
+
+                if prune_COAs:
+                    COAs_to_remove = []
+
                 for coa in COAs:
+                    if prune_COAs:
+                        found_atleast_one_package = False
+
                     for pkg in pkgs:
                         for x_inc, y_inc, z_inc in permutations(
                             (pkg.dim.l, pkg.dim.w, pkg.dim.h)
@@ -288,12 +295,26 @@ class COA(PackingAlgorithm):
                             ):
                                 continue
 
+                            found_atleast_one_package = True
+
                             current_values = {
                                 "paste_number": COA.paste_number(uld, coa, orientation),
                                 "paste_ratio": COA.paste_ratio(uld, coa, orientation),
                                 "z_gravity": (coa.z + orientation.z) / 2,
                                 "y_gravity": (coa.y + orientation.y) / 2,
                                 "x_gravity": (coa.x + orientation.x) / 2,
+                                "priority_cost": (
+                                    sum(
+                                        pkg.cost
+                                        for pkg in env.packages
+                                        if (not pkg.is_priority and pkg.uld_id == 0)
+                                    )
+                                    + sum(env.K for uld in env.ULDs if uld.has_priority)
+                                    + env.K
+                                    if (not uld.has_priority and pkg.is_priority)
+                                    else 0
+                                ),
+                                "included_cost": (pkg.cost**1.5 / pkg.volume() ** 0.8),
                             }
                             (
                                 current_values["largest_dim"],
@@ -301,26 +322,10 @@ class COA(PackingAlgorithm):
                                 current_values["smallest_dim"],
                             ) = sorted([x_inc, y_inc, z_inc], reverse=True)
 
-                            current_values["priority_cost"] = (
-                                sum(
-                                    pkg.cost
-                                    for pkg in env.packages
-                                    if (not pkg.is_priority and pkg.uld_id == 0)
-                                )
-                                + sum(env.K for uld in env.ULDs if uld.has_priority)
-                                + env.K
-                                if (not uld.has_priority and pkg.is_priority)
-                                else 0
+                            current_value = sum(
+                                weight * current_values[param]
+                                for param, weight in heurestic.items()
                             )
-                            current_values["included_cost"] = (
-                                pkg.cost**1.5 / pkg.volume() ** 0.8
-                            )
-
-                            current_value = 0
-                            for param, weight in heurestic.items():
-                                if weight == 0:
-                                    continue
-                                current_value += weight * current_values[param]
 
                             if current_value > max_value:
                                 max_value = current_value
@@ -330,10 +335,24 @@ class COA(PackingAlgorithm):
                                 best_orientation = orientation
                                 best_uld = uld
 
+                    if prune_COAs and not found_atleast_one_package:
+                        COAs_to_remove.append(coa)
+
+                if prune_COAs:
+                    for coa in COAs_to_remove:
+                        COAs.remove(coa)
+
             if best_coa is None:
                 break
 
-            env.add_package(best_pkg, best_uld, corners=(best_coa, best_orientation))
+            env.add_package(
+                best_pkg,
+                best_uld,
+                corners=(best_coa, best_orientation),
+                collision_check=False,
+                weight_limit_check=False,
+            )
+
             pkgs.remove(best_pkg)
             uld_COAs[best_uld.id - 1].remove(best_coa)
             for corner_idx in (1, 2, 4):
@@ -482,6 +501,8 @@ class COA(PackingAlgorithm):
 
         COA.A3(uld_COAs, env, pkgs, best_heurestic, allowed_ULDs, logging=logging)
 
+        return best_heurestic
+
     def solve(self, env: Environment):
         """
         https://www.sciencedirect.com/science/article/pii/S0305054807001785
@@ -513,13 +534,14 @@ class COA(PackingAlgorithm):
                 priority_pkgs,
                 heurestic=priority_heurestic,
                 allowed_ULDs=[uld.id - 1],
+                prune_COAs=False,
             )
 
         print(f"{'='*60}", file=sys.stderr)
 
         for uld in sorted_ULDs:
             print(f"ULD {uld.id}", file=sys.stderr)
-            COA.Ai(
+            COA.A3(
                 uld_COAs,
                 env,
                 economy_pkgs,
