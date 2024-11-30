@@ -393,6 +393,7 @@ class COA(PackingAlgorithm):
         env: Environment,
         pkgs: list[Package],
         allowed_ULDs: list[int] = None,
+        prune_COAs: bool = True,
         verbose: bool = True,
         n_calls: int = 20,
     ):
@@ -419,7 +420,12 @@ class COA(PackingAlgorithm):
             pkgs_copy = copy.deepcopy(pkgs)
 
             cost = COA.A3(
-                uld_COAs_copy, env_copy, pkgs_copy, heuristic, allowed_ULDs, verbose
+                uld_COAs_copy,
+                env_copy,
+                pkgs_copy,
+                heuristic=heuristic,
+                allowed_ULDs=allowed_ULDs,
+                verbose=verbose,
             )
 
             if verbose:
@@ -458,7 +464,15 @@ class COA(PackingAlgorithm):
 
         print(f"Best heuristic:\n{best_heuristic}\n\n", file=open("heuristic.log", "a"))
 
-        COA.A3(uld_COAs, env, pkgs, best_heuristic, allowed_ULDs, verbose=verbose)
+        COA.A3(
+            uld_COAs,
+            env,
+            pkgs,
+            heuristic=best_heuristic,
+            prune_COAs=prune_COAs,
+            allowed_ULDs=allowed_ULDs,
+            verbose=verbose,
+        )
 
         return best_heuristic
 
@@ -495,24 +509,25 @@ class COA(PackingAlgorithm):
         }
 
         for uld_id in sorted_ULD_ids:
-            COA.A3(
+            COA.Ai(
                 uld_COAs,
                 env,
                 priority_pkgs,
-                heuristic=priority_heuristic,
+                # heuristic=priority_heuristic,
                 allowed_ULDs=[uld_id],
                 prune_COAs=False,
+                n_calls=10,
             )
 
         print(f"{'='*60}")
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            COA.A3(
+            COA.Ai(
                 uld_COAs,
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                n_calls=40,
+                n_calls=10,
             )
             print(f"{'='*60}")
