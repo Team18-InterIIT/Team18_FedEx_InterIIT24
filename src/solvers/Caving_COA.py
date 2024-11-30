@@ -260,7 +260,7 @@ class COA(PackingAlgorithm):
         total_pkgs = len(pkgs)
 
         if logging:
-            print(f"Total packages: {total_pkgs}", file=sys.stderr)
+            print(f"A3 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}", file=sys.stderr)
 
         while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
             best_coa = None
@@ -290,7 +290,7 @@ class COA(PackingAlgorithm):
                             )
 
                             if not env.add_package(
-                                pkg, uld, corners=(coa, orientation), simulate=True
+                                pkg.id, uld.id, corners=(coa, orientation), simulate=True
                             ):
                                 continue
 
@@ -360,9 +360,14 @@ class COA(PackingAlgorithm):
 
             if logging:
                 print(
-                    f"Package {total_pkgs - len(pkgs)}/{total_pkgs}",  # TODO: fix the denominator
+                    f"\rPackage {total_pkgs - len(pkgs)}/{total_pkgs} added to ULD {best_uld.id}",
+                    end="",
                     file=sys.stderr,
                 )
+                sys.stderr.flush()
+
+        if logging:
+            print("", file=sys.stderr)
 
         return sum(env.cost(priority_check=False))
 
@@ -377,6 +382,8 @@ class COA(PackingAlgorithm):
     ):
         if allowed_ULDs is None:
             allowed_ULDs = list(range(len(env.ULDs)))
+
+        print(f"Allowed ULDs: {allowed_ULDs}", file=sys.stderr)
 
         def objective(params):
             heurestic = {
@@ -591,11 +598,15 @@ class COA(PackingAlgorithm):
         """
         random.seed(42)
 
-        sorted_ULDs = sorted(env.ULDs, key=lambda uld: uld.volume(), reverse=True)
+        sorted_ULD_ids = sorted(
+            range(len(env.ULDs)),
+            key=lambda uld_id: env.ULDs[uld_id].volume(),
+            reverse=True,
+        )
         priority_pkgs = [pkg for pkg in env.packages if pkg.is_priority]
         economy_pkgs = [pkg for pkg in env.packages if not pkg.is_priority]
 
-        uld_COAs = {uld.id - 1: [Point(0, 0, 0)] for uld in sorted_ULDs}
+        uld_COAs = {uld.id - 1: [Point(0, 0, 0)] for uld in env.ULDs}
 
         priority_heurestic = {
             "included_cost": 1000000,
@@ -609,7 +620,7 @@ class COA(PackingAlgorithm):
             "x_gravity": -100,
         }
 
-        for uld_id in [5, 4, 3, 2, 1, 0]:
+        for uld_id in sorted_ULD_ids:
             COA.A3(
                 uld_COAs,
                 env,
@@ -621,13 +632,11 @@ class COA(PackingAlgorithm):
 
         print(f"{'='*60}", file=sys.stderr)
 
-        for uld_id in [5, 4, 3, 2, 1, 0]:
-            print(f"ULD {uld_id + 1}", file=sys.stderr)
-            COA.Ai(
-                uld_COAs,
-                env,
-                economy_pkgs,
-                allowed_ULDs=[uld_id],
-                n_calls=10,
-            )
-            print(f"{'='*60}", file=sys.stderr)
+        COA.Ai(
+            uld_COAs,
+            env,
+            economy_pkgs,
+            allowed_ULDs=sorted_ULD_ids,
+            n_calls=20,
+            optimizer="gp_minimize",
+        )
