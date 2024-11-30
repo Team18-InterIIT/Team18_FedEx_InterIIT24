@@ -15,7 +15,7 @@ from environment import Environment
 
 torch.manual_seed(42)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using {device} device", file=sys.stderr)
+print(f"Using {device} device")
 
 
 class COA(PackingAlgorithm):
@@ -247,7 +247,7 @@ class COA(PackingAlgorithm):
         pkgs: list[Package],
         heurestic: dict[str, int] = None,
         allowed_ULDs: list[int] = None,
-        logging: bool = True,
+        verbose: bool = True,
         prune_COAs: bool = True,
         **kwargs,
     ):
@@ -269,10 +269,9 @@ class COA(PackingAlgorithm):
 
         total_pkgs = len(pkgs)
 
-        if logging:
+        if verbose:
             print(
-                f"A3 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}",
-                file=sys.stderr,
+                f"A3 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}"
             )
 
         while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
@@ -374,41 +373,39 @@ class COA(PackingAlgorithm):
             for new_coa in COA.generate_COAs(best_coa, best_orientation):
                 uld_COAs[best_uld.id - 1].append(new_coa)
 
-            if logging:
+            if verbose:
                 print(
                     f"\rPackage {total_pkgs - len(pkgs)}/{total_pkgs} added to ULD {best_uld.id}",
                     end="",
-                    file=sys.stderr,
                 )
-                sys.stderr.flush()
+                sys.stdout.flush()
 
-        if logging:
-            print("", file=sys.stderr)
+        if verbose:
+            print("")
 
         volume_utilization = 0
         for uld_id in allowed_ULDs:
             uld = env.ULDs[uld_id]
             volume_utilization += uld.volume_utilisation()
-        volume_utilization/=len(allowed_ULDs) 
-        if logging:
-            print(f"Volume Utilization is {volume_utilization}")
-        return sum(env.cost(priority_check=False)) + 1000*(1-volume_utilization)
+        volume_utilization /= len(allowed_ULDs)
+        if verbose:
+            print(f"Volume Utilization: {volume_utilization}")
+
+        return sum(env.cost(priority_check=False)) + 1000 * (1 - volume_utilization)
 
     def Ai(
         uld_COAs: dict[int, list[Point]],
         env: Environment,
         pkgs: list[Package],
         allowed_ULDs: list[int] = None,
-        logging: bool = True,
+        verbose: bool = True,
         optimizer: str = "gp_minimize",
         n_calls: int = 20,
     ):
         if allowed_ULDs is None:
             allowed_ULDs = list(range(len(env.ULDs)))
 
-        print(
-            f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}", file=sys.stderr
-        )
+        print(f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}")
 
         def objective(params):
             heurestic = {
@@ -428,11 +425,11 @@ class COA(PackingAlgorithm):
             pkgs_copy = copy.deepcopy(pkgs)
 
             cost = COA.A3(
-                uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, logging
+                uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, verbose
             )
 
-            if logging:
-                print(f"Cost: {cost}", file=sys.stderr)
+            if verbose:
+                print(f"Cost: {cost}")
 
             return cost
 
@@ -500,7 +497,7 @@ class COA(PackingAlgorithm):
                 pkgs_copy = copy.deepcopy(pkgs)
 
                 cost = COA.A3(
-                    uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, logging
+                    uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, verbose
                 )
 
                 return torch.tensor(cost, dtype=torch.float, requires_grad=True)
@@ -513,8 +510,8 @@ class COA(PackingAlgorithm):
                 loss = torched_objective_function(tuner())
                 loss.backward()
                 optimizer.step()
-                if logging:
-                    print(f"Epoch {epoch}: Cost: {loss.item()}", file=sys.stderr)
+                if verbose:
+                    print(f"Epoch {epoch}: Cost: {loss.item()}")
 
             best_params = tuner().detach().numpy()
             best_heurestic = {
@@ -529,8 +526,8 @@ class COA(PackingAlgorithm):
                 "x_gravity": best_params[8],
             }
 
-            if logging:
-                print(f"Cost: {loss.item()}", file=sys.stderr)
+            if verbose:
+                print(f"Cost: {loss.item()}")
 
         elif optimizer == "genetic":
             creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -554,7 +551,7 @@ class COA(PackingAlgorithm):
                 pkgs_copy = copy.deepcopy(pkgs)
 
                 cost = COA.A3(
-                    uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, logging
+                    uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, verbose
                 )
 
                 return (cost,)
@@ -613,7 +610,7 @@ class COA(PackingAlgorithm):
 
         print(f"Best heurestic:\n{best_heurestic}\n\n", file=open("heuristic.log", "a"))
 
-        COA.A3(uld_COAs, env, pkgs, best_heurestic, allowed_ULDs, logging=logging)
+        COA.A3(uld_COAs, env, pkgs, best_heurestic, allowed_ULDs, verbose=verbose)
 
         return best_heurestic
 
@@ -655,15 +652,16 @@ class COA(PackingAlgorithm):
                 prune_COAs=False,
             )
 
-        print(f"{'='*60}", file=sys.stderr)
+        print(f"{'='*60}")
 
-        for uld_id in [5,4,3,2,1,0]:
+        for uld_id in [5, 4, 3, 2, 1, 0]:
             print(f"ULD {uld_id}")
-        COA.Ai(
-            uld_COAs,
-            env,
-            economy_pkgs,
+            COA.Ai(
+                uld_COAs,
+                env,
+                economy_pkgs,
                 allowed_ULDs=[uld_id],
-            n_calls=40,
-            optimizer="gp_minimize",
-        )
+                n_calls=40,
+                optimizer="gp_minimize",
+            )
+            print(f"{'='*60}")
