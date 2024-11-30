@@ -6,6 +6,10 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from entity import ULD, Package, Point
 
+from matplotlib.widgets import Button
+
+from geometry_helpers import rectangle_intersection, is_point_in_convex_hull
+
 
 class Environment:
     """
@@ -274,6 +278,7 @@ class Environment:
         """
         Print a summary of the packing
         """
+        self.check_stability()
         delay_cost, priority_cost = self.cost()
 
         packages = set(pkg for pkg in self.packages)
@@ -286,15 +291,21 @@ class Environment:
 
         print(
             f"Number of packages placed: {len(placed)}\nNumber of packages not placed: {len(not_placed)}"
+            f"\nNumber of stable packages: {sum(1 for pkg in self.stable if self.stable[pkg] == 'Stable')}"
+            f"\nNumber of unstable packages: {sum(1 for pkg in self.stable if self.stable[pkg] == 'Unstable')}"
             f"\nNumber of ULDs that are priority: {len(priority_ULDs)}"
             f"\nPercentage volume filled: {round(sum(pkg.volume() for pkg in placed) / sum(uld.volume() for uld in self.ULDs) * 100, 3)}%"
             f"\nPercentage of non-priority packages placed: {round((len(placed) - len(priority_pkgs_placed)) / (len(packages) - len(priority_pkgs)) * 100, 3)}%"
             f"\nCost ==> Priority: {priority_cost} + Delay: {delay_cost} = {priority_cost + delay_cost}"
         )
 
-    def animate(self, repeat=False):
+    def animate(self, repeat=False, stepped=True):
         """
-        Animate the process of adding packages to the ULDs
+        Animate the process of adding packages to the ULDs.
+
+        Parameters:
+        repeat (bool): If True, the animation will loop after reaching the last frame.
+        stepped (bool): If True, the animation will be drawn step-by-step.
         """
 
         fig = plt.figure(figsize=(15, 10))
@@ -302,9 +313,10 @@ class Environment:
         rows = 2
         cols = (num_ULDs + 1) // 2
         axes = []
+        gs = fig.add_gridspec(rows + 1, cols, height_ratios=[*[1] * rows, 0.1])
 
         for i, uld in enumerate(self.ULDs):
-            ax = fig.add_subplot(rows, cols, i + 1, projection="3d")
+            ax = fig.add_subplot(gs[i], projection="3d")
             ax.set_xlabel("Length")
             ax.set_ylabel("Width")
             ax.set_zlabel("Height")
@@ -369,18 +381,59 @@ class Environment:
                         alpha=0.2,
                     )
                 )
+            if stepped:
+                plt.draw()
 
-        frames_to_skip = 1
-        frames = range(0, len(self.pkg_addition_order), frames_to_skip)
+        if stepped:
+            # Make a list of ids of packages who have been placed in increasing order of pkg_id
 
-        ani = FuncAnimation(
-            fig,
-            update,
-            frames=frames,
-            repeat=repeat,
-        )
+            ax_prev = fig.add_subplot(gs[-1, 0])
+            ax_next = fig.add_subplot(gs[-1, -1])
+            btn_prev = Button(ax_prev, "Previous")
+            btn_next = Button(ax_next, "Next")
+
+            # Current frame tracking
+            current_frame = [0]
+
+            def next_frame(event):
+                if current_frame[0] < len(self.pkg_addition_order) - 1:
+                    current_frame[0] += 1
+                    update(current_frame[0])
+                    print(
+                        "Added package",
+                        self.pkg_addition_order[current_frame[0]],
+                        "which is",
+                        self.stable[self.pkg_addition_order[current_frame[0]]],
+                    )
+
+            def prev_frame(event):
+                if current_frame[0] > 0:
+                    current_frame[0] -= 1
+                    update(current_frame[0])
+                    print(
+                        "Removed package",
+                        self.pkg_addition_order[current_frame[0]],
+                        "which is",
+                        self.stable[self.pkg_addition_order[current_frame[0]]],
+                    )
+
+            # Connect buttons to frame navigation
+            btn_next.on_clicked(next_frame)
+            btn_prev.on_clicked(prev_frame)
+
+            # Initial update
+            update(0)
+        else:
+            frames = range(0, len(self.pkg_addition_order))
+
+            ani = FuncAnimation(
+                fig,
+                update,
+                frames=frames,
+                repeat=repeat,
+            )
+
         plt.tight_layout()
-        fig.subplots_adjust(top=0.9)
         plt.show()
         plt.close()
 
@@ -431,3 +484,172 @@ class Environment:
                 uld.has_priority = any(pkg.is_priority for pkg in uld.packages)
                 self.running_cost += self.K if uld.has_priority else 0
                 uld.weight = sum(pkg.weight for pkg in uld.packages)
+
+    def check_stability(self):
+        """
+        First make a dictionary with pk_id as the key and the coordinates
+        of the package sorted by z-coordinate as the value
+
+        Whichever boxes are on the ground are already stable and no check needs 
+        to be performed on them.
+
+        pkg_coords holds the rest of the packages and their coordinates
+        """
+
+        # Make a dictionary with pkid as the key and the coords as the value
+        stable_coords = []
+        unstable_pkgs = {}
+        self.stable = {}
+
+        for pkg in self.packages:
+            to_insert = sorted(pkg.get_corners(), key=lambda coord: coord.z)
+            if to_insert[0].z == 0:
+                self.stable[pkg.id] = "Stable"
+                stable_coords.append(to_insert[4:])
+            elif to_insert[0].z == -1:
+                self.stable[pkg.id] = "Not Placed"
+            else:
+                self.stable[pkg.id] = "Unstable"
+                unstable_pkgs[pkg.id] = to_insert
+
+        # Sort unstable packages with respect to z coordinate then x then y
+        unstable_pkgs = dict(sorted(unstable_pkgs.items(), key=lambda item: (item[1][0].z, item[1][0].x, item[1][0].y)))
+
+        curr_z = 0
+        left_z = 0
+        right_z = -1
+
+        for pkg_id in unstable_pkgs:
+            stable_coords = sorted(stable_coords, key=lambda coord: (coord[0].z, coord[0].x, coord[0].y))
+            curr_bottom = unstable_pkgs[pkg_id][:4]             
+            if unstable_pkgs[pkg_id][0].z > curr_z:
+                curr_z = unstable_pkgs[pkg_id][0].z
+                left_z = right_z+1
+                for i in range(left_z, len(stable_coords)):
+                    if stable_coords[i][0].z > curr_z:
+                        right_z = i-1
+                        break
+                else:
+                    right_z = len(stable_coords) - 1
+
+            # Find the range of intersecting intervals in O(log n)
+            start_x = right_z+1
+
+            target_left = curr_bottom[0].x
+            target_right = curr_bottom[2].x
+
+            left, right = left_z, right_z
+
+            while left <= right:
+                mid = (left + right) // 2
+
+                # Check if current interval intersects
+                if max(stable_coords[mid][0].x, target_left) <= min(
+                    stable_coords[mid][2].x, target_right
+                ):
+                    # This interval intersects, remember this index and look left
+                    start_x = min(start_x, mid)
+                    right = mid - 1
+                elif stable_coords[mid][2].x < target_left:
+                    # Move right if current interval is completely before target
+                    left = mid + 1
+                else:
+                    # Move left if current interval is completely after target
+                    right = mid - 1
+
+            # If no intersecting intervals found, return empty list
+            if start_x == right_z+1:
+                self.stable[pkg.id] = "Unstable"
+                continue
+
+            # Find the end of intersecting intervals in O(log n)
+            end_x = start_x - 1
+
+            left, right = start_x, right_z
+
+            while left <= right:
+                mid = (left + right) // 2
+
+                # Check if current interval intersects
+                if max(stable_coords[mid][0].x, target_left) <= min(
+                    stable_coords[mid][2].x, target_right
+                ):
+                    # This interval intersects, remember this index and look right
+                    end_x = max(end_x, mid)
+                    left = mid + 1
+                elif stable_coords[mid][0].x > target_right:
+                    # Move left if current interval is completely after target
+                    right = mid - 1
+                else:
+                    # Move right if current interval starts before target ends
+                    left = mid + 1
+
+            start_y = end_x+1
+
+            target_left = curr_bottom[0].y
+            target_right = curr_bottom[1].y
+
+            left = start_x
+            right = end_x
+
+            while left <= right:
+                mid = (left + right) // 2
+
+                # Check if current interval intersects
+                if max(stable_coords[mid][0].y, target_left) <= min(
+                    stable_coords[mid][1].y, target_right
+                ):
+                    # This interval intersects, remember this index and look left
+                    start_y = min(start_y, mid)
+                    right = mid - 1
+                elif stable_coords[mid][1].y < target_left:
+                    # Move right if current interval is completely before target
+                    left = mid + 1
+                else:
+                    # Move left if current interval is completely after target
+                    right = mid - 1
+
+            # If no intersecting intervals found, return empty list
+            if start_y == end_x+1:
+                self.stable[pkg.id] = "Unstable"
+                continue
+
+            # Find the end of intersecting intervals in O(log n)
+            end_y = start_y - 1
+
+            left, right = start_y, end_x
+
+            while left <= right:
+                mid = (left + right) // 2
+
+                # Check if current interval intersects
+                if max(stable_coords[mid][0].y, target_left) <= min(
+                    stable_coords[mid][1].y, target_right
+                ):
+                    # This interval intersects, remember this index and look right
+                    end_y = max(end_y, mid)
+                    left = mid + 1
+                elif stable_coords[mid][0].y > target_right:
+                    # Move left if current interval is completely after target
+                    right = mid - 1
+                else:
+                    # Move right if current interval starts before target ends
+                    left = mid + 1
+
+            result_start = start_y
+            result_end = end_y
+
+            # For each set of coordinates in the range, make an intersection
+
+            hull_points = []
+
+            for i in range(result_start, result_end+1):
+                hull_points.extend(rectangle_intersection(stable_coords[i], curr_bottom))
+
+            # Check if the mid point of curr_bottom is inside the hull
+            mid_point = (curr_bottom[0].x+curr_bottom[2].x)/2, (curr_bottom[0].y+curr_bottom[1].y)/2
+            if is_point_in_convex_hull(hull_points, mid_point):
+                self.stable[pkg_id] = "Stable"
+                stable_coords.append(unstable_pkgs[pkg_id][4:])
+            else:
+                self.stable[pkg_id] = "Unstable"
