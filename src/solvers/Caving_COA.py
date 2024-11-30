@@ -1,20 +1,21 @@
+import copy
 import random
 import sys
 from itertools import permutations
-import copy
+
+import torch
+import torch.nn as nn
+from deap import algorithms, base, creator, tools
+from skopt import gp_minimize
+from skopt.space import Integer
 
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
 
-from skopt import gp_minimize
-from skopt.space import Real, Integer
-import torch.nn as nn
-import torch
-
-import numpy as np
-
-torch.device("cuda" if torch.cuda.is_available() else "cpu")
+torch.manual_seed(42)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using {device} device", file=sys.stderr)
 
 
 class COA(PackingAlgorithm):
@@ -230,8 +231,6 @@ class COA(PackingAlgorithm):
             COA.distance_coa(uld, point_min, point_max) / ((volume) ** (1 / 3))
         )
 
-    dp = {}
-
     def A3(
         uld_COAs: dict[int, list[Point]],
         env: Environment,
@@ -303,7 +302,9 @@ class COA(PackingAlgorithm):
                                 "z_gravity": (coa.z + orientation.z) / 2,
                                 "y_gravity": (coa.y + orientation.y) / 2,
                                 "x_gravity": (coa.x + orientation.x) / 2,
-                                "priority_cost": (
+                                "included_cost": (pkg.cost**1.5 / pkg.volume() ** 0.8)
+                                if not pkg.is_priority
+                                else -(
                                     sum(
                                         pkg.cost
                                         for pkg in env.packages
@@ -314,7 +315,6 @@ class COA(PackingAlgorithm):
                                     if (not uld.has_priority and pkg.is_priority)
                                     else 0
                                 ),
-                                "included_cost": (pkg.cost**1.5 / pkg.volume() ** 0.8),
                             }
                             (
                                 current_values["largest_dim"],
@@ -346,8 +346,8 @@ class COA(PackingAlgorithm):
                 break
 
             env.add_package(
-                best_pkg,
-                best_uld,
+                best_pkg.id,
+                best_uld.id,
                 corners=(best_coa, best_orientation),
                 collision_check=False,
                 weight_limit_check=False,
@@ -375,6 +375,9 @@ class COA(PackingAlgorithm):
         optimizer: str = "gp_minimize",
         n_calls: int = 20,
     ):
+        if allowed_ULDs is None:
+            allowed_ULDs = list(range(len(env.ULDs)))
+
         def objective(params):
             heurestic = {
                 "included_cost": params[0],
@@ -405,15 +408,15 @@ class COA(PackingAlgorithm):
 
         if optimizer == "gp_minimize":
             space = [
-                Integer(10000, 10000000, name="included_cost"),
+                Integer(100000, 100000000, name="included_cost"),
                 Integer(1, 10000, name="paste_number"),
                 Integer(1, 1000, name="paste_ratio"),
                 Integer(1, 5000, name="largest_dim"),
-                Integer(1, 500, name="middle_dim"),
-                Integer(1, 100, name="smallest_dim"),
+                Integer(1, 1000, name="middle_dim"),
+                Integer(1, 250, name="smallest_dim"),
                 Integer(-5000, 0, name="z_gravity"),
                 Integer(-1000, 0, name="y_gravity"),
-                Integer(-250, 0, name="x_gravity"),
+                Integer(-1000, 0, name="x_gravity"),
             ]
 
             res = gp_minimize(objective, space, n_calls=n_calls, random_state=42)
@@ -497,6 +500,85 @@ class COA(PackingAlgorithm):
             if logging:
                 print(f"Cost: {loss.item()}", file=sys.stderr)
 
+        elif optimizer == "genetic":
+            creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+            creator.create("Individual", list, fitness=creator.FitnessMin)
+
+            def eval_heuristic(individual):
+                heurestic = {
+                    "included_cost": individual[0],
+                    "paste_number": individual[1],
+                    "paste_ratio": individual[2],
+                    "largest_dim": individual[3],
+                    "middle_dim": individual[4],
+                    "smallest_dim": individual[5],
+                    "z_gravity": individual[6],
+                    "y_gravity": individual[7],
+                    "x_gravity": individual[8],
+                }
+
+                uld_COAs_copy = copy.deepcopy(uld_COAs)
+                env_copy = copy.deepcopy(env)
+                pkgs_copy = copy.deepcopy(pkgs)
+
+                cost = COA.A3(
+                    uld_COAs_copy, env_copy, pkgs_copy, heurestic, allowed_ULDs, logging
+                )
+
+                return (cost,)
+
+            toolbox = base.Toolbox()
+            toolbox.register("attr_included_cost", random.randint, 100000, 100000000)
+            toolbox.register("attr_paste_number", random.randint, 1, 10000)
+            toolbox.register("attr_paste_ratio", random.randint, 1, 1000)
+            toolbox.register("attr_largest_dim", random.randint, 1, 5000)
+            toolbox.register("attr_middle_dim", random.randint, 1, 1000)
+            toolbox.register("attr_smallest_dim", random.randint, 1, 250)
+            toolbox.register("attr_z_gravity", random.randint, -5000, 0)
+            toolbox.register("attr_y_gravity", random.randint, -1000, 0)
+            toolbox.register("attr_x_gravity", random.randint, -1000, 0)
+
+            toolbox.register(
+                "individual",
+                tools.initCycle,
+                creator.Individual,
+                (
+                    toolbox.attr_included_cost,
+                    toolbox.attr_paste_number,
+                    toolbox.attr_paste_ratio,
+                    toolbox.attr_largest_dim,
+                    toolbox.attr_middle_dim,
+                    toolbox.attr_smallest_dim,
+                    toolbox.attr_z_gravity,
+                    toolbox.attr_y_gravity,
+                    toolbox.attr_x_gravity,
+                ),
+                n=1,
+            )
+            toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+            toolbox.register("evaluate", eval_heuristic)
+            toolbox.register("mate", tools.cxTwoPoint)
+            toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
+            toolbox.register("select", tools.selTournament, tournsize=3)
+
+            population = toolbox.population(n=50)
+            algorithms.eaSimple(
+                population, toolbox, cxpb=0.5, mutpb=0.2, ngen=n_calls, verbose=True
+            )
+
+            best_individual = tools.selBest(population, k=1)[0]
+            best_heurestic = {
+                "included_cost": best_individual[0],
+                "paste_number": best_individual[1],
+                "paste_ratio": best_individual[2],
+                "largest_dim": best_individual[3],
+                "middle_dim": best_individual[4],
+                "smallest_dim": best_individual[5],
+                "z_gravity": best_individual[6],
+                "y_gravity": best_individual[7],
+                "x_gravity": best_individual[8],
+            }
+
         print(f"Best heurestic:\n{best_heurestic}\n\n", file=open("heuristic.log", "a"))
 
         COA.A3(uld_COAs, env, pkgs, best_heurestic, allowed_ULDs, logging=logging)
@@ -516,7 +598,7 @@ class COA(PackingAlgorithm):
         uld_COAs = {uld.id - 1: [Point(0, 0, 0)] for uld in sorted_ULDs}
 
         priority_heurestic = {
-            "priority_cost": 1000000,
+            "included_cost": 1000000,
             "paste_number": 100000,
             "paste_ratio": 1000,
             "largest_dim": 1000,
@@ -527,25 +609,25 @@ class COA(PackingAlgorithm):
             "x_gravity": -100,
         }
 
-        for uld in sorted_ULDs:
+        for uld_id in [5, 4, 3, 2, 1, 0]:
             COA.A3(
                 uld_COAs,
                 env,
                 priority_pkgs,
                 heurestic=priority_heurestic,
-                allowed_ULDs=[uld.id - 1],
+                allowed_ULDs=[uld_id],
                 prune_COAs=False,
             )
 
         print(f"{'='*60}", file=sys.stderr)
 
-        for uld in sorted_ULDs:
-            print(f"ULD {uld.id}", file=sys.stderr)
-            COA.A3(
+        for uld_id in [5, 4, 3, 2, 1, 0]:
+            print(f"ULD {uld_id + 1}", file=sys.stderr)
+            COA.Ai(
                 uld_COAs,
                 env,
                 economy_pkgs,
-                allowed_ULDs=[uld.id - 1],
-                n_calls=20,
+                allowed_ULDs=[uld_id],
+                n_calls=10,
             )
             print(f"{'='*60}", file=sys.stderr)
