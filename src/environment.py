@@ -393,40 +393,40 @@ class Environment:
             btn_next = Button(ax_next, "Next")
 
             # Current frame tracking
-            current_frame = [0]
+            current_frame = -1
 
             def next_frame(event):
-                if current_frame[0] < len(self.pkg_addition_order) - 1:
-                    current_frame[0] += 1
-                    update(current_frame[0])
+                nonlocal current_frame
+                if current_frame < len(self.pkg_addition_order) - 1:
+                    current_frame += 1
+                    update(current_frame)
                     print(
                         "Added package",
-                        self.pkg_addition_order[current_frame[0]],
+                        self.pkg_addition_order[current_frame],
                         "which is",
-                        self.stable[self.pkg_addition_order[current_frame[0]]],
+                        self.stable[self.pkg_addition_order[current_frame]],
                     )
+                    print(f"Cooridnates: {self.packages[self.pkg_addition_order[current_frame]-1].get_corners()}")
 
             def prev_frame(event):
-                if current_frame[0] > 0:
-                    current_frame[0] -= 1
-                    update(current_frame[0])
+                if current_frame >= 0:
+                    current_frame -= 1
+                    update(current_frame)
                     print(
                         "Removed package",
-                        self.pkg_addition_order[current_frame[0]],
+                        self.pkg_addition_order[current_frame],
                         "which is",
-                        self.stable[self.pkg_addition_order[current_frame[0]]],
+                        self.stable[self.pkg_addition_order[current_frame]],
                     )
 
             # Connect buttons to frame navigation
             btn_next.on_clicked(next_frame)
             btn_prev.on_clicked(prev_frame)
 
-            # Initial update
-            update(0)
         else:
             frames = range(0, len(self.pkg_addition_order))
 
-            ani = FuncAnimation(
+            _ = FuncAnimation(
                 fig,
                 update,
                 frames=frames,
@@ -531,6 +531,25 @@ class Environment:
                         break
                 else:
                     right_z = len(stable_coords) - 1
+
+            if left_z > right_z:
+                self.stable[pkg_id] = "Unstable"
+                continue
+
+            # Dimensions of the package's ULD
+            l = self.ULDs[self.packages[pkg_id-1].uld_id - 1].dim.l
+            w = self.ULDs[self.packages[pkg_id-1].uld_id - 1].dim.w
+            h = self.ULDs[self.packages[pkg_id-1].uld_id - 1].dim.h
+
+            if((unstable_pkgs[pkg_id][0].x == 0 and unstable_pkgs[pkg_id][0].y == 0)
+            or (unstable_pkgs[pkg_id][2].x == 0 and unstable_pkgs[pkg_id][2].y == w)
+            or (unstable_pkgs[pkg_id][4].x == l and unstable_pkgs[pkg_id][4].y == 0)
+            or (unstable_pkgs[pkg_id][6].x == l and unstable_pkgs[pkg_id][6].y == w)
+            or unstable_pkgs[pkg_id][7].z == h):
+                self.stable[pkg_id] = "Stable"
+                stable_coords.append(unstable_pkgs[pkg_id][4:])
+                continue
+                        
 
             # Find the range of intersecting intervals in O(log n)
             start_x = right_z+1
