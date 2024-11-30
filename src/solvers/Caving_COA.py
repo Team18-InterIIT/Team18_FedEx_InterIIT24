@@ -242,15 +242,15 @@ class COA(PackingAlgorithm):
     ):
         if heurestic is None:
             heurestic = {
-                "included_cost": 1000000,
-                "paste_number": 1000,
-                "paste_ratio": 1,
-                "largest_dim": 100,
-                "middle_dim": 100,
-                "smallest_dim": 100,
-                "z_gravity": -100,
-                "y_gravity": -100,
-                "x_gravity": -100,
+                "included_cost": 7967464,
+                "paste_number": 1835,
+                "paste_ratio": 780,
+                "largest_dim": 2985,
+                "middle_dim": 223,
+                "smallest_dim": 11,
+                "z_gravity": -2704,
+                "y_gravity": -666,
+                "x_gravity": -214,
             }
 
         if allowed_ULDs is None:
@@ -340,12 +340,6 @@ class COA(PackingAlgorithm):
                 uld_COAs[best_uld.id - 1].append(best_pkg.get_corners()[corner_idx])
 
             if logging:
-                cost = env.cost()
-                if cost[0] + cost[1] < 35000:
-                    print(
-                        f"Heurestic:\n{heurestic}\nCost: {cost}\n\n",
-                        file=open("heuristic.txt", "a"),
-                    )
                 print(
                     f"Package {total_pkgs - len(pkgs)}/{total_pkgs}",  # TODO: fix the denominator
                     file=sys.stderr,
@@ -360,7 +354,7 @@ class COA(PackingAlgorithm):
         allowed_ULDs: list[int] = None,
         logging: bool = True,
         optimizer: str = "gp_minimize",
-        n_calls: int = 10,
+        n_calls: int = 20,
     ):
         def objective(params):
             heurestic = {
@@ -394,8 +388,8 @@ class COA(PackingAlgorithm):
             space = [
                 Integer(10000, 10000000, name="included_cost"),
                 Integer(1, 10000, name="paste_number"),
-                Real(0.1, 1000, name="paste_ratio"),
-                Integer(1, 1000, name="largest_dim"),
+                Integer(1, 1000, name="paste_ratio"),
+                Integer(1, 5000, name="largest_dim"),
                 Integer(1, 500, name="middle_dim"),
                 Integer(1, 100, name="smallest_dim"),
                 Integer(-5000, 0, name="z_gravity"),
@@ -425,7 +419,7 @@ class COA(PackingAlgorithm):
                     super().__init__()
                     self.params = nn.Parameter(
                         torch.tensor(
-                            [1000000, 1000, 1, 100, 100, 100, 100, 100, 100],
+                            [7967464, 1835, 780, 2985, 223, 11, -2704, -666, -214],
                             dtype=torch.float,
                             requires_grad=True,
                         )
@@ -484,6 +478,8 @@ class COA(PackingAlgorithm):
             if logging:
                 print(f"Cost: {loss.item()}", file=sys.stderr)
 
+        print(f"Best heurestic:\n{best_heurestic}\n\n", file=open("heuristic.log", "a"))
+
         COA.A3(uld_COAs, env, pkgs, best_heurestic, allowed_ULDs, logging=logging)
 
     def solve(self, env: Environment):
@@ -528,6 +524,6 @@ class COA(PackingAlgorithm):
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld.id - 1],
-                n_calls=10,
+                n_calls=20,
             )
             print(f"{'='*60}", file=sys.stderr)
