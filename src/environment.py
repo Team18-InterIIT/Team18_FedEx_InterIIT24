@@ -9,6 +9,7 @@ from matplotlib.widgets import Button
 from entity import ULD, Package, Point
 
 from geometry_helpers import rectangle_intersection, is_point_in_convex_hull
+from sortedcontainers import SortedList
 
 class Environment:
     """
@@ -481,12 +482,10 @@ class Environment:
 
         Whichever boxes are on the ground are already stable and no check needs
         to be performed on them.
-
-        pkg_coords holds the rest of the packages and their coordinates
         """
 
         # Make a dictionary with pkid as the key and the coords as the value
-        stable_coords = []
+        stable_coords = SortedList(key=lambda coord: coord[0].z)
         unstable_pkgs = {}
         self.stable = {}
 
@@ -494,81 +493,78 @@ class Environment:
             to_insert = sorted(pkg.get_corners(), key=lambda coord: coord.z)
             if to_insert[0].z == 0:
                 self.stable[pkg.id] = "Stable"
-                stable_coords.append(to_insert[4:])
+                stable_coords.add(to_insert[4:])
             elif to_insert[0].z == -1:
                 self.stable[pkg.id] = "Not Placed"
             else:
                 self.stable[pkg.id] = "Unstable"
                 unstable_pkgs[pkg.id] = to_insert
 
-        # Sort unstable packages with respect to z coordinate then x then y
+        n = len(stable_coords)
+
+        # Sort unstable packages with respect to z
         unstable_pkgs = dict(
             sorted(
                 unstable_pkgs.items(),
-                key=lambda item: (item[1][0].z, item[1][0].x, item[1][0].y),
+                key=lambda item: (item[1][0].z),
             )
         )
 
-        curr_z = 0
-        left_z = 0
-        right_z = -1
-
         for pkg_id in unstable_pkgs:
-            stable_coords = sorted(
-                stable_coords, key=lambda coord: (coord[0].z, coord[0].x, coord[0].y)
-            )
             curr_bottom = unstable_pkgs[pkg_id][:4]
-            if unstable_pkgs[pkg_id][0].z > curr_z:
-                curr_z = unstable_pkgs[pkg_id][0].z
-                left_z = right_z + 1
-                for i in range(left_z, len(stable_coords)):
-                    if stable_coords[i][0].z > curr_z:
-                        right_z = i - 1
-                        break
-                    elif stable_coords[i][0].z < curr_z:
-                        left_z = i + 1
-                else:
-                    right_z = len(stable_coords) - 1
 
-            if left_z > right_z:
+            target_z = unstable_pkgs[pkg_id][0].z
+
+            # Find the range of intersecting intervals in O(log n)
+            left_z = 0
+            right_z = n
+
+            while left_z < right_z:
+                mid = (left_z + right_z) // 2
+
+                if stable_coords[mid][0].z < target_z:
+                    left_z = mid + 1
+                else:
+                    right_z = mid
+
+            if left_z > right_z or stable_coords[left_z][0].z != target_z:
                 self.stable[pkg_id] = "Unstable"
                 continue
 
-            # Dimensions of the package's ULD
-            l = self.ULDs[self.packages[pkg_id - 1].uld_id - 1].dim.l
-            w = self.ULDs[self.packages[pkg_id - 1].uld_id - 1].dim.w
-            h = self.ULDs[self.packages[pkg_id - 1].uld_id - 1].dim.h
+            # Find the end of intersecting intervals in O(log n)
+            left, right = 0, len(stable_coords)
 
-            if (
-                (unstable_pkgs[pkg_id][0].x == 0 and unstable_pkgs[pkg_id][0].y == 0)
-                or (unstable_pkgs[pkg_id][2].x == 0 and unstable_pkgs[pkg_id][2].y == w)
-                or (unstable_pkgs[pkg_id][4].x == l and unstable_pkgs[pkg_id][4].y == 0)
-                or (unstable_pkgs[pkg_id][6].x == l and unstable_pkgs[pkg_id][6].y == w)
-                or unstable_pkgs[pkg_id][7].z == h
-            ):
-                self.stable[pkg_id] = "Stable"
-                stable_coords.append(unstable_pkgs[pkg_id][4:])
-                continue
+            while left < right:
+                mid = (left + right) // 2
 
-            # Find the range of intersecting intervals in O(log n)
-            start_x = right_z + 1
+                if stable_coords[mid][0].z > target_z:
+                    right = mid
+                else:
+                    left = mid + 1
+
+            right_z = left - 1
+
+            coords_x = sorted(
+                stable_coords[left_z : right_z + 1], key=lambda coord: (coord[0].x)
+            )
 
             target_left = curr_bottom[0].x
             target_right = curr_bottom[2].x
 
-            left, right = left_z, right_z
+            start_x = right_z + 1 - left_z
+            left, right = 0, right_z - left_z
 
             while left <= right:
                 mid = (left + right) // 2
 
                 # Check if current interval intersects
-                if max(stable_coords[mid][0].x, target_left) <= min(
-                    stable_coords[mid][2].x, target_right
+                if max(coords_x[mid][0].x, target_left) <= min(
+                    coords_x[mid][2].x, target_right
                 ):
                     # This interval intersects, remember this index and look left
                     start_x = min(start_x, mid)
                     right = mid - 1
-                elif stable_coords[mid][2].x < target_left:
+                elif coords_x[mid][2].x < target_left:
                     # Move right if current interval is completely before target
                     left = mid + 1
                 else:
@@ -576,51 +572,55 @@ class Environment:
                     right = mid - 1
 
             # If no intersecting intervals found, return empty list
-            if start_x == right_z + 1:
+            if start_x == right_z + 1 - left_z:
                 self.stable[pkg.id] = "Unstable"
                 continue
 
             # Find the end of intersecting intervals in O(log n)
             end_x = start_x - 1
 
-            left, right = start_x, right_z
+            left, right = start_x, right_z - left_z
 
             while left <= right:
                 mid = (left + right) // 2
 
                 # Check if current interval intersects
-                if max(stable_coords[mid][0].x, target_left) <= min(
-                    stable_coords[mid][2].x, target_right
+                if max(coords_x[mid][0].x, target_left) <= min(
+                    coords_x[mid][2].x, target_right
                 ):
                     # This interval intersects, remember this index and look right
                     end_x = max(end_x, mid)
                     left = mid + 1
-                elif stable_coords[mid][0].x > target_right:
+                elif coords_x[mid][0].x > target_right:
                     # Move left if current interval is completely after target
                     right = mid - 1
                 else:
                     # Move right if current interval starts before target ends
                     left = mid + 1
 
-            start_y = end_x + 1
+            coords_y = sorted(
+                coords_x[start_x : end_x + 1], key=lambda coord: (coord[0].y)
+            )
+
+            start_y = end_x + 1 - start_x
 
             target_left = curr_bottom[0].y
             target_right = curr_bottom[1].y
 
-            left = start_x
-            right = end_x
+            left = 0
+            right = end_x - start_x
 
             while left <= right:
                 mid = (left + right) // 2
 
                 # Check if current interval intersects
-                if max(stable_coords[mid][0].y, target_left) <= min(
-                    stable_coords[mid][1].y, target_right
+                if max(coords_y[mid][0].y, target_left) <= min(
+                    coords_y[mid][1].y, target_right
                 ):
                     # This interval intersects, remember this index and look left
                     start_y = min(start_y, mid)
                     right = mid - 1
-                elif stable_coords[mid][1].y < target_left:
+                elif coords_y[mid][1].y < target_left:
                     # Move right if current interval is completely before target
                     left = mid + 1
                 else:
@@ -628,26 +628,26 @@ class Environment:
                     right = mid - 1
 
             # If no intersecting intervals found, return empty list
-            if start_y == end_x + 1:
+            if start_y == end_x + 1 - start_x:
                 self.stable[pkg.id] = "Unstable"
                 continue
 
             # Find the end of intersecting intervals in O(log n)
             end_y = start_y - 1
 
-            left, right = start_y, end_x
+            left, right = start_y, end_x - start_x
 
             while left <= right:
                 mid = (left + right) // 2
 
                 # Check if current interval intersects
-                if max(stable_coords[mid][0].y, target_left) <= min(
-                    stable_coords[mid][1].y, target_right
+                if max(coords_y[mid][0].y, target_left) <= min(
+                    coords_y[mid][1].y, target_right
                 ):
                     # This interval intersects, remember this index and look right
                     end_y = max(end_y, mid)
                     left = mid + 1
-                elif stable_coords[mid][0].y > target_right:
+                elif coords_y[mid][0].y > target_right:
                     # Move left if current interval is completely after target
                     right = mid - 1
                 else:
@@ -657,14 +657,10 @@ class Environment:
             result_start = start_y
             result_end = end_y
 
-            # For each set of coordinates in the range, make an intersection
-
             hull_points = []
 
             for i in range(result_start, result_end + 1):
-                hull_points.extend(
-                    rectangle_intersection(stable_coords[i], curr_bottom)
-                )
+                hull_points.extend(rectangle_intersection(coords_y[i], curr_bottom))
 
             # Check if the mid point of curr_bottom is inside the hull
             mid_point = (curr_bottom[0].x + curr_bottom[2].x) / 2, (
@@ -672,6 +668,7 @@ class Environment:
             ) / 2
             if is_point_in_convex_hull(hull_points, mid_point):
                 self.stable[pkg_id] = "Stable"
-                stable_coords.append(unstable_pkgs[pkg_id][4:])
+                stable_coords.add(unstable_pkgs[pkg_id][4:])
+                n += 1
             else:
                 self.stable[pkg_id] = "Unstable"
