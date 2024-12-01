@@ -64,7 +64,7 @@ class Environment:
             self.ULDs.append(ULD(uld_data_row))
 
         self.pkg_addition_order = []
-        self.stable_coords = SortedList(key=lambda coord: coord[0].z)
+        self.stable_coords = SortedList(key=Environment.sort_by_z)
         self.stable = {}
 
     def new(self):
