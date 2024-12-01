@@ -52,7 +52,7 @@ shopt -s globstar
 directory_to_scan="$1"
 # Check if the directory was provided
 if [ -z "$directory_to_scan" ]; then
-    directory_to_scan="./docs"
+    directory_to_scan="."
 fi
 
 # Check if the directory exists
@@ -62,6 +62,10 @@ if [ ! -d "$directory_to_scan" ]; then
 fi
 
 for file in "$directory_to_scan"/**/*; do
+    if [[ "$(basename "$file")" == "scan.sh" ]]; then
+        continue
+    fi 
+
     FILE_DATA=$(file "$file")
     
     # Process text or ASCII files
