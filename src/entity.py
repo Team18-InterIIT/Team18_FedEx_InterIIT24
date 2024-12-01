@@ -52,8 +52,9 @@ class Dim:
         return f"{self.l}x{self.w}x{self.h}"
 
     def __iter__(self):
-        # Makes the Dim object iterable (e.g., (length, width, height))
-        return iter((self.l, self.w, self.h))
+        yield self.l
+        yield self.w
+        yield self.h
 
 
 class Package:
@@ -205,6 +206,45 @@ class ULD:
 
     def __hash__(self):
         return hash((self.id, self.weight, len(self.packages)))
+
+    def center_of_gravity(self):
+        """
+        Find the center of gravity of all the packages in the ULD
+        """
+        x = (
+            sum(
+                (pkg.corners[0].x + pkg.corners[1].x) / 2 * pkg.weight
+                for pkg in self.packages
+            )
+            / self.weight
+        )
+        y = (
+            sum(
+                (pkg.corners[0].y + pkg.corners[1].y) / 2 * pkg.weight
+                for pkg in self.packages
+            )
+            / self.weight
+        )
+        z = (
+            sum(
+                (pkg.corners[0].z + pkg.corners[1].z) / 2 * pkg.weight
+                for pkg in self.packages
+            )
+            / self.weight
+        )
+        return Point(x, y, z)
+
+    def is_balanced(self):
+        """
+        Check if the ULD is balanced
+        Make sure the center of gravity is within 10% of the ULD's center
+        """
+        cog = self.center_of_gravity()
+        center_of_uld = Point(self.dim.l / 2, self.dim.w / 2, self.dim.h / 2)
+        return (
+            abs(cog.x - center_of_uld.x) < 0.1 * self.dim.l
+            and abs(cog.y - center_of_uld.y) < 0.1 * self.dim.w
+        )
 
     def summary(self):
         return (
