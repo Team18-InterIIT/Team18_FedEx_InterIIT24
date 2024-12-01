@@ -44,6 +44,7 @@ class Environment:
     """
 
     axes_id = {"length": 0, "width": 1, "height": 2}
+    stability_id = {1: "Stable", 0: "Not Placed", -1: "Unstable"}
 
     def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]]):
         self.K = K
@@ -166,7 +167,7 @@ class Environment:
 
             all_corners = dummy.get_corners()
             pkg_id = dummy.id - 1
-            if self.check_stability(pkg_id, all_corners) in ["Unstable", "Not Placed"]: 
+            if self.check_stability(pkg_id, all_corners) in (-1, 0):
                 return False
 
         if weight_limit_check and self.check_weight_limit(uld, pkg.weight):
@@ -277,6 +278,11 @@ class Environment:
                 ]
 
                 color = "green" if not pkg.is_priority else "cyan"
+                if self.stable[pkg.id - 1] == -1:
+                    if pkg.is_priority:
+                        color = "purple"
+                    else:
+                        color = "orange"
 
                 ax.add_collection3d(
                     Poly3DCollection(
@@ -399,6 +405,11 @@ class Environment:
                 ]
 
                 color = "green" if not pkg.is_priority else "cyan"
+                if self.stable[pkg.id - 1] == -1:
+                    if pkg.is_priority:
+                        color = "purple"
+                    else:
+                        color = "orange"
 
                 ax.add_collection3d(
                     Poly3DCollection(
@@ -430,7 +441,9 @@ class Environment:
                         "Added package",
                         self.pkg_addition_order[current_frame] - 1,
                         "which is",
-                        self.stable[self.pkg_addition_order[current_frame] - 1],
+                        Environment.stability_id[
+                            self.stable[self.pkg_addition_order[current_frame] - 1]
+                        ],
                     )
 
             def prev_frame(event):
@@ -442,7 +455,9 @@ class Environment:
                         "Removed package",
                         self.pkg_addition_order[current_frame] - 1,
                         "which is",
-                        self.stable[self.pkg_addition_order[current_frame] - 1],
+                        Environment.stability_id[
+                            self.stable[self.pkg_addition_order[current_frame] - 1]
+                        ],
                     )
 
             # Connect buttons to frame navigation
@@ -509,16 +524,28 @@ class Environment:
                 uld.weight = sum(pkg.weight for pkg in uld.packages)
 
     def check_stability(self, pkg_id, corners):
+        """
+        First make a dictionary with pkg_id as the key and the coordinates
+        of the package sorted by z-coordinate as the value
+
+        Whichever boxes are on the ground are already stable and no check needs
+        to be performed on them.
+
+        If package is stable: stable[pkg_id] = 1
+        If package is not placed: stable[pkg_id] = 0
+        If package is unstable: stable[pkg_id] = -1
+        """
+
         to_insert = sorted(corners, key=lambda coord: coord.z)
         if to_insert[0].z == 0:
-            self.stable[pkg_id] = "Stable"
+            self.stable[pkg_id] = 1
             self.stable_coords.add(to_insert[4:])
             return self.stable[pkg_id]
         elif to_insert[0].z == -1:
-            self.stable[pkg_id] = "Not Placed"
+            self.stable[pkg_id] = 0
             return self.stable[pkg_id]
         else:
-            self.stable[pkg_id] = "Unstable"
+            self.stable[pkg_id] = -1
 
         n = len(self.stable_coords)
 
@@ -539,7 +566,7 @@ class Environment:
                 right_z = mid
 
         if left_z > right_z or self.stable_coords[left_z][0].z != target_z:
-            self.stable[pkg_id] = "Unstable"
+            self.stable[pkg_id] = -1
             return self.stable[pkg_id]
 
         # Find the end of intersecting intervals in O(log n)
@@ -584,7 +611,7 @@ class Environment:
 
         # If no intersecting intervals found, return empty list
         if start_x == right_z + 1 - left_z:
-            self.stable[pkg_id] = "Unstable"
+            self.stable[pkg_id] = -1
             return self.stable[pkg_id]
 
         # Find the end of intersecting intervals in O(log n)
@@ -638,7 +665,7 @@ class Environment:
 
         # If no intersecting intervals found, return empty list
         if start_y == end_x + 1 - start_x:
-            self.stable[pkg_id] = "Unstable"
+            self.stable[pkg_id] = -1
             return self.stable[pkg_id]
 
         # Find the end of intersecting intervals in O(log n)
@@ -672,26 +699,20 @@ class Environment:
             hull_points.extend(rectangle_intersection(coords_y[i], curr_bottom))
 
         # Check if the mid point of curr_bottom is inside the hull
-        mid_point = (curr_bottom[0].x + curr_bottom[2].x) / 2, (
-            curr_bottom[0].y + curr_bottom[1].y
-        ) / 2
+        mid_point = (
+            (curr_bottom[0].x + curr_bottom[2].x) / 2,
+            (curr_bottom[0].y + curr_bottom[1].y) / 2,
+        )
         if is_point_in_convex_hull(hull_points, mid_point):
-            self.stable[pkg_id] = "Stable"
+            self.stable[pkg_id] = 1
             self.stable_coords.add(to_insert[4:])
             n += 1
         else:
-            self.stable[pkg_id] = "Unstable"
+            self.stable[pkg_id] = -1
 
         return self.stable[pkg_id]
 
     def global_stability_check(self):
-        """
-        First make a dictionary with pkg_id as the key and the coordinates
-        of the package sorted by z-coordinate as the value
-
-        Whichever boxes are on the ground are already stable and no check needs
-        to be performed on them.
-        """
         for pkg in sorted(self.packages, key=lambda pkg: pkg.get_corners()[0].z):
             corners = pkg.get_corners()
             self.check_stability(pkg.id - 1, corners)
