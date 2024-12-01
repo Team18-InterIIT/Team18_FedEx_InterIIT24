@@ -148,38 +148,28 @@ class Environment:
         Returns the new coordinates of the package, by taking all bottom corners and moving them by gravity
         """
         uld = self.ULDs[uld_id]
-        bottom_corners = [
-            corners[0],
-            Point(corners[1].x, corners[0].y, corners[0].z),
-            Point(corners[0].x, corners[1].y, corners[0].z),
-            Point(corners[1].x, corners[1].y, corners[0].z),
-        ]
-        # Look below each corner and find the highest point where the corner can be placed
-        height_drop = corners[0].z
-        for i, corner in enumerate(bottom_corners):
-            x, y, z = corner.x, corner.y, corner.z
-            for pkg in uld.packages:
-                top_surface = sorted(
-                    pkg.get_corners(), key=lambda coord: (coord.z, coord.y, coord.x)
-                )[4:]
-                if z < top_surface[0].z:
-                    continue
+        x1_min, y1_min, z1_min = corners[0].x, corners[0].y, corners[0].z
+        x1_max, y1_max = corners[1].x, corners[1].y
+        height_drop = z1_min
 
-                x_min, y_min, z_min = (
-                    top_surface[0].x,
-                    top_surface[0].y,
-                    top_surface[0].z,
-                )
-                x_max, y_max, _ = (
-                    top_surface[3].x,
-                    top_surface[3].y,
-                    top_surface[3].z,
-                )
+        for pkg in uld.packages:
+            if z1_min < pkg.corners[1].z:
+                continue
 
-                if x_min <= x <= x_max and y_min <= y <= y_max:
-                    height_drop = min(height_drop, z - z_min)
-                    if height_drop == 0:
-                        return corners, 0
+            x0_min, y0_min, x0_max, y0_max, top_surface_height = (
+                pkg.corners[0].x,
+                pkg.corners[0].y,
+                pkg.corners[1].x,
+                pkg.corners[1].y,
+                pkg.corners[1].z,
+            )
+
+            if (min(x1_max, x0_max) - max(x1_min, x0_min)) * (
+                min(y1_max, y0_max) - max(y1_min, y0_min)
+            ) > 0:
+                height_drop = min(height_drop, z1_min - top_surface_height)
+                if height_drop == 0:
+                    return corners, 0
 
         return (
             (
@@ -238,6 +228,8 @@ class Environment:
         pkg.uld_id = uld.id
 
         if gravity:
+            if pkg.id in (65, 341):
+                pass
             corners, _ = self.apply_gravity(uld.id - 1, corners)
 
         pkg.corners = corners
