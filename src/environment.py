@@ -166,7 +166,7 @@ class Environment:
 
             all_corners = dummy.get_corners()
             pkg_id = dummy.id - 1
-            if not self.check_stability(pkg_id, all_corners):
+            if self.check_stability(pkg_id, all_corners) in ["Unstable", "Not Placed"]: 
                 return False
 
         if weight_limit_check and self.check_weight_limit(uld, pkg.weight):
