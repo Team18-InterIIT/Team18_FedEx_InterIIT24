@@ -638,7 +638,8 @@ class COA(PackingAlgorithm):
                 n_calls=100,
                 maximize_volume_utilization=True,
             )
-        print(f"{'='*60}")
+            print(f"{'='*60}")
+
         print("")
 
         for uld_id in sorted_ULD_ids:
@@ -651,4 +652,4 @@ class COA(PackingAlgorithm):
                 n_calls=200,
                 maximize_volume_utilization=True,
             )
-        print(f"{'='*60}")
+            print(f"{'='*60}")
