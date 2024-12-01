@@ -52,7 +52,7 @@ shopt -s globstar
 directory_to_scan="$1"
 # Check if the directory was provided
 if [ -z "$directory_to_scan" ]; then
-    directory_to_scan="."
+    directory_to_scan="./docs"
 fi
 
 # Check if the directory exists
@@ -62,10 +62,6 @@ if [ ! -d "$directory_to_scan" ]; then
 fi
 
 for file in "$directory_to_scan"/**/*; do
-    if [[ "$(basename "$file")" == "scan.sh" ]]; then
-        continue
-    fi 
-
     FILE_DATA=$(file "$file")
     
     # Process text or ASCII files
@@ -80,13 +76,6 @@ for file in "$directory_to_scan"/**/*; do
         if [ $MATCH -eq 0 ]; then
             echo -e "\e[32m$file OK\e[0m"
         fi
-    elif file "$file" | grep -qiE 'image'; then
-        grep -i -H -n --color "$PHRASES" "$file"
-        if [ $? -ne 0 ]; then
-               echo -e "\e[32m$file OK\e[0m" 
-        fi
-
-    
     # Process PDF files
     elif echo "$FILE_DATA" | grep -qE "pdf"; then
         TEMP_HTML_FILE="$(basename "$file" .pdf).html.xml" # Temporary HTML file
