@@ -30,6 +30,7 @@ model.solve(env)
 env.summary()
 # env.plot()
 # env.animate()
+# env.simulate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
 )
