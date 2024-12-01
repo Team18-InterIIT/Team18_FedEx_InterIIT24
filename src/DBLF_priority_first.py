@@ -1,44 +1,60 @@
 import parser
 import itertools
 import random
-from main import Package, ULD, Dim
+from entity import Package, ULD, Dim
 
-# Initialize data
-K = parser.get_K()
-uld_list = parser.get_uld_list()
-pkg_list = parser.get_pkg_list()
+# # Initialize data
+# K = parser.get_K()
+# uld_list = parser.get_uld_list()
+# pkg_list = parser.get_pkg_list()
 
-# Create ULD and Package objects
-containers = [ULD(row) for row in uld_list]
-packages_all = [Package(row) for row in pkg_list]
-packages = [Package(pkg) for pkg in pkg_list if pkg[5] == "Priority"]
-packages_economy = [Package(pkg) for pkg in pkg_list if pkg[5] != "Priority"]
+# # Create ULD and Package objects
+# containers_all = [ULD(row) for row in uld_list]
+# packages_all_okay = [Package(row) for row in pkg_list]
+# packages_priority_all = [Package(pkg) for pkg in pkg_list if pkg[5] == "Priority"]
+# packages_economy_all = [Package(pkg) for pkg in pkg_list if pkg[5] != "Priority"]
 
 
 def dblf_packing_algorithm(packages, ulds):
     # Initialize position sets for each ULD
     position_sets = {uld.id: [(0, 0, 0)] for uld in ulds}
-    packages_priority = [Package(pkg) for pkg in pkg_list if pkg[5] == "Priority"]
-    packages_economy = [Package(pkg) for pkg in pkg_list if pkg[5] != "Priority"]
+    # packages_priority = [Package(pkg) for pkg in pkg_list if pkg[5] == "Priority"]
+    # packages_economy = [Package(pkg) for pkg in pkg_list if pkg[5] != "Priority"]
+    packages_priority = [pkg for pkg in packages if pkg.is_priority]
+    packages_economy = [pkg for pkg in packages if not pkg.is_priority]
+
+    # print(packages_economy)
+    # packages_economy = []
+    # packages_priority = []
+    # for pkg in packages:
+    #     if pkg.is_priority: packages_priority.append(pkg)
+    #     else: packages_economy.append(pkg)
+    # packages = packages_all.copy()
+
     # Sort packages by volume (or another criterion)
-    packages_prioity_sorted = sorted(
-        packages_priority, key=lambda pkg: pkg.get_volume(), reverse=True
-    )
-    packages_economy_sorted = sorted(
-        packages_economy, key=lambda pkg: pkg.get_volume(), reverse=True
-    )
-    packages = packages_prioity_sorted + packages_economy_sorted
+    # packages_prioity_sorted = sorted(
+    #     packages_priority, key=lambda pkg: pkg.volume(), reverse=True
+    # )
+    # packages_economy_sorted = sorted(
+    #     packages_economy, key=lambda pkg: pkg.cost, reverse=True
+    # )
+    # packages_order = packages_prioity_sorted + packages_economy_sorted
 
-    ulds = sorted(ulds, key=lambda pkg: pkg.get_volume(), reverse=True)
+    # ulds = sorted(ulds, key=lambda pkg: pkg.volume(), reverse=True)
+    packages_order  = packages_priority + packages_economy
+    # print(packages_order) => Has coordinates, so problem is with this
 
-    for package in packages:
+    # print(packages_priority[0].corners, packages_order[0].corners)
+    # print(packages[0].corners)
+
+    for package in packages_order:
         packed = False
         for uld in ulds:
             for position in position_sets[uld.id]:
                 if can_place(package, position, uld):
                     # Pack the package
-                    package.uld = uld.id
-                    package.coords = (
+                    package.uld_id = uld.id
+                    package.corners = (
                         position,
                         (
                             position[0] + package.dim.l,
@@ -48,6 +64,7 @@ def dblf_packing_algorithm(packages, ulds):
                     )
                     uld.packages.append(package)
                     uld.weight += package.weight
+                    if package.is_priority: uld.has_priority = True
 
                     # Update the position set
                     position_sets[uld.id] = update_positions(
@@ -60,7 +77,18 @@ def dblf_packing_algorithm(packages, ulds):
         # if not packed:
         #     print(f"Package {package.id} could not be packed.")
 
-    return ulds
+    # Clearing the lists
+    # position_sets.clear()
+    # packages_priority.clear()
+    # packages_economy.clear()
+
+    # Deleting the lists
+    # del position_sets
+    # del packages_priority
+    # del packages_economy
+
+    # print(ulds)
+    return ulds, packages_order
 
 
 def can_place(package, position, uld):
@@ -80,7 +108,7 @@ def can_place(package, position, uld):
         if is_overlapping(
             package,
             (x, y, z, x + package.dim.l, y + package.dim.w, z + package.dim.h),
-            placed_pkg.coords,
+            placed_pkg.corners,
         ):
             return False
 
@@ -116,77 +144,62 @@ def update_positions(position_set, package, position, uld):
     ]
 
 
-# Run the DBLF Algorithm
-result_uld = dblf_packing_algorithm(packages_all, containers)
+# def output_results_unique(ulds, packages, output_file="results.txt"):
+#     """
+#     Outputs the results of the packing, ensuring each package is printed only once.
+#     1. The first line contains total packed volume, total packed weight, and the total number of packed boxes.
+#     2. Subsequent lines provide details for each package.
 
+#     :param ulds: List of ULDs after packing.
+#     :param packages: List of all packages.
+#     :param output_file: Output file for writing the results.
+#     """
 
-def output_results_unique(ulds, packages, output_file="results.txt"):
-    """
-    Outputs the results of the packing, ensuring each package is printed only once.
-    1. The first line contains total packed volume, total packed weight, and the total number of packed boxes.
-    2. Subsequent lines provide details for each package.
+#     with open(output_file, "w") as file:
+#         # Calculate totals
+#         total_packed_volume = sum(
+#             pkg.volume() for uld in ulds for pkg in uld.packages
+#         )
+#         total_packed_weight = sum(uld.weight for uld in ulds)
+#         total_packed_boxes = sum(len(uld.packages) for uld in ulds)
+#         total_packed_priority_boxes = sum(
+#             1 for uld in ulds for package in uld.packages if package.is_priority
+#         )
+#         # Track placed packages
+#         placed_packages = [pkg for uld in ulds for pkg in uld.packages]
+#         # Calculate unplaced boxes
+#         unplaced_boxes = [
+#             pkg
+#             for pkg in packages_economy_all
+#             if pkg.id not in [p.id for p in placed_packages]
+#         ]
+#         # Step 1: Calculate the number of containers with at least one priority package
+#         k = sum(1 for uld in ulds if any(pkg.is_priority for pkg in uld.packages))
 
-    :param ulds: List of ULDs after packing.
-    :param packages: List of all packages.
-    :param output_file: Output file for writing the results.
-    """
+#         # Step 2: Sum the cost of unplaced non-priority boxes
+#         unplaced_non_priority_cost = sum(
+#             pkg.cost for pkg in unplaced_boxes if not pkg.is_priority
+#         )
 
-    with open(output_file, "w") as file:
-        # Calculate totals
-        total_packed_volume = sum(
-            pkg.get_volume() for uld in ulds for pkg in uld.packages
-        )
-        total_packed_weight = sum(uld.weight for uld in ulds)
-        total_packed_boxes = sum(len(uld.packages) for uld in ulds)
-        total_packed_priority_boxes = sum(
-            1 for uld in ulds for package in uld.packages if package.is_priority
-        )
-        # Track placed packages
-        placed_packages = [pkg for uld in ulds for pkg in uld.packages]
-        # Calculate unplaced boxes
-        unplaced_boxes = [
-            pkg
-            for pkg in packages_economy
-            if pkg.id not in [p.id for p in placed_packages]
-        ]
-        # Step 1: Calculate the number of containers with at least one priority package
-        k = sum(1 for uld in ulds if any(pkg.is_priority for pkg in uld.packages))
+#         # Step 3: Calculate total cost
+#         total_cost = 5000 * k + unplaced_non_priority_cost
+#         # Write the first line
+#         file.write(
+#             f"{total_cost},{total_packed_weight},{total_packed_boxes},{total_packed_priority_boxes} \n"
+#         )
 
-        # Step 2: Sum the cost of unplaced non-priority boxes
-        unplaced_non_priority_cost = sum(
-            pkg.cost for pkg in unplaced_boxes if not pkg.is_priority
-        )
+#         # Write details for each package
+#         for pkg in packages_all_okay:
+#             if pkg.uld_id == 0:
+#                 # Unplaced package
+#                 file.write(f"P-{pkg.id},NONE,-1,-1,-1,-1,-1,-1\n")
+#             else:
+#                 # Placed package
+#                 x0, y0, z0 = pkg.corners[0]
+#                 x1, y1, z1 = pkg.corners[1]
+#                 file.write(f"P-{pkg.id},U-{pkg.uld_id},{x0},{y0},{z0},{x1},{y1},{z1}\n")
 
-        # Step 3: Calculate total cost
-        total_cost = 5000 * k + unplaced_non_priority_cost
-        # Write the first line
-        file.write(
-            f"{total_cost},{total_packed_weight},{total_packed_boxes},{total_packed_priority_boxes} \n"
-        )
-
-        # Write details for each package
-        for pkg in packages_all:
-            if pkg.uld == 0:
-                # Unplaced package
-                file.write(f"P-{pkg.id},NONE,-1,-1,-1,-1,-1,-1\n")
-            else:
-                # Placed package
-                x0, y0, z0 = pkg.coords[0]
-                x1, y1, z1 = pkg.coords[1]
-                file.write(f"P-{pkg.id},U-{pkg.uld},{x0},{y0},{z0},{x1},{y1},{z1}\n")
-
-    print(f"Results written to {output_file}")
-
-
-# Assuming `result_uld` is the list of ULDs after packing
-output_results_unique(result_uld, packages)
-
-
-# Assuming `result_uld` is the list of ULDs after packing and `total_packed_volume` is calculated
-total_packed_boxes = sum(len(uld.packages) for uld in result_uld)
-total_packed_volume = sum(
-    pkg.get_volume() for uld in result_uld for pkg in uld.packages
-)
+#     print(f"Results written to {output_file}")
 
 
 import matplotlib.pyplot as plt
@@ -218,8 +231,8 @@ def visualize_packing(containers):
 
         # Plot each package in the container
         for package in uld.packages:
-            x0, y0, z0 = package.coords[0]
-            x1, y1, z1 = package.coords[1]
+            x0, y0, z0 = package.corners[0]
+            x1, y1, z1 = package.corners[1]
 
             # Define vertices of the box
             vertices = [
@@ -281,11 +294,11 @@ def calculate_packing_stats(containers):
 
     for container in containers:
         # Add container volume
-        total_container_volume += container.get_volume()
+        total_container_volume += container.volume()
 
         # Add volumes of packed boxes and count them
         for package in container.packages:
-            total_packed_volume += package.get_volume()
+            total_packed_volume += package.volume()
             total_packed_boxes += 1
 
     # Calculate packing fraction
@@ -297,14 +310,29 @@ def calculate_packing_stats(containers):
 
     return packing_fraction, total_packed_boxes
 
+# # Run the DBLF Algorithm
+# result_uld, result_packages = dblf_packing_algorithm(packages_all_okay, containers_all)
 
-# Example usage:
-# Call this function after running the packing algorithm.
-packing_fraction, total_packed_boxes = calculate_packing_stats(result_uld)
-
-print(f"Packing Fraction: {packing_fraction:.2%}")
-print(f"Total Number of Boxes Packed: {total_packed_boxes}")
+# # # Assuming `result_uld` is the list of ULDs after packing
+# output_results_unique(result_uld, result_packages)
 
 
-calculate_packing_stats(result_uld)
-visualize_packing(result_uld)  # plotting the package
+# # Assuming `result_uld` is the list of ULDs after packing and `total_packed_volume` is calculated
+# total_packed_boxes = sum(len(uld.packages) for uld in result_uld)
+# total_packed_volume = sum(
+#     pkg.volume() for uld in result_uld for pkg in uld.packages
+# )
+
+# # Example usage:
+# # Call this function after running the packing algorithm.
+# packing_fraction, total_packed_boxes = calculate_packing_stats(result_uld)
+
+# print(f"Packing Fraction: {packing_fraction:.2%}")
+# print(f"Total Number of Boxes Packed: {total_packed_boxes}")
+
+
+# # # calculate_packing_stats(result_uld)
+# visualize_packing(result_uld)  # plotting the package
+
+
+
