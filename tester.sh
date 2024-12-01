@@ -4,7 +4,7 @@
 SOLVERS_DIR="src/solvers"
 TEST_CASES_DIR="test/testcases"
 OUTPUT_DIR="output"
-ERROR_FILE="error.txt"
+ERROR_FILE="$OUTPUT_DIR/error.txt"
 
 # Clear previous outputs
 mkdir -p "$OUTPUT_DIR"
