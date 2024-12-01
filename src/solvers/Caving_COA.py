@@ -30,9 +30,9 @@ def objective(
         "x_gravity": params[8],
     }
 
-    uld_COAs_copy = copy.deepcopy(uld_COAs)
-    env_copy = copy.deepcopy(env)
-    pkgs_copy = copy.deepcopy(pkgs)
+    uld_COAs_copy: dict[int, list] = copy.deepcopy(uld_COAs)
+    env_copy: Environment = copy.deepcopy(env)
+    pkgs_copy: list = copy.deepcopy(pkgs)
 
     cost = COA.A3(
         uld_COAs_copy,
@@ -47,7 +47,9 @@ def objective(
     if verbose:
         print(f"Cost: {cost}")
 
-    return params, cost
+    env_copy.global_stability_check()
+    num_unstable = sum((1 if env_copy.stable[i] == -1 else 0) for i in env_copy.stable)
+    return params, (cost + 10000 * num_unstable)
 
 
 class COA(PackingAlgorithm):
@@ -339,6 +341,7 @@ class COA(PackingAlgorithm):
                                 uld.id,
                                 corners=(coa, orientation),
                                 simulate=True,
+                                stability_check=False,
                             ):
                                 continue
 
@@ -405,6 +408,7 @@ class COA(PackingAlgorithm):
                 corners=(best_coa, best_orientation),
                 collision_check=False,
                 weight_limit_check=False,
+                stability_check=False,
             )
 
             pkgs.remove(best_pkg)
@@ -629,7 +633,7 @@ class COA(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 # heuristic=priority_heuristic,
                 prune_COAs=False,
-                n_calls=10,
+                n_calls=60,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
@@ -637,13 +641,12 @@ class COA(PackingAlgorithm):
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            COA.A3(
+            COA.Ai(
                 uld_COAs,
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                n_calls=10,
+                n_calls=20,
                 maximize_volume_utilization=True,
-                verbose=False,
             )
             print(f"{'='*60}")
