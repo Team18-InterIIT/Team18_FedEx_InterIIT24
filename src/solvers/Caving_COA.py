@@ -511,7 +511,7 @@ class COA(PackingAlgorithm):
         pkgs: list[Package],
         allowed_ULDs: list[int] = None,
         prune_COAs: bool = True,
-        verbose: bool = True,
+        verbose: bool = False,
         n_calls: int = 20,
         maximize_volume_utilization: bool = True,
         **kwargs,
@@ -542,6 +542,7 @@ class COA(PackingAlgorithm):
             allowed_ULDs,
             verbose,
             maximize_volume_utilization,
+            n_calls=n_calls,
             random_state=42,
             n_jobs=-1,
         )
@@ -621,12 +622,12 @@ class COA(PackingAlgorithm):
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            COA.A3(
+            COA.Ai(
                 uld_COAs,
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
-                heuristic=priority_heuristic,
+                # heuristic=priority_heuristic,
                 prune_COAs=False,
                 n_calls=10,
                 maximize_volume_utilization=True,
