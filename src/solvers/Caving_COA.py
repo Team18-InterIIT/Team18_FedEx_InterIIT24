@@ -244,19 +244,20 @@ class COA(PackingAlgorithm):
         allowed_ULDs: list[int] = None,
         verbose: bool = True,
         prune_COAs: bool = True,
+        maximize_volume_utilization: bool = True,
         **kwargs,
     ):
         if heuristic is None:
             heuristic = {
-                "included_cost": 30503351,
-                "paste_number": 9767,
-                "paste_ratio": 1,
-                "largest_dim": 2244,
-                "middle_dim": 1,
-                "smallest_dim": 33,
-                "z_gravity": -5000,
-                "y_gravity": -925,
-                "x_gravity": 0,
+                "included_cost": 8516012,
+                "paste_number": 9550,
+                "paste_ratio": 382,
+                "largest_dim": 1000,
+                "middle_dim": 807,
+                "smallest_dim": 100,
+                "z_gravity": -7000,
+                "y_gravity": -400,
+                "x_gravity": -400,
             }
 
         if allowed_ULDs is None:
@@ -370,7 +371,7 @@ class COA(PackingAlgorithm):
 
             if verbose:
                 print(
-                    f"\rPackage {total_pkgs - len(pkgs)}/{total_pkgs} added to ULD {best_uld.id}",
+                    f"\r {total_pkgs - len(pkgs)}/{total_pkgs} : Package added to ULD {best_uld.id}",
                     end="",
                 )
                 sys.stdout.flush()
@@ -378,15 +379,24 @@ class COA(PackingAlgorithm):
         if verbose:
             print("")
 
-        volume_utilization = 0
-        for uld_id in allowed_ULDs:
-            uld = env.ULDs[uld_id]
-            volume_utilization += uld.volume_utilisation()
-        volume_utilization /= len(allowed_ULDs)
-        if verbose:
-            print(f"Volume Utilization: {volume_utilization}")
+        cost = sum(env.cost())
 
-        return sum(env.cost(priority_check=False)) + 1000 * (1 - volume_utilization)
+        if maximize_volume_utilization is not None:
+            volume_utilization = 0
+            for uld_id in allowed_ULDs:
+                uld = env.ULDs[uld_id]
+                volume_utilization += uld.volume_utilisation()
+            volume_utilization /= len(allowed_ULDs)
+            cost += 1000 * (
+                (1 - volume_utilization)
+                if maximize_volume_utilization
+                else (volume_utilization)
+            )
+
+            if verbose:
+                print(f"Volume Utilization: {volume_utilization}")
+
+        return cost
 
     def Ai(
         uld_COAs: dict[int, list[Point]],
@@ -396,6 +406,7 @@ class COA(PackingAlgorithm):
         prune_COAs: bool = True,
         verbose: bool = True,
         n_calls: int = 20,
+        maximize_volume_utilization: bool = True,
     ):
         if allowed_ULDs is None:
             allowed_ULDs = list(range(len(env.ULDs)))
@@ -426,6 +437,7 @@ class COA(PackingAlgorithm):
                 heuristic=heuristic,
                 allowed_ULDs=allowed_ULDs,
                 verbose=verbose,
+                maximize_volume_utilization=maximize_volume_utilization,
             )
 
             if verbose:
@@ -472,6 +484,7 @@ class COA(PackingAlgorithm):
             prune_COAs=prune_COAs,
             allowed_ULDs=allowed_ULDs,
             verbose=verbose,
+            maximize_volume_utilization=None,
         )
 
         return best_heuristic
@@ -486,7 +499,7 @@ class COA(PackingAlgorithm):
             range(len(env.ULDs)),
             key=lambda uld_id: (
                 env.ULDs[uld_id].volume(),
-                env.ULDs[uld_id].weight,
+                env.ULDs[uld_id].weight_limit,
                 uld_id,
             ),
             reverse=True,
@@ -509,17 +522,19 @@ class COA(PackingAlgorithm):
         }
 
         for uld_id in sorted_ULD_ids:
+            print(f"ULD: {uld_id + 1}")
             COA.Ai(
                 uld_COAs,
                 env,
                 priority_pkgs,
-                # heuristic=priority_heuristic,
                 allowed_ULDs=[uld_id],
                 prune_COAs=False,
                 n_calls=10,
+                maximize_volume_utilization=False,
             )
+            print(f"{'='*60}")
 
-        print(f"{'='*60}")
+        print("")
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
@@ -529,5 +544,6 @@ class COA(PackingAlgorithm):
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
                 n_calls=10,
+                maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
