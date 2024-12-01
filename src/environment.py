@@ -151,7 +151,7 @@ class Environment:
                 top_surface = sorted(
                     pkg.get_corners(), key=lambda coord: (coord.z, coord.y, coord.x)
                 )[4:]
-                if z <= top_surface[0].z:
+                if z < top_surface[0].z:
                     continue
 
                 x_min, y_min, z_min = (
@@ -160,16 +160,22 @@ class Environment:
                     top_surface[0].z,
                 )
                 x_max, y_max, _ = (
-                    top_surface[2].x,
-                    top_surface[2].y,
-                    top_surface[2].z,
+                    top_surface[3].x,
+                    top_surface[3].y,
+                    top_surface[3].z,
                 )
+
                 if x_min <= x <= x_max and y_min <= y <= y_max:
                     height_drop = min(height_drop, z - z_min)
+                    if height_drop == 0:
+                        return corners, 0
 
         return (
-            Point(corners[0].x, corners[0].y, corners[0].z - height_drop),
-            Point(corners[1].x, corners[1].y, corners[1].z - height_drop),
+            (
+                Point(corners[0].x, corners[0].y, corners[0].z - height_drop),
+                Point(corners[1].x, corners[1].y, corners[1].z - height_drop),
+            ),
+            height_drop,
         )
 
     def add_package(
@@ -213,20 +219,21 @@ class Environment:
         if weight_limit_check and self.check_weight_limit(uld, pkg.weight):
             return False
 
-        if not simulate:
-            self.pkg_addition_order.append(pkg.id)
+        if simulate:
+            return True
 
-            pkg.uld_id = uld.id
+        self.pkg_addition_order.append(pkg.id)
 
-            if gravity:
-                corners = self.apply_gravity(uld.id - 1, corners)
-            pkg.corners = corners
+        pkg.uld_id = uld.id
 
-            uld.packages.append(pkg)
-            uld.weight += pkg.weight
-            uld.has_priority = uld.has_priority or pkg.is_priority
+        if gravity:
+            corners, _ = self.apply_gravity(uld.id - 1, corners)
 
-        return True
+        pkg.corners = corners
+
+        uld.packages.append(pkg)
+        uld.weight += pkg.weight
+        uld.has_priority = uld.has_priority or pkg.is_priority
 
     def cost(
         self,
@@ -254,7 +261,9 @@ class Environment:
                             and pkg1.corners[0].z < pkg2.corners[1].z
                             and pkg1.corners[1].z > pkg2.corners[0].z
                         ):
-                            print(f"Collision detected between {pkg1.id} and {pkg2.id}")
+                            print(
+                                f"Collision detected between {pkg1.id} and {pkg2.id} in ULD {uld.id}"
+                            )
                             return float("inf"), float("inf")
 
         priority_cost = 0
