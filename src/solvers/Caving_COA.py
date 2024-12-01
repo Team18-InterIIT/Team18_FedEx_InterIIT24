@@ -6,8 +6,6 @@ from itertools import permutations
 from skopt import gp_minimize
 from skopt.space import Integer
 
-from scipy.optimize import minimize
-
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
