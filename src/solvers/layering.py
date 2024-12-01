@@ -140,8 +140,12 @@ def flatbed_pack(packages,ULD,rejection_threshold = 0.8):
         return layer
     else:
         freq_dist = get_dim_freq(packages,0)
-        
-        pairsort = sorted(freq_dist,key = lambda x: x[1],reverse = True)
+        pairsort = sorted(freq_dist,key = lambda x: x[1] + freq_dist[height-x[0]],reverse = True)
+        for x in pairsort:
+            selectedrects_2d = selectrects_2d(x[0], packages,[0]*(len(packages)+1))
+            layer = bp2d(Layer(0, [], ULD.dim.l, ULD.dim.w, x[0], -1, 0), selectedrects_2d)
+            if(layer.packing_eff > rejection_threshold):
+                return layer
         selectedrects_2d = selectrects_2d(height, packages,[0]*(len(packages)+1))
 
 
