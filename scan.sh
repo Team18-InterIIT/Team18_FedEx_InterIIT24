@@ -80,6 +80,13 @@ for file in "$directory_to_scan"/**/*; do
         if [ $MATCH -eq 0 ]; then
             echo -e "\e[32m$file OK\e[0m"
         fi
+    elif file "$file" | grep -qiE 'image'; then
+        grep -i -H -n --color "$PHRASES" "$file"
+        if [ $? -ne 0 ]; then
+               echo -e "\e[32m$file OK\e[0m" 
+        fi
+
+    
     # Process PDF files
     elif echo "$FILE_DATA" | grep -qE "pdf"; then
         TEMP_HTML_FILE="$(basename "$file" .pdf).html.xml" # Temporary HTML file
