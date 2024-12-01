@@ -110,7 +110,7 @@ class Package:
         self.corners = pkg.corners
 
     def copy(self):
-        new_pkg = self.new()
+        new_pkg = Package.new()
         new_pkg.copy_from(self)
         return new_pkg
 
@@ -191,7 +191,7 @@ class ULD:
         self.packages = [pkg.copy() for pkg in uld.packages]
 
     def copy(self):
-        new_uld = self.new()
+        new_uld = ULD.new()
         new_uld.copy_from(self)
         return new_uld
 

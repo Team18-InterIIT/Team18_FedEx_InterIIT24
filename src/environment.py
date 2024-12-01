@@ -128,6 +128,50 @@ class Environment:
         """
         return uld.weight + pkg_weight > uld.weight_limit
 
+    def apply_gravity(
+        self, uld_id: int, corners: tuple[Point, Point], gravity=(0, 0, -1)
+    ):
+        """
+        Apply gravity to the package in the ULD
+
+        Returns the new coordinates of the package, by taking all bottom corners and moving them by gravity
+        """
+        uld = self.ULDs[uld_id]
+        bottom_corners = [
+            corners[0],
+            Point(corners[1].x, corners[0].y, corners[0].z),
+            Point(corners[0].x, corners[1].y, corners[0].z),
+            Point(corners[1].x, corners[1].y, corners[0].z),
+        ]
+        # Look below each corner and find the highest point where the corner can be placed
+        height_drop = corners[0].z
+        for i, corner in enumerate(bottom_corners):
+            x, y, z = corner.x, corner.y, corner.z
+            for pkg in uld.packages:
+                top_surface = sorted(
+                    pkg.get_corners(), key=lambda coord: (coord.z, coord.y, coord.x)
+                )[4:]
+                if z <= top_surface[0].z:
+                    continue
+
+                x_min, y_min, z_min = (
+                    top_surface[0].x,
+                    top_surface[0].y,
+                    top_surface[0].z,
+                )
+                x_max, y_max, _ = (
+                    top_surface[2].x,
+                    top_surface[2].y,
+                    top_surface[2].z,
+                )
+                if x_min <= x <= x_max and y_min <= y <= y_max:
+                    height_drop = min(height_drop, z - z_min)
+
+        return (
+            Point(corners[0].x, corners[0].y, corners[0].z - height_drop),
+            Point(corners[1].x, corners[1].y, corners[1].z - height_drop),
+        )
+
     def add_package(
         self,
         pkg: Package | int,
@@ -139,6 +183,7 @@ class Environment:
         floating_check: bool = True,
         stability_check: bool = True,
         fragility_check: bool = True,
+        gravity: bool = False,
     ) -> bool:
         """
         Add a package to the ULD at the given coordinates,
@@ -172,6 +217,9 @@ class Environment:
             self.pkg_addition_order.append(pkg.id)
 
             pkg.uld_id = uld.id
+
+            if gravity:
+                corners = self.apply_gravity(uld, corners)
             pkg.corners = corners
 
             uld.packages.append(pkg)
