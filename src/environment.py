@@ -162,7 +162,7 @@ class Environment:
                 top_surface = sorted(
                     pkg.get_corners(), key=lambda coord: (coord.z, coord.y, coord.x)
                 )[4:]
-                if z <= top_surface[0].z:
+                if z < top_surface[0].z:
                     continue
 
                 x_min, y_min, z_min = (
@@ -171,16 +171,22 @@ class Environment:
                     top_surface[0].z,
                 )
                 x_max, y_max, _ = (
-                    top_surface[2].x,
-                    top_surface[2].y,
-                    top_surface[2].z,
+                    top_surface[3].x,
+                    top_surface[3].y,
+                    top_surface[3].z,
                 )
+
                 if x_min <= x <= x_max and y_min <= y <= y_max:
                     height_drop = min(height_drop, z - z_min)
+                    if height_drop == 0:
+                        return corners, 0
 
         return (
-            Point(corners[0].x, corners[0].y, corners[0].z - height_drop),
-            Point(corners[1].x, corners[1].y, corners[1].z - height_drop),
+            (
+                Point(corners[0].x, corners[0].y, corners[0].z - height_drop),
+                Point(corners[1].x, corners[1].y, corners[1].z - height_drop),
+            ),
+            height_drop,
         )
 
     def add_package(
@@ -224,18 +230,22 @@ class Environment:
         if weight_limit_check and self.check_weight_limit(uld, pkg.weight):
             return False
 
-        if not simulate:
-            self.pkg_addition_order.append(pkg.id)
-            pkg.uld_id = uld.id
+        if simulate:
+            return True
 
-            if gravity:
-                corners = self.apply_gravity(uld.id - 1, corners)
-            pkg.corners = corners
-            if pkg not in self.packages: # For express packages
-                self.packages.append(pkg)
-            uld.packages.append(pkg)
-            uld.weight += pkg.weight
-            uld.has_priority = uld.has_priority or pkg.is_priority
+        self.pkg_addition_order.append(pkg.id)
+
+        pkg.uld_id = uld.id
+
+        if gravity:
+            corners, _ = self.apply_gravity(uld.id - 1, corners)
+
+        pkg.corners = corners
+        if pkg not in self.packages: # For express packages
+            self.packages.append(pkg)
+        uld.packages.append(pkg)
+        uld.weight += pkg.weight
+        uld.has_priority = uld.has_priority or pkg.is_priority
 
         return True
     
