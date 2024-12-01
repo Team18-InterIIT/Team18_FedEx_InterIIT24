@@ -376,8 +376,8 @@ class Environment:
 
         print(
             f"Number of packages placed: {len(placed)}\nNumber of packages not placed: {len(not_placed)}"
-            f"\nNumber of stable packages: {len([pkg for pkg in self.packages if self.stable[pkg.id-1] == 'Stable'])}"
-            f"\nNumber of unstable packages: {len([pkg for pkg in self.packages if self.stable[pkg.id-1] == 'Unstable'])}"
+            f"\nNumber of stable packages: {len([pkg for pkg in self.packages if self.stable[pkg.id-1] == 1])}"
+            f"\nNumber of unstable packages: {len([pkg for pkg in self.packages if self.stable[pkg.id-1] == -1])}"
             f"\nNumber of ULDs that are priority: {len(priority_ULDs)}"
             f"\nPercentage volume filled: {round(sum(pkg.volume() for pkg in placed) / sum(uld.volume() for uld in self.ULDs) * 100, 3)}%"
             f"\nPercentage of non-priority packages placed: {round((len(placed) - len(priority_pkgs_placed)) / (len(packages) - len(priority_pkgs)) * 100, 3) if len(packages) != len(priority_pkgs) else 100}%"
