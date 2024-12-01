@@ -4,7 +4,7 @@ import parser
 from environment import Environment
 
 # The following import statement should be replaced with the correct import statement
-from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
+from solvers.flatbedLayering import LayerPacking as PackingAlgorithm
 
 # For Example:
 # from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
