@@ -505,8 +505,12 @@ class COA(PackingAlgorithm):
             ),
             reverse=True,
         )
-        priority_pkgs = [pkg for pkg in env.packages if pkg.is_priority]
-        economy_pkgs = [pkg for pkg in env.packages if not pkg.is_priority]
+        priority_pkgs = [
+            pkg for pkg in env.packages if pkg.is_priority and pkg.uld_id == 0
+        ]
+        economy_pkgs = [
+            pkg for pkg in env.packages if not pkg.is_priority and pkg.uld_id == 0
+        ]
 
         uld_COAs = {uld_id: [] for uld_id in range(len(env.ULDs))}
         for uld in env.ULDs:
