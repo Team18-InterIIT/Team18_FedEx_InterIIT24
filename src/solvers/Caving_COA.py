@@ -1,14 +1,53 @@
 import copy
+import numpy as np
 import random
 import sys
 from itertools import permutations
 
-from skopt import gp_minimize
 from skopt.space import Integer
+from skopt import Optimizer
+
 
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
+
+import multiprocessing
+
+
+def objective(
+    params, uld_COAs, env, pkgs, allowed_ULDs, verbose, maximize_volume_utilization
+):
+    heuristic = {
+        "included_cost": params[0],
+        "paste_number": params[1],
+        "paste_ratio": params[2],
+        "largest_dim": params[3],
+        "middle_dim": params[4],
+        "smallest_dim": params[5],
+        "z_gravity": params[6],
+        "y_gravity": params[7],
+        "x_gravity": params[8],
+    }
+
+    uld_COAs_copy = copy.deepcopy(uld_COAs)
+    env_copy = copy.deepcopy(env)
+    pkgs_copy = copy.deepcopy(pkgs)
+
+    cost = COA.A3(
+        uld_COAs_copy,
+        env_copy,
+        pkgs_copy,
+        heuristic=heuristic,
+        allowed_ULDs=allowed_ULDs,
+        verbose=verbose,
+        maximize_volume_utilization=maximize_volume_utilization,
+    )
+
+    if verbose:
+        print(f"Cost: {cost}")
+
+    return params, cost
 
 
 class COA(PackingAlgorithm):
@@ -311,18 +350,24 @@ class COA(PackingAlgorithm):
                                 "z_gravity": (coa.z + orientation.z) / 2,
                                 "y_gravity": (coa.y + orientation.y) / 2,
                                 "x_gravity": (coa.x + orientation.x) / 2,
-                                "included_cost": (pkg.cost**1.5 / pkg.volume() ** 0.8)
-                                if not pkg.is_priority
-                                else -(
-                                    sum(
-                                        pkg.cost
-                                        for pkg in env.packages
-                                        if (not pkg.is_priority and pkg.uld_id == 0)
+                                "included_cost": (
+                                    (pkg.cost**1.5 / pkg.volume() ** 0.8)
+                                    if not pkg.is_priority
+                                    else -(
+                                        sum(
+                                            pkg.cost
+                                            for pkg in env.packages
+                                            if (not pkg.is_priority and pkg.uld_id == 0)
+                                        )
+                                        + sum(
+                                            env.K
+                                            for uld in env.ULDs
+                                            if uld.has_priority
+                                        )
+                                        + env.K
+                                        if (not uld.has_priority and pkg.is_priority)
+                                        else 0
                                     )
-                                    + sum(env.K for uld in env.ULDs if uld.has_priority)
-                                    + env.K
-                                    if (not uld.has_priority and pkg.is_priority)
-                                    else 0
                                 ),
                             }
                             (
@@ -396,6 +441,70 @@ class COA(PackingAlgorithm):
 
         return cost
 
+    def gp_minimize(
+        objective,
+        space,
+        uld_COAs,
+        env,
+        pkgs,
+        allowed_ULDs,
+        verbose,
+        maximize_volume_utilization,
+        n_jobs=1,
+        n_calls=10,
+        random_state=42,
+    ):
+        optimizer = Optimizer(space, base_estimator="gp", random_state=random_state)
+        if n_jobs == -1:
+            n_jobs = multiprocessing.cpu_count()
+        cpu_state = {}
+        n_completed_calls = 0
+        with multiprocessing.Pool(processes=n_jobs) as pool:
+            ready_ids = list(range(n_jobs))
+
+            while n_completed_calls < n_calls:
+                if len(ready_ids) > 0:
+                    n_updated = 0
+                    for cpu_id in ready_ids:
+                        if cpu_state.get(cpu_id) is not None:
+                            # update optimzier with completed results
+                            optimizer.tell(*cpu_state[cpu_id].get())
+                            n_updated += 1
+                            cpu_state[cpu_id] = None
+                    n_completed_calls += n_updated
+
+                    # sample points for all idle CPUs
+                    sampled_points = optimizer.ask(len(ready_ids))
+
+                    # distribute tasks to idel CPUs
+                    for point, cpu_id in zip(sampled_points, ready_ids):
+                        cpu_state[cpu_id] = pool.apply_async(
+                            objective,
+                            args=(
+                                point,
+                                uld_COAs,
+                                env,
+                                pkgs,
+                                allowed_ULDs,
+                                verbose,
+                                maximize_volume_utilization,
+                            ),
+                        )
+
+                    ready_ids = [
+                        cpu_id
+                        for cpu_id in cpu_state
+                        if cpu_state[cpu_id] is not None and cpu_state[cpu_id].ready()
+                    ]
+                else:
+                    ready_ids = [
+                        cpu_id
+                        for cpu_id in cpu_state
+                        if cpu_state[cpu_id] is not None and cpu_state[cpu_id].ready()
+                    ]
+        best_params = optimizer.Xi[np.argmin(optimizer.yi)]
+        return best_params
+
     def Ai(
         uld_COAs: dict[int, list[Point]],
         env: Environment,
@@ -412,40 +521,6 @@ class COA(PackingAlgorithm):
 
         print(f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}")
 
-        def objective(params):
-            heuristic = {
-                "included_cost": params[0],
-                "paste_number": params[1],
-                "paste_ratio": params[2],
-                "largest_dim": params[3],
-                "middle_dim": params[4],
-                "smallest_dim": params[5],
-                "z_gravity": params[6],
-                "y_gravity": params[7],
-                "x_gravity": params[8],
-            }
-
-            uld_COAs_copy = copy.deepcopy(uld_COAs)
-            env_copy = copy.deepcopy(env)
-            pkgs_copy = copy.deepcopy(pkgs)
-
-            cost = COA.A3(
-                uld_COAs_copy,
-                env_copy,
-                pkgs_copy,
-                heuristic=heuristic,
-                allowed_ULDs=allowed_ULDs,
-                verbose=verbose,
-                maximize_volume_utilization=maximize_volume_utilization,
-            )
-
-            if verbose:
-                print(f"Cost: {cost}")
-
-            return cost
-
-        best_heuristic = None
-
         space = [
             Integer(100000, 100000000, name="included_cost"),
             Integer(1, 10000, name="paste_number"),
@@ -458,9 +533,19 @@ class COA(PackingAlgorithm):
             Integer(-1000, 0, name="x_gravity"),
         ]
 
-        res = gp_minimize(objective, space, n_calls=n_calls, random_state=42)
+        best_params = COA.gp_minimize(
+            objective,
+            space,
+            uld_COAs,
+            env,
+            pkgs,
+            allowed_ULDs,
+            verbose,
+            maximize_volume_utilization,
+            random_state=42,
+            n_jobs=-1,
+        )
 
-        best_params = res.x
         best_heuristic = {
             "included_cost": best_params[0],
             "paste_number": best_params[1],
@@ -558,5 +643,6 @@ class COA(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 n_calls=10,
                 maximize_volume_utilization=True,
+                verbose=False,
             )
             print(f"{'='*60}")
