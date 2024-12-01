@@ -219,7 +219,7 @@ class Environment:
             pkg.uld_id = uld.id
 
             if gravity:
-                corners = self.apply_gravity(uld, corners)
+                corners = self.apply_gravity(uld.id - 1, corners)
             pkg.corners = corners
 
             uld.packages.append(pkg)
