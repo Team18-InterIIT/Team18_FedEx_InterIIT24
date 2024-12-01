@@ -631,7 +631,7 @@ class COA(PackingAlgorithm):
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
-                # heuristic=priority_heuristic,
+                heuristic=priority_heuristic,
                 prune_COAs=False,
                 n_calls=60,
                 maximize_volume_utilization=True,
