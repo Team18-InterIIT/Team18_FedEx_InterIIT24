@@ -407,6 +407,7 @@ class COA(PackingAlgorithm):
         verbose: bool = True,
         n_calls: int = 20,
         maximize_volume_utilization: bool = True,
+        **kwargs,
     ):
         if allowed_ULDs is None:
             allowed_ULDs = list(range(len(env.ULDs)))
@@ -507,7 +508,17 @@ class COA(PackingAlgorithm):
         priority_pkgs = [pkg for pkg in env.packages if pkg.is_priority]
         economy_pkgs = [pkg for pkg in env.packages if not pkg.is_priority]
 
-        uld_COAs = {uld.id - 1: [Point(0, 0, 0)] for uld in env.ULDs}
+        uld_COAs = {uld_id: [] for uld_id in range(len(env.ULDs))}
+        for uld in env.ULDs:
+            for pkg in uld.packages:
+                for coa in COA.generate_COAs(pkg.corners[0], pkg.corners[1]):
+                    if uld.id - 1 not in uld_COAs:
+                        uld_COAs[uld.id - 1] = []
+                    uld_COAs[uld.id - 1].append(coa)
+
+        for uld_id in range(len(env.ULDs)):
+            if len(uld_COAs[uld_id]) == 0:
+                uld_COAs[uld_id] = [Point(0, 0, 0)]
 
         priority_heuristic = {
             "included_cost": 1000000,
@@ -523,11 +534,12 @@ class COA(PackingAlgorithm):
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            COA.Ai(
+            COA.A3(
                 uld_COAs,
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
+                heuristic=priority_heuristic,
                 prune_COAs=False,
                 n_calls=10,
                 maximize_volume_utilization=True,
@@ -537,7 +549,7 @@ class COA(PackingAlgorithm):
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            COA.Ai(
+            COA.A3(
                 uld_COAs,
                 env,
                 economy_pkgs,
