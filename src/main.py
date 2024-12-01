@@ -34,8 +34,8 @@ for uld_id, order_list in order.items():
     env.pkg_addition_order.extend(order_list)
 
 env.summary()
-# env.plot()
-env.animate()
+env.plot()
+# env.animate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
 )

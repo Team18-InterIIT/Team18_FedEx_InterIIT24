@@ -40,6 +40,9 @@ class Parser:
                         pkg_list[row][0] = pkg_list[row][0][2:]
                     i = j + 1
 
+        uld_list.sort(key=lambda x: int(x[0]))
+        pkg_list.sort(key=lambda x: int(x[0]))
+
         self.K = K
         self.uld_list = uld_list
         self.pkg_list = pkg_list
