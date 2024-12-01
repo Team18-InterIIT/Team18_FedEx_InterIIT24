@@ -314,18 +314,17 @@ class COA(PackingAlgorithm):
                                 "y_gravity": (coa.y + orientation.y) / 2,
                                 "x_gravity": (coa.x + orientation.x) / 2,
                                 "included_cost": (pkg.cost**1.5 / pkg.volume() ** 0.8)
-                                    if not pkg.is_priority
-                                    else -(
-                                        sum(
-                                            pkg.cost
-                                            for pkg in env.packages
-                                            if (not pkg.is_priority and pkg.uld_id == 0)
-                                        )
-                                    + sum(env.K for uld in env.ULDs if uld.has_priority)
-                                        + env.K
-                                        if (not uld.has_priority and pkg.is_priority)
-                                        else 0
+                                if not pkg.is_priority
+                                else -(
+                                    sum(
+                                        pkg.cost
+                                        for pkg in env.packages
+                                        if (not pkg.is_priority and pkg.uld_id == 0)
                                     )
+                                    + sum(env.K for uld in env.ULDs if uld.has_priority)
+                                    + env.K
+                                    if (not uld.has_priority and pkg.is_priority)
+                                    else 0
                                 ),
                             }
                             (
