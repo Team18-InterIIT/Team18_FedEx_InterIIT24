@@ -135,6 +135,19 @@ def bp2d(layer: Layer, selectedrects):
 
 # =================================================================#
 
+def all_layers(height,length,breadth,allowed_packages,rejection_threshold = 0.8):
+    all_layers = []
+    selectedrects_2d = selectrects_2d(height, allowed_packages, [0] * (len(allowed_packages) + 1))  
+    layer = bp2d(Layer(0, [],length,breadth, height, -1, 0), selectedrects_2d)   
+    all_layers.append(layer)
+    for rect in layer.packedrects:
+        newrects = selectedrects_2d
+        newrects.remove(rect)
+        newlayer = bp2d(Layer(0, [],length,breadth, height, -1, 0), newrects)  
+        if(layer.packing_eff > rejection_threshold):
+            all_layers.append(newlayer) 
+    return all_layers
+
 
 def gensets(lens, n, h, current_set=None, all_sets=None):
     if current_set is None:
