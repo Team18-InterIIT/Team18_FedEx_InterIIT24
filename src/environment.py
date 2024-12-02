@@ -1392,7 +1392,7 @@ class Environment:
                 uld.has_priority = any(pkg.is_priority for pkg in uld.packages)
                 uld.weight = sum(pkg.weight for pkg in uld.packages)
 
-    def check_stability(self, pkg_id, corners):
+    def check_stability(self, pkg_id, corners, tolerance = 3):
         """
         First make a dictionary with pkg_id as the key and the coordinates
         of the package sorted by z-coordinate as the value
@@ -1420,36 +1420,39 @@ class Environment:
 
         curr_bottom = to_insert[:4]
 
-        target_z = to_insert[0].z
+        target_z_up = to_insert[0].z
+        target_z_down = to_insert[0].z - tolerance
 
-        # Find the range of intersecting intervals in O(log n)
+            # Find the start of the intersecting intervals in O(log n)
         left_z = 0
         right_z = n - 1
 
         while left_z < right_z:
             mid = (left_z + right_z) // 2
 
-            if self.stable_coords[mid][0].z < target_z:
+            if self.stable_coords[mid][0].z < target_z_down:
                 left_z = mid + 1
             else:
                 right_z = mid
 
-        if left_z > right_z or self.stable_coords[left_z][0].z != target_z:
-            self.stable[pkg_id] = -1
-            return self.stable[pkg_id]
+        start_z = left_z if self.stable_coords[left_z][0].z >= target_z_down else left_z + 1
 
-        # Find the end of intersecting intervals in O(log n)
-        left, right = 0, n - 1
+        # Find the end of the intersecting intervals in O(log n)
+        left_z = 0
+        right_z = n - 1
 
-        while left < right:
-            mid = (left + right) // 2
+        while left_z < right_z:
+            mid = (left_z + right_z + 1) // 2
 
-            if self.stable_coords[mid][0].z > target_z:
-                right = mid
+            if self.stable_coords[mid][0].z > target_z_up:
+                right_z = mid - 1
             else:
-                left = mid + 1
+                left_z = mid
 
-        right_z = left - 1
+        end_z = right_z if self.stable_coords[right_z][0].z <= target_z_up else right_z - 1
+
+        left_z = start_z
+        right_z = end_z
 
         coords_x = sorted(
             self.stable_coords[left_z : right_z + 1], key=lambda coord: (coord[0].x)
