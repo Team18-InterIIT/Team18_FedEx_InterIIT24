@@ -12,12 +12,16 @@ class LayerPacking(PackingAlgorithm):
 
     def solve(self, env: Environment):
 
-        layers = make_layers_fancy(
+        layers,assigned_pkgs = make_layers_fancy(
             env.packages,
             env.ULDs[0].dim.l,
             env.ULDs[0].dim.w,
-            rejection_threshold=0.9,
+            rejection_threshold=0.93,
+            weight_th=1.05,
+            cost_th=1.2,
             k_param=0,
+            uldheight=env.ULDs[0].dim.h,
+            uldweight=env.ULDs[0].weight_limit
         )
         layers = sorted(layers, key=lambda x: x.packing_eff, reverse=True)
 
@@ -44,5 +48,6 @@ class LayerPacking(PackingAlgorithm):
                         break
                     height += layer_no.dim.h
                     print(layer_no.packing_eff, layer_no.cost, layer_no.dim.h)
+                    print("height ratio: ", layer_no.height_ratio, "weight_ratio: ", layer_no.weight_ratio, "cost_density: ", layer_no.cost_density)
         else:
             print("The problem does not have an optimal solution.")

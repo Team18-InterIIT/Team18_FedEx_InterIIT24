@@ -8,7 +8,7 @@ import collections
 from ortools.linear_solver import pywraplp
 
 class Layer:
-    def __init__(self, pe, length, breadth, height, uldno, cost):
+    def __init__(self, pe, length, breadth, height, uldno, cost, weight, height_ratio=1, weight_ratio=1, cost_desity=1):
         """
         Initialize a rectangle with given parameters.
 
@@ -24,8 +24,14 @@ class Layer:
         self.packedrects : list[Rect] = []
         self.dim : Dim = Dim(length,breadth,height)
         self.uldno = uldno
-        self.cost = cost
+        self.weight = 0 
+        self.cost = 0
         self.area = 0
+        self.height_ratio = 1
+        self.weight_ratio = 1
+        self.cost_density = 1
+        self.cost_economy= 0
+        self.area_economy = 0
 
     def __repr__(self):
         return f"Layer({self.uldno})"
@@ -40,14 +46,20 @@ class Layer:
         rect (Rect): The rectangle to be added to the ULD.
         """
         self.packedrects.append(rect)
-        self.cost += rect.cost
+        self.cost += rect.cost if rect.cost != float("inf") else 1e9
+        self.cost_economy += rect.cost if not rect.is_priority else 0
+        self.weight +=rect.weight 
         self.area += rect.w * rect.h
+        self.area_economy += rect.w * rect.h if not rect.is_priority else 0 
         self.packing_eff = self.area / (self.dim.l * self.dim.w)
 
+#yesorno is 0 if economy, 1 if priority 
 class Rect:
-    def __init__(self, id, cost, x=0, y=0, w=0, h=0):
+    def __init__(self, id, cost, weight, x=0, y=0, w=0, h=0, yesorno=0):
         self.id = id
+        self.is_priority = yesorno
         self.cost = cost
+        self.weight = weight
         self.x = 0  # x-coordinate of the rectangle's top-left corner
         self.y = 0  # y-coordinate of the rectangle's top-left corner
         self.w = w  # width of the rectangle
@@ -87,11 +99,11 @@ def selectrects_2d(dimension, packages, assigned_pkgs):
             l, b, h = pkg.dim.l, pkg.dim.w, pkg.dim.h
             # Check if the dimension matches any of the package dimensions
             if l == dimension:
-                rects.append(Rect(pkg.id, pkg.cost, w=b, h=h))
+                rects.append(Rect(pkg.id, pkg.cost,pkg.weight, w=b, h=h, yesorno = pkg.is_priority))
             elif h == dimension:
-                rects.append(Rect(pkg.id, pkg.cost, w=l, h=b))
+                rects.append(Rect(pkg.id, pkg.cost,pkg.weight, w=l, h=b, yesorno = pkg.is_priority))
             elif b == dimension:
-                rects.append(Rect(pkg.id, pkg.cost, w=l, h=h))
+                rects.append(Rect(pkg.id, pkg.cost,pkg.weight, w=l, h=h, yesorno = pkg.is_priority))
     return rects
 
 #===================================================================#
@@ -117,7 +129,7 @@ def selectrects_2d(dimension, packages, assigned_pkgs):
 
 
 def bp2d(layer: Layer, selectedrects):
-    # print(dir(hp)) 
+    # print(layer.dim.l, layer.dim.w)
     container={
         "ULD1": {
             "L": layer.dim.w,
@@ -127,6 +139,7 @@ def bp2d(layer: Layer, selectedrects):
 
     items = {}
     for rect in selectedrects:
+        # print(rect.w,rect.h)
         items[str(rect.id)] = {
             "w": rect.w,  # Width of the rectangle
             "l": rect.h   # Length (Height) of the rectangle
@@ -163,7 +176,16 @@ def bp2d(layer: Layer, selectedrects):
 
 
 #=================================================================#
-def make_layers(packages,length,breadth,rejection_threshold = 0.8,assigned_pkgs =[],margin = 0):
+#rejection_threshold is for 2D packing efficiency 
+#weight_ratio_th is the threshold or rejecting very heavy layers 
+# it is x => weight of layer/ weight capacity of ULD <= x* height of layer/ height of ULD 
+# similarly cost rejection ratio cost_th
+# it is y => cost of layer/ volume of layer >= y* avg_cost (constant) 
+def make_layers(packages,length,breadth,rejection_threshold = 0.8,
+weight_ratio_th = 0.95
+, cost_th = 0.9, assigned_pkgs =[],margin = 0,
+uld_height=0, uld_weight=0):
+    # print(uld_height)
     layers = []
     dimension_frequency = get_dim_freq(packages,margin)
     if(len(assigned_pkgs) == 0):
@@ -171,48 +193,46 @@ def make_layers(packages,length,breadth,rejection_threshold = 0.8,assigned_pkgs 
     for dim in dimension_frequency:
         selectedrects = selectrects_2d(int(dim[0]), packages,assigned_pkgs)
         area = sum([rect.w*rect.h for rect in selectedrects])
+        layer_cost = sum([rect.cost for rect in selectedrects])
+        
+        avg_cost_const = 0.00021
+        layer_vol = length * breadth * int(dim[0]) 
+        height_ratio = int(dim[0])/uld_height
+        # if(layer_cost >= cost_th*avg_cost_const* layer_vol and 
+        #    self.area >= length*breadth*rejection_threshold
+        #    and ):
         if(area >= length*breadth*rejection_threshold):
-            layer = bp2d(Layer(0, length, breadth, int(dim[0]), -1, 0), selectedrects)
-            if(layer.packing_eff > rejection_threshold):
+            # print(length, breadth)
+            layer = bp2d(Layer(0, length, breadth, int(dim[0]), -1, 0, 0), selectedrects)
+            layer.height_ratio = height_ratio
+            layer.weight_ratio = layer.weight/uld_weight
+            layer.cost_density = layer.cost_economy/(layer.area_economy*int(dim[0]))
+            if(layer.packing_eff > rejection_threshold
+               and layer.cost_density >= cost_th*avg_cost_const
+               and layer.weight_ratio <= weight_ratio_th*layer.height_ratio):
                 layers.append(layer)
                 for rect in layers[-1].packedrects:
                     assigned_pkgs[rect.id] = 1
+                # print(layer.cost_economy, layer.area_economy*int(dim[0]))
     for layer in layers:
-        print("LAYER:")
+        # print("LAYER:")
         for rect in layer.packedrects:
             print(rect.id)
     return layers,assigned_pkgs
 
-def make_layers_fancy(packages, length,breadth,rejection_threshold = 0.8,k_param = 0):
+def make_layers_fancy(packages, length,breadth,rejection_threshold = 0.9,k_param = 0, uldheight =0 ,uldweight=0, weight_th =1, cost_th =1 ):
     all_layers = []
-    layers,assigned_pkgs = make_layers(packages,length,breadth,rejection_threshold)
+    # print(uldheight)
+    layers,assigned_pkgs = make_layers(packages,length,breadth,rejection_threshold,uld_height=uldheight,uld_weight=uldweight, weight_ratio_th=weight_th, cost_th=cost_th)
     all_layers.extend(layers)
     margin = 0
     while(k_param > 0):
         margin +=1 
-        layers, assigned_pkgs = make_layers(packages,length,breadth,rejection_threshold,assigned_pkgs,margin)
+        layers, assigned_pkgs = make_layers(packages,length,breadth,rejection_threshold,assigned_pkgs,margin,uld_height=uldheight,uld_weight=uldweight, weight_ratio_th=weight_th, cost_th=cost_th)
         all_layers.extend(layers)
         k_param -= 1  
-    return all_layers
-    nonpacked = []
-    for i, pkg in enumerate(packages):
-        if assigned_pkgs[i] == 0:
-            nonpacked.append(pkg)
-    new_layers=[]
-    new_map = get_dim_freq(nonpacked,3)
-    for dim in new_map:
-        selectedrects = selectrects_2d(int(dim[0]), nonpacked,assigned_pkgs)
-        new_layers.append(bp2d(Layer(0, [], length, breadth, int(dim[0]), 0, 0), selectedrects))
-        if new_layers[-1].packing_eff > 0.9:
-            for rect in new_layers[-1].packedrects:
-                assigned_pkgs[rect.id] = 1
-        else: new_layers.pop()
-    
-    for layer in layers:
-        print("LAYER:")
-        for rect in layer.packedrects:
-            print(rect.id)
-    return layers
+    return all_layers,assigned_pkgs
+
 
 # def assign_layers(layers,ULDs,or_tools = False):
 #     if(or_tools):   
