@@ -10,7 +10,9 @@ from entity import Package
 # from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
 
 # For Example:
-from solvers.Caving_COA import COA as PackingAlgorithm
+# from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting_Simul_Annealing as PackingAlgorithm
+# from solvers.Caving_COA import COA as PackingAlgorithm
+from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting_Simul_Annealing as PackingAlgorithm
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
@@ -32,8 +34,9 @@ model.solve(env)
 
 newPackage = Package(["401", "70", "70", "70", "0", "Priority", "0"])
 start_time = time.time()
-for uld in range(1, 7):
-    PackageInserter(env).insert_package(uld, newPackage)
+# for uld in range(1, 2):
+#     PackageInserter(env).insert_package(uld, newPackage)
+PackageInserter(env).parallel_insert_package(newPackage)
 end_time = time.time() 
 print(f"Time taken to insert package: {end_time - start_time} seconds")
 
