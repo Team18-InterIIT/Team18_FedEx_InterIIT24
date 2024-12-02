@@ -211,6 +211,9 @@ class ULD:
         """
         Find the center of gravity of all the packages in the ULD
         """
+        if self.weight == 0:
+            return Point(self.dim.l / 2, self.dim.w / 2, self.dim.h / 2)
+
         x = (
             sum(
                 (pkg.corners[0].x + pkg.corners[1].x) / 2 * pkg.weight

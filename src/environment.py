@@ -137,39 +137,35 @@ class Environment:
         Returns the new coordinates of the package, by taking all bottom corners and moving them by gravity
         """
         uld = self.ULDs[uld_id]
-        bottom_corners = [
-            corners[0],
-            Point(corners[1].x, corners[0].y, corners[0].z),
-            Point(corners[0].x, corners[1].y, corners[0].z),
-            Point(corners[1].x, corners[1].y, corners[0].z),
-        ]
-        # Look below each corner and find the highest point where the corner can be placed
-        height_drop = corners[0].z
-        for i, corner in enumerate(bottom_corners):
-            x, y, z = corner.x, corner.y, corner.z
-            for pkg in uld.packages:
-                top_surface = sorted(
-                    pkg.get_corners(), key=lambda coord: (coord.z, coord.y, coord.x)
-                )[4:]
-                if z <= top_surface[0].z:
-                    continue
+        x1_min, y1_min, z1_min = corners[0].x, corners[0].y, corners[0].z
+        x1_max, y1_max = corners[1].x, corners[1].y
+        height_drop = z1_min
 
-                x_min, y_min, z_min = (
-                    top_surface[0].x,
-                    top_surface[0].y,
-                    top_surface[0].z,
-                )
-                x_max, y_max, _ = (
-                    top_surface[2].x,
-                    top_surface[2].y,
-                    top_surface[2].z,
-                )
-                if x_min <= x <= x_max and y_min <= y <= y_max:
-                    height_drop = min(height_drop, z - z_min)
+        for pkg in uld.packages:
+            if z1_min < pkg.corners[1].z:
+                continue
+
+            x0_min, y0_min, x0_max, y0_max, top_surface_height = (
+                pkg.corners[0].x,
+                pkg.corners[0].y,
+                pkg.corners[1].x,
+                pkg.corners[1].y,
+                pkg.corners[1].z,
+            )
+
+            if (min(x1_max, x0_max) - max(x1_min, x0_min)) * (
+                min(y1_max, y0_max) - max(y1_min, y0_min)
+            ) > 0:
+                height_drop = min(height_drop, z1_min - top_surface_height)
+                if height_drop == 0:
+                    return corners, 0
 
         return (
-            Point(corners[0].x, corners[0].y, corners[0].z - height_drop),
-            Point(corners[1].x, corners[1].y, corners[1].z - height_drop),
+            (
+                Point(corners[0].x, corners[0].y, corners[0].z - height_drop),
+                Point(corners[1].x, corners[1].y, corners[1].z - height_drop),
+            ),
+            height_drop,
         )
 
     def add_package(
@@ -213,20 +209,23 @@ class Environment:
         if weight_limit_check and self.check_weight_limit(uld, pkg.weight):
             return False
 
-        if not simulate:
-            self.pkg_addition_order.append(pkg.id)
+        if simulate:
+            return True
 
-            pkg.uld_id = uld.id
+        self.pkg_addition_order.append(pkg.id)
 
-            if gravity:
-                corners = self.apply_gravity(uld, corners)
-            pkg.corners = corners
+        pkg.uld_id = uld.id
 
-            uld.packages.append(pkg)
-            uld.weight += pkg.weight
-            uld.has_priority = uld.has_priority or pkg.is_priority
+        if gravity:
+            if pkg.id in (65, 341):
+                pass
+            corners, _ = self.apply_gravity(uld.id - 1, corners)
 
-        return True
+        pkg.corners = corners
+
+        uld.packages.append(pkg)
+        uld.weight += pkg.weight
+        uld.has_priority = uld.has_priority or pkg.is_priority
 
     def cost(
         self,
@@ -254,7 +253,9 @@ class Environment:
                             and pkg1.corners[0].z < pkg2.corners[1].z
                             and pkg1.corners[1].z > pkg2.corners[0].z
                         ):
-                            print(f"Collision detected between {pkg1.id} and {pkg2.id}")
+                            print(
+                                f"Collision detected between {pkg1.id} and {pkg2.id} in ULD {uld.id}"
+                            )
                             return float("inf"), float("inf")
 
         priority_cost = 0
