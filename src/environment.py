@@ -159,7 +159,8 @@ class Environment:
 
             pkg.uld_id = uld.id
             pkg.corners = corners
-
+            if pkg not in self.packages: # For express packages
+                self.packages.append(pkg)
             uld.packages.append(pkg)
             uld.weight += pkg.weight
             uld.has_priority = uld.has_priority or pkg.is_priority
