@@ -457,7 +457,7 @@ class COA(PackingAlgorithm):
         maximize_volume_utilization,
         n_jobs=1,
         n_calls=10,
-        random_state=69,
+        random_state=42,
     ):
         optimizer = Optimizer(
             space, base_estimator="ET", random_state=random_state, n_initial_points=15
@@ -655,7 +655,7 @@ class COA(PackingAlgorithm):
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                n_calls=60,
+                n_calls=80,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
