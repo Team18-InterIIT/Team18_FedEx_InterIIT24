@@ -66,8 +66,11 @@ class Util:
         # Initialize the queue with all packages that have zero indegree (no package supports them)
         queue = deque(pkg_id for pkg_id, degree in indegree.items() if degree == 0)
         
+        # Create a dictionary to map package IDs to their corner coordinates
+        package_id_to_corners = {pkg.id: pkg.corners for pkg in uld.packages}
+
         # Sort the initial queue based on (x, y) coordinates to prioritize the smallest (x, y)
-        queue = deque(sorted(queue, key=lambda pkg_id: (self.env.packages[pkg_id - 1].corners[0].x, self.env.packages[pkg_id - 1].corners[0].y)))
+        queue = deque(sorted(queue, key=lambda pkg_id: (package_id_to_corners[pkg_id][0].x, package_id_to_corners[pkg_id][0].y)))
         
         topo_order = []  # This will store the topologically sorted packages
 
@@ -82,7 +85,7 @@ class Util:
                 if indegree[neighbor] == 0:
                     queue.append(neighbor)
                     # Keep the queue sorted by (x, y) for the next iteration
-            queue = deque(sorted(queue, key=lambda pkg_id: (self.env.packages[pkg_id - 1].corners[0].x, self.env.packages[pkg_id - 1].corners[0].y)))
+            queue = deque(sorted(queue, key=lambda pkg_id: (package_id_to_corners[pkg_id][0].x, package_id_to_corners[pkg_id][0].y)))
 
         # If the length of topo_order is not equal to the number of packages, there is a cycle
         if len(topo_order) != len(indegree):
