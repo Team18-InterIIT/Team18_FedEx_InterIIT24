@@ -419,6 +419,7 @@ class Environment:
             )
 
         plt.tight_layout()
+        plt.subplots_adjust(top=0.9)
         plt.show()
         plt.close()
 

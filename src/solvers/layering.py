@@ -92,19 +92,42 @@ def get_dim_freq(packages, k_param):
     return dimension_frequency
 
 
-def selectrects_2d(dimension, packages, assigned_pkgs):
+# def selectrects_2d(dimension, packages, assigned_pkgs):
+#     rects = []
+#     for pkg in packages:
+#         if assigned_pkgs[pkg.id] == 0:
+#             l, b, h = pkg.dim.l, pkg.dim.w, pkg.dim.h
+#             # Check if the dimension matches any of the package dimensions
+#             if l == dimension:
+#                 rects.append(Rect(pkg.id, pkg.cost,pkg.weight, w=b, h=h, yesorno = pkg.is_priority))
+#             elif h == dimension:
+#                 rects.append(Rect(pkg.id, pkg.cost,pkg.weight, w=l, h=b, yesorno = pkg.is_priority))
+#             elif b == dimension:
+#                 rects.append(Rect(pkg.id, pkg.cost,pkg.weight, w=l, h=h, yesorno = pkg.is_priority))
+#     return rects
+
+def selectrects_2d(dimension, packages, assigned_pkgs, return_assigned=False):
     rects = []
     for pkg in packages:
         if assigned_pkgs[pkg.id] == 0:
             l, b, h = pkg.dim.l, pkg.dim.w, pkg.dim.h
             # Check if the dimension matches any of the package dimensions
             if l == dimension:
+                if return_assigned:
+                    assigned_pkgs[pkg.id] = 1
                 rects.append(Rect(pkg.id, pkg.cost,pkg.weight, w=b, h=h, yesorno = pkg.is_priority))
             elif h == dimension:
+                if return_assigned:
+                    assigned_pkgs[pkg.id] = 1
                 rects.append(Rect(pkg.id, pkg.cost,pkg.weight, w=l, h=b, yesorno = pkg.is_priority))
             elif b == dimension:
+                if return_assigned:
+                    assigned_pkgs[pkg.id] = 1
                 rects.append(Rect(pkg.id, pkg.cost,pkg.weight, w=l, h=h, yesorno = pkg.is_priority))
-    return rects
+    if return_assigned:
+        return rects, assigned_pkgs
+    else:
+        return rects
 
 #===================================================================#
 # def bp2d(layer : Layer, selectedrects):
@@ -305,3 +328,162 @@ def add_layer(env,assigned_layer,height):
                 #     print("Error placing package")
                 break
     return env
+
+
+def gensets(lens, n, h, current_set=None, all_sets=None):
+    if current_set is None:
+        current_set = []
+    if all_sets is None:
+        all_sets = []
+
+    # Base case: If the current set size is n and sums to h, store the set
+    if len(current_set) == n and sum(current_set) == h:
+        all_sets.append(list(current_set))
+        return all_sets
+
+    # Base case: If the current set exceeds n or cannot sum to h, terminate this branch
+    if len(current_set) >= n or sum(current_set) > h:
+        return all_sets
+
+    # Recursive case: Explore each number in the list
+    for i in range(len(lens)):
+        current_set.append(lens[i])  # Choose the number
+        gensets(lens, n, h, current_set, all_sets)  # Recursive call
+        current_set.pop()  # Backtrack to explore other possibilities
+
+    return all_sets
+
+def approve(
+        selectedrects,
+        length,
+        breadth,
+        height,
+        uld_height, 
+        rejection_threshold,
+        uld_weight, 
+        cost_th, 
+        weight_ratio_th,
+        layer
+):
+    area = sum([rect.w*rect.h for rect in selectedrects])
+    layer_cost = sum([rect.cost for rect in selectedrects])
+    avg_cost_const = 0.00021
+    layer_vol = length * breadth *height
+    height_ratio = height/uld_height
+    if(area >= length*breadth*rejection_threshold):
+            # print(length, breadth)
+            #layer = bp2d(Layer(0, length, breadth, int(dim[0]), -1, 0, 0), selectedrects)
+            layer.height_ratio = height_ratio
+            layer.weight_ratio = layer.weight/uld_weight
+            layer.cost_density = layer.cost_economy/(layer.area_economy*height)
+            if(layer.packing_eff > rejection_threshold
+               and layer.cost_density >= cost_th*avg_cost_const
+               and layer.weight_ratio <= weight_ratio_th*layer.height_ratio):
+                return layer
+            return False
+    return False
+
+
+def fullpack(packages, ULD, rejection_threshold=0.8,
+             weight_ratio_th=0.95,
+             cost_th = 0.9,
+             assigned_pkgs = [],
+             margin= 0,
+             uld_height = 0,
+             uld_weight = 0,
+             nmax=3):
+    height = ULD.dim.h
+    for n in range(nmax):
+        freq_dist = get_dim_freq(packages, 0)
+        freq_map = {}
+        lens = []
+        for freq in freq_dist:
+            freq_map[freq[0]] = freq[1]
+            lens.append(freq[0])
+        sets = gensets(lens, n + 1, height)
+        sets = sorted(sets, key=len)
+        for s in sets:
+            layers = []
+            assigned_pkgs = [0] * (len(packages) + 1)
+            for l in s:
+                selectedrects_2d, assigned_pkgs = selectrects_2d(
+                    l, packages, assigned_pkgs=assigned_pkgs, return_assigned=True
+                )
+                if len(selectedrects_2d) == 0:
+                    break
+                layer = bp2d(
+                    Layer(0, ULD.dim.l, ULD.dim.w, l, -1, 0, 0), selectedrects_2d
+                    # Layer(0, length, breadth, int(dim[0]), -1, 0, 0), selectedrects
+                )
+                layer = approve(
+                    selectedrects_2d,
+                    ULD.dim.l,
+                    ULD.dim.w,
+                    l,
+                    uld_height, 
+                    rejection_threshold,
+                    uld_weight, 
+                    cost_th, 
+                    weight_ratio_th,
+                    layer
+                )
+                if(layer):
+                    layers.append(layer)
+            if len(layers) == len(s):
+                pe = sum([layer.packing_eff * layer.dim.h for layer in layers]) / height
+                if pe > rejection_threshold:
+                    for layer in layers:
+                        layer.uldno = ULD.id
+                    return layers
+
+
+def flatbed_pack(packages, ULD, rejection_threshold=0.8):
+    height = ULD.dim.h
+    selectedrects_2d = selectrects_2d(height, packages, [0] * (len(packages) + 1))
+    layer = bp2d(Layer(0, ULD.dim.l, ULD.dim.w, height, -1, 0, 0), selectedrects_2d)
+    if layer.packing_eff > rejection_threshold:
+        layer.uldno = ULD.id
+        print("1 layer of packing efficiency ", layer.packing_eff)
+        return [layer]
+    else:
+        freq_dist = get_dim_freq(packages, 0)
+        freq_map = {}
+        for freq in freq_dist:
+            freq_map[freq[0]] = freq[1]
+        pairsort = dict(
+            sorted(
+                freq_map.items(),
+                key=lambda x: (freq_map.get(x[0], 0) * freq_map.get(height - x[0], 0)),
+                reverse=True,  # Use reverse=True for descending order, False for ascending
+            )
+        )
+        for x in pairsort:
+            h1 = x
+            h2 = height - x
+            selectedrects_2d1, assigned_pkgs = selectrects_2d(
+                h1, packages, [0] * (len(packages) + 1), return_assigned=True
+            )
+            selectedrects_2d2 = selectrects_2d(
+                h2, packages, assigned_pkgs=assigned_pkgs
+            )
+            print(freq_map[h1], freq_map[h2])
+            print(len(selectedrects_2d1), len(selectedrects_2d2))
+            layer1 = bp2d(
+                Layer(0,  ULD.dim.l, ULD.dim.w, h1, -1, 0, 0), selectedrects_2d1
+            )
+            layer2 = bp2d(
+                Layer(0,  ULD.dim.l, ULD.dim.w, h2, -1, 0, 0), selectedrects_2d2
+            )
+            if (
+                layer1.
+                packing_eff * h1 + layer2.packing_eff * h2
+                > rejection_threshold * (h1 + h2)
+            ):
+                layer1.uldno = ULD.id
+                layer2.uldno = ULD.id
+                print(
+                    "2 layers of packing efficiency ",
+                    layer1.packing_eff,
+                    layer2.packing_eff,
+                )
+                return [layer1, layer2]     
