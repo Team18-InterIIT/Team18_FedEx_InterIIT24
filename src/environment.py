@@ -1,15 +1,16 @@
 import os
+import time
 
 import matplotlib.pyplot as plt
+import pybullet as p
+import pybullet_data
 from matplotlib.animation import FuncAnimation
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
 from matplotlib.widgets import Button
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from sortedcontainers import SortedList
 
 from entity import ULD, Package, Point
-
-from geometry_helpers import rectangle_intersection, is_point_in_convex_hull
-from sortedcontainers import SortedList
+from geometry_helpers import is_point_in_convex_hull, rectangle_intersection
 
 
 class Environment:
@@ -217,6 +218,8 @@ class Environment:
         pkg.uld_id = uld.id
 
         if gravity:
+            if pkg.id in (65, 341):
+                pass
             corners, _ = self.apply_gravity(uld.id - 1, corners)
 
         pkg.corners = corners
@@ -508,6 +511,234 @@ class Environment:
         plt.show()
         plt.close()
 
+    def reset_simulation(self, uld_ids):
+        p.resetSimulation()
+        p.setAdditionalSearchPath(
+            pybullet_data.getDataPath()
+        )  # Adds search path for PyBullet data (like URDFs)
+        p.setGravity(0, 0, -9.8)  # Set gravity
+
+        package_list = []  # List to store package IDs
+        gap = 20  # Gap between each ULD
+
+        for index, uld_id in enumerate(uld_ids):
+            uld = self.ULDs[uld_id]
+            x_offset = index * (cm_to_m(uld.dim.l) + cm_to_m(gap))
+
+            # Add bottom wall (floor) for the ULD
+            floor_thickness = 0.1
+
+            # Bottom wall
+            p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=p.createCollisionShape(
+                    p.GEOM_BOX,
+                    halfExtents=[
+                        cm_to_m(uld.dim.l) / 2,
+                        cm_to_m(uld.dim.w) / 2,
+                        floor_thickness / 2,
+                    ],
+                ),
+                basePosition=[
+                    x_offset + cm_to_m(uld.dim.l) / 2,
+                    cm_to_m(uld.dim.w) / 2,
+                    -floor_thickness / 2,
+                ],
+            )
+
+            # Add transparent walls around the ULD
+            wall_thickness = 0.1
+            wall_height = cm_to_m(uld.dim.h)
+
+            # Left wall
+            left_wall_visual = p.createVisualShape(
+                p.GEOM_BOX,
+                halfExtents=[
+                    wall_thickness / 2,
+                    cm_to_m(uld.dim.w) / 2,
+                    wall_height / 2,
+                ],
+                rgbaColor=[1, 1, 1, 0],  # Fully transparent color
+            )
+            p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=p.createCollisionShape(
+                    p.GEOM_BOX,
+                    halfExtents=[
+                        wall_thickness / 2,
+                        cm_to_m(uld.dim.w) / 2,
+                        wall_height / 2,
+                    ],
+                ),
+                baseVisualShapeIndex=left_wall_visual,
+                basePosition=[
+                    x_offset - wall_thickness / 2,
+                    cm_to_m(uld.dim.w) / 2,
+                    wall_height / 2,
+                ],
+            )
+
+            # Right wall
+            right_wall_visual = p.createVisualShape(
+                p.GEOM_BOX,
+                halfExtents=[
+                    wall_thickness / 2,
+                    cm_to_m(uld.dim.w) / 2,
+                    wall_height / 2,
+                ],
+                rgbaColor=[1, 1, 1, 0],  # Fully transparent color
+            )
+            p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=p.createCollisionShape(
+                    p.GEOM_BOX,
+                    halfExtents=[
+                        wall_thickness / 2,
+                        cm_to_m(uld.dim.w) / 2,
+                        wall_height / 2,
+                    ],
+                ),
+                baseVisualShapeIndex=right_wall_visual,
+                basePosition=[
+                    x_offset + cm_to_m(uld.dim.l) + wall_thickness / 2,
+                    cm_to_m(uld.dim.w) / 2,
+                    wall_height / 2,
+                ],
+            )
+
+            # Front wall
+            front_wall_visual = p.createVisualShape(
+                p.GEOM_BOX,
+                halfExtents=[
+                    cm_to_m(uld.dim.l) / 2,
+                    wall_thickness / 2,
+                    wall_height / 2,
+                ],
+                rgbaColor=[1, 1, 1, 0],  # Fully transparent color
+            )
+            p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=p.createCollisionShape(
+                    p.GEOM_BOX,
+                    halfExtents=[
+                        cm_to_m(uld.dim.l) / 2,
+                        wall_thickness / 2,
+                        wall_height / 2,
+                    ],
+                ),
+                baseVisualShapeIndex=front_wall_visual,
+                basePosition=[
+                    x_offset + cm_to_m(uld.dim.l) / 2,
+                    -wall_thickness / 2,
+                    wall_height / 2,
+                ],
+            )
+
+            # Back wall
+            back_wall_visual = p.createVisualShape(
+                p.GEOM_BOX,
+                halfExtents=[
+                    cm_to_m(uld.dim.l) / 2,
+                    wall_thickness / 2,
+                    wall_height / 2,
+                ],
+                rgbaColor=[1, 1, 1, 0],  # Fully transparent color
+            )
+            p.createMultiBody(
+                baseMass=0,
+                baseCollisionShapeIndex=p.createCollisionShape(
+                    p.GEOM_BOX,
+                    halfExtents=[
+                        cm_to_m(uld.dim.l) / 2,
+                        wall_thickness / 2,
+                        wall_height / 2,
+                    ],
+                ),
+                baseVisualShapeIndex=back_wall_visual,
+                basePosition=[
+                    x_offset + cm_to_m(uld.dim.l) / 2,
+                    cm_to_m(uld.dim.w) + wall_thickness / 2,
+                    wall_height / 2,
+                ],
+            )
+
+            # Iterate over the packages in the ULD
+            for pkg in uld.packages:
+                # Create the collision shape for the package (a box)
+                package_shape = p.createCollisionShape(
+                    p.GEOM_BOX,
+                    halfExtents=[
+                        cm_to_m(pkg.corners[1].x - pkg.corners[0].x) / 2,
+                        cm_to_m(pkg.corners[1].y - pkg.corners[0].y) / 2,
+                        cm_to_m(pkg.corners[1].z - pkg.corners[0].z) / 2,
+                    ],
+                )
+
+                color = (
+                    [1, 0, 0, 0.7] if self.stable[pkg.id - 1] == -1 else [0, 1, 0, 0.7]
+                )
+
+                # Create the visual shape for the package with a specific color
+                package_visual = p.createVisualShape(
+                    p.GEOM_BOX,
+                    halfExtents=[
+                        cm_to_m(pkg.corners[1].x - pkg.corners[0].x) / 2,
+                        cm_to_m(pkg.corners[1].y - pkg.corners[0].y) / 2,
+                        cm_to_m(pkg.corners[1].z - pkg.corners[0].z) / 2,
+                    ],
+                    rgbaColor=color,  # Set the color for the package
+                )
+
+                # Calculate the global coordinates of the package based on the corners (assuming pkg.corners is a list of two points)
+                global_coords = [
+                    x_offset
+                    + cm_to_m(pkg.corners[0].x + pkg.corners[1].x)
+                    / 2,  # x-coordinate of the center
+                    cm_to_m(pkg.corners[0].y + pkg.corners[1].y)
+                    / 2,  # y-coordinate of the center
+                    cm_to_m(pkg.corners[0].z + pkg.corners[1].z)
+                    / 2,  # z-coordinate of the center
+                ]
+
+                # Create the package body in the simulation with the calculated global position
+                package_id = p.createMultiBody(
+                    baseMass=pkg.weight,
+                    baseCollisionShapeIndex=package_shape,
+                    baseVisualShapeIndex=package_visual,
+                    basePosition=global_coords,
+                )
+                package_list.append(package_id)
+
+    def simulate(self, uld_ids=None):
+        if uld_ids is None:
+            uld_ids = list(range(len(self.ULDs)))
+        # Connect to the physics engine in GUI mode
+        p.connect(p.GUI)
+        self.reset_simulation(uld_ids)
+
+        print("Press 'c' to start the simulation...")
+        while True:
+            keys = p.getKeyboardEvents()
+            if ord("c") in keys and keys[ord("c")] & p.KEY_WAS_TRIGGERED:
+                break
+            time.sleep(0.1)
+
+        # Start the simulation
+        while True:
+            keys = p.getKeyboardEvents()
+            if ord("x") in keys and keys[ord("x")] & p.KEY_WAS_TRIGGERED:
+                self.reset_simulation(uld_ids)
+                print("Simulation reset. Press 'c' to start again.")
+                while True:
+                    keys = p.getKeyboardEvents()
+                    if ord("c") in keys and keys[ord("c")] & p.KEY_WAS_TRIGGERED:
+                        break
+                    time.sleep(0.1)
+            p.stepSimulation()
+            time.sleep(1 / 240)
+
+        p.disconnect()
+
     def write(self, file_path):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         project_root = os.path.dirname(current_dir)
@@ -746,3 +977,8 @@ class Environment:
         for pkg in sorted(self.packages, key=lambda pkg: pkg.get_corners()[0].z):
             corners = pkg.get_corners()
             self.check_stability(pkg.id - 1, corners)
+
+
+def cm_to_m(value):
+    """Convert centimeters to meters."""
+    return value * 0.01
