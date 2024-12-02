@@ -228,6 +228,8 @@ class Environment:
         uld.weight += pkg.weight
         uld.has_priority = uld.has_priority or pkg.is_priority
 
+        return True
+
     def cost(
         self,
         priority_check: bool = True,
