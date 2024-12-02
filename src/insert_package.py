@@ -4,7 +4,6 @@ from itertools import permutations
 import multiprocessing
 from multiprocessing import Pool
 import numpy as np
-import cupy as cp
 
 class PackageInserter:
     """
@@ -22,6 +21,18 @@ class PackageInserter:
         Methods    
     parallel_insert_package(uld_id: int, package: Package) -> bool:
         Runs insert_package_optim on all ULDs in parallel.
+    initialize_grid(ULD) -> np.ndarray:
+        Initializes a 3D grid for the ULD, marking occupied space (1) and free space (0).
+    compute_prefix_sum(grid: np.ndarray) -> np.ndarray:
+        Computes the prefix sum for the 3D grid.
+    check_collision(grid: np.ndarray, x1, y1, z1, x2, y2, z2, prefix_sum: np.ndarray) -> bool:
+        Checks if there is any package overlap or collision at the given coordinates using inclusion-exclusion.
+    replace_package(uld_id: int, package: Package) -> bool:
+        Attempts to replace a package into the specified ULD by iterating over its faces and checking collisions.
+    replace_package_for_uld(uld_id, package):
+        Helper method to replace a package into a ULD.
+    parallel_replace_package(package: Package) -> bool:
+        Attempts to insert the package into all ULDs in parallel.
     """
     
     def __init__(self, env: Environment):
@@ -103,12 +114,12 @@ class PackageInserter:
         
         total -= prefix_sum[x1-1, y1-1, z1-1]
         
-        # If the total is 0, there is no collision, meaning the space is free
-        return total == 0
+        # If the total is 1, there is exactly one package in the cube
+        return total == 1
 
-    def insert_package_optim(self, uld_id: int, package: Package) -> bool:
+    def replace_package(self, uld_id: int, package: Package) -> bool:
         """
-        Attempts to insert the package into the specified ULD by iterating over its faces and checking collisions.
+        Attempts to replace a package into the specified ULD by iterating over its faces and checking collisions.
         
         Parameters:
         uld_id (int): The ID of the ULD where the package is to be inserted.
@@ -132,6 +143,8 @@ class PackageInserter:
         grid = self.initialize_grid(uld)
         prefix_sum = self.compute_prefix_sum(grid)
         
+        possible_replacable_positions = []
+
         # Iterate through all possible positions and orientations
         for l, w, h in permutations([package.dim.l, package.dim.w, package.dim.h]):
             for x in range(uld.dim.l - l, -1, -1):
@@ -139,17 +152,56 @@ class PackageInserter:
                     for y in range(0, uld.dim.w - w + 1):
                         # Check for collision using the prefix sum method
                         if self.check_collision(grid, x, y, z, x + l, y + w, z + h, prefix_sum):
-                            # Mark the package space as occupied in the grid
                             package.corners = (
                                 Point(x, y, z),
                                 Point(x + l, y + w, z + h)
                             )
-                            if self.env.add_package(package, uld, package.corners, False, True, True, True, True):
-                                print(f"Package {package.id} inserted into ULD {uld.id} at position {package.corners}.")
-                                return True
-        print(f"Package {package.id} could not be inserted into ULD {uld.id}.")
-        return False
+                            if package.id not in [pkg.id for pkg in self.env.packages]:
+                                colliding_package = self.env.find_collision(uld, (Point(x, y, z), Point(x + l, y + w, z + h)))
+                                if colliding_package is not None:
+                                    self.env.remove_package(colliding_package, uld)                        
+                                    if self.env.add_package(package, uld, package.corners, False, True, True, True, True):
+                                        possible_replacable_positions.append((package.cost, package.corners))
+                                        self.env.remove_package(package, uld)
+                                    self.env.add_package(colliding_package, uld, colliding_package.corners, False, True, True, True, True)
+        return possible_replacable_positions
+
+    def replace_package_for_uld(self, uld_id, package):
+        lst = self.replace_package(uld_id, package)
+        result = [(lst[i][0], uld_id, lst[i][1]) for i in range(len(lst))]
+        return result  # Return the list for this particular ULD
+
     
+    def parallel_replace_package(self, package: Package):
+        """
+        Attempts to insert the package into all ULDs in parallel.
+
+        Parameters:
+        package (Package): The package to be inserted into the ULDs.
+
+        Returns:
+        list: A list of boolean values indicating whether the package was inserted into each ULD.
+        """
+
+        with Pool(multiprocessing.cpu_count()) as pool:
+            results = pool.starmap(self.replace_package_for_uld, 
+                                   [(uld_id, package) for uld_id in range(1, len(self.env.ULDs) + 1)])
+
+        # Flatten the list of results (since each worker returns a list of positions)
+        self.replaceable_positions = [item for sublist in results for item in sublist]
+
+        if len(self.replaceable_positions) == 0:
+            print(f"Package {package.id} could not be inserted into any ULD.")
+            return False
+            
+        self.replaceable_positions.sort(key=lambda x: x[0])
+        colliding_package = self.env.find_collision(self.env.ULDs[self.replaceable_positions[0][1] - 1], self.replaceable_positions[0][2])
+        if colliding_package is not None:
+            self.env.remove_package(colliding_package, self.env.ULDs[self.replaceable_positions[0][1] - 1])
+        self.env.add_package(package, self.env.ULDs[self.replaceable_positions[0][1] - 1], self.replaceable_positions[0][2], False, True, True, True, True)
+        print(f"Package {package.id} inserted into ULD {self.replaceable_positions[0][1]} at position {self.replaceable_positions[0][2]}.")
+        return True
+
     def insert_package(self, uld_id: int, package: Package) -> bool:
         """
         Attempts to insert the package into the specified ULD by iterating over its faces.
@@ -189,7 +241,7 @@ class PackageInserter:
         return False
 
     def insert_package_for_uld(self, uld_id, package):
-            return self.insert_package_gpu(uld_id, package)
+            return self.insert_package(uld_id, package)
     
     def parallel_insert_package(self, package: Package):
         """
@@ -210,66 +262,3 @@ class PackageInserter:
 
         # Return the results (True or False for each ULD)
         return results
-
-    def insert_package_gpu(self, uld_id: int, package: Package) -> bool:
-        """
-        Attempts to insert the package into the specified ULD by iterating over its faces.
-        
-        Parameters:
-        uld_id (int): The ID of the ULD where the package is to be inserted.
-        package (Package): The package to be inserted into the ULD.
-        
-        Returns:
-        bool: True if the package was successfully inserted, False otherwise.
-        """
-        # Check if the package already exists in the environment
-        if package.id in [pkg.id for pkg in self.env.packages]:
-            print(f"Package with id {package.id} already exists in the environment.")
-            return False
-        
-        # Find the ULD by id
-        uld = self.env.ULDs[uld_id - 1]
-        if uld is None:
-            print(f"ULD with id {uld_id} not found.")
-            return False
-        
-        # Get all permutations of package dimensions
-        dims = cp.array([package.dim.l, package.dim.w, package.dim.h])
-        perms = cp.array(list(permutations(dims.get())))  # Get permutations as a CuPy array
-        
-        # Iterate over all permutations
-        for perm in perms:
-            l, w, h = perm[0], perm[1], perm[2]
-
-            # Create grid positions (x, y, z) for the current permutation
-            x_vals = cp.arange(uld.dim.l - l + 1)  # Ensure l is scalar
-            y_vals = cp.arange(uld.dim.w - w + 1)  # Ensure w is scalar
-            z_vals = cp.arange(uld.dim.h - h + 1)  # Ensure h is scalar
-            
-            # Create a meshgrid for the current permutation
-            x_grid, y_grid, z_grid = cp.meshgrid(x_vals, y_vals, z_vals)
-            
-            # Flatten the grids to iterate through all positions
-            x_flat = x_grid.ravel()
-            y_flat = y_grid.ravel()
-            z_flat = z_grid.ravel()
-
-            # Iterate through all positions and check for collision
-            for i in range(x_flat.shape[0]):
-                # Calculate the corners of the package at this position
-                if package.id in [pkg.id for pkg in self.env.packages]:
-                    print(f"Package with id {package.id} already exists in the environment.")
-                    return False
-                
-                package.corners = (
-                    Point(x_flat[i], y_flat[i], z_flat[i]),
-                    Point(x_flat[i] + l, y_flat[i] + w, z_flat[i] + h)
-                )
-                
-                # Perform collision check using the GPU
-                if self.env.add_package(package, uld, package.corners, False, True, True, True, True):
-                    print(f"Package {package.id} inserted into ULD {uld.id} at position {package.corners}.")
-                    return True
-
-        print(f"Package {package.id} could not be inserted into ULD {uld.id}.")
-        return False
