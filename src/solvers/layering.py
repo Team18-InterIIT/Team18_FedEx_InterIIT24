@@ -140,6 +140,62 @@ def bp2d(layer: Layer, selectedrects):
 
 #=================================================================#
 
+def gensets(lens, n, h, current_set=None, all_sets=None):
+    if current_set is None:
+        current_set = []
+    if all_sets is None:
+        all_sets = []
+
+    # Base case: If the current set size is n and sums to h, store the set
+    if len(current_set) == n and sum(current_set) == h:
+        all_sets.append(list(current_set))
+        return all_sets
+
+    # Base case: If the current set exceeds n or cannot sum to h, terminate this branch
+    if len(current_set) >= n or sum(current_set) > h:
+        return all_sets
+
+    # Recursive case: Explore each number in the list
+    for i in range(len(lens)):
+        current_set.append(lens[i])  # Choose the number
+        gensets(lens, n, h, current_set, all_sets)  # Recursive call
+        current_set.pop()  # Backtrack to explore other possibilities
+
+    return all_sets
+
+def fullpack(packages,ULD,rejection_threshold=0.8,nmax = 3):
+    height = ULD.dim.h
+    for n in range(nmax):
+        freq_dist = get_dim_freq(packages,0)
+        freq_map = {}
+        lens = []
+        for freq in freq_dist:
+            freq_map[freq[0]] = freq[1]
+            lens.append(freq[0])
+        sets =  gensets(lens,n+1,height)
+        sets = sorted(sets, key=len)
+        for s in sets:
+            layers = []
+            assigned_pkgs = [0]*(len(packages)+1)
+            for l in s:
+                selectedrects_2d,assigned_packages = selectrects_2d(l, packages,assigned_pkgs=assigned_pkgs,return_assigned=True)
+                if(len(selectedrects_2d) == 0):
+                    break
+                layer = bp2d(Layer(0, [], ULD.dim.l, ULD.dim.w, l, -1, 0), selectedrects_2d) 
+                layers.append(layer) 
+            if(len(layers) == len(s)): 
+                pe = sum([layer.packing_eff*layer.dim.h for layer in layers])/height
+                if(pe > rejection_threshold):
+                    for layer in layers:
+                        layer.uldno = ULD.id
+                    return layers
+
+
+
+
+
+
+
 def flatbed_pack(packages,ULD,rejection_threshold = 0.8):
     height = ULD.dim.h
     selectedrects_2d = selectrects_2d(height, packages,[0]*(len(packages)+1))

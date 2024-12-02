@@ -5,7 +5,7 @@ from environment import Environment
 from entity import Point,Package,Dim
 import rectpack as rp
 from algorithm_interface import PackingAlgorithm
-from solvers.layering import make_layers,assign_layers,add_layer,make_layers_fancy,flatbed_pack
+from solvers.layering import make_layers,assign_layers,add_layer,make_layers_fancy,flatbed_pack,fullpack
 
 
 class LayerPacking(PackingAlgorithm):
@@ -13,7 +13,7 @@ class LayerPacking(PackingAlgorithm):
     def solve(self, env: Environment):
         for uld in env.ULDs:
             print(uld.dim.h)
-            layers = flatbed_pack(env.packages,uld,rejection_threshold=0.92)
+            layers = fullpack(env.packages,uld,rejection_threshold=0.92)
             print()
             h = 0
             for layer in layers:
