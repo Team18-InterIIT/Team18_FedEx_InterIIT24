@@ -48,19 +48,28 @@ def get_dim_freq(packages,k_param):
 
 
 
-def selectrects_2d(dimension, packages, assigned_pkgs):
+def selectrects_2d(dimension, packages, assigned_pkgs,return_assigned=False):
     rects = []
     for pkg in packages:
         if assigned_pkgs[pkg.id] == 0:
             l, b, h = pkg.dim.l, pkg.dim.w, pkg.dim.h
             # Check if the dimension matches any of the package dimensions
             if l == dimension:
+                if(return_assigned):
+                    assigned_pkgs[pkg.id] = 1
                 rects.append(Rect(pkg.id, pkg.cost, w=b, h=h))
             elif h == dimension:
+                if(return_assigned):
+                    assigned_pkgs[pkg.id] = 1
                 rects.append(Rect(pkg.id, pkg.cost, w=l, h=b))
             elif b == dimension:
+                if(return_assigned):
+                    assigned_pkgs[pkg.id] = 1
                 rects.append(Rect(pkg.id, pkg.cost, w=l, h=h))
-    return rects
+    if(return_assigned):
+        return rects,assigned_pkgs
+    else:
+        return rects
 
 #===================================================================#
 # def bp2d(layer : Layer, selectedrects):
@@ -103,7 +112,6 @@ def bp2d(layer: Layer, selectedrects):
     problem=hp.HyperPack(
         containers=container, items=items
     )
-    print("Start hyperpack")
     problem.local_search()
     # problem.hypersearch()
 
@@ -137,18 +145,32 @@ def flatbed_pack(packages,ULD,rejection_threshold = 0.8):
     selectedrects_2d = selectrects_2d(height, packages,[0]*(len(packages)+1))
     layer = bp2d(Layer(0, [], ULD.dim.l, ULD.dim.w, height, -1, 0), selectedrects_2d)   
     if(layer.packing_eff > rejection_threshold):
-        return layer
+        layer.uldno = ULD.id
+        print("1 layer of packing efficiency ",layer.packing_eff)
+        return [layer]
     else:
         freq_dist = get_dim_freq(packages,0)
-        pairsort = sorted(freq_dist,key = lambda x: x[1] + freq_dist[height-x[0]],reverse = True)
+        freq_map = {}
+        for freq in freq_dist:
+            freq_map[freq[0]] = freq[1]
+        pairsort = dict(sorted(
+                freq_map.items(),
+                key=lambda x: (freq_map.get(x[0], 0) * freq_map.get(height - x[0], 0)),
+                reverse=True  # Use reverse=True for descending order, False for ascending
+            ))
         for x in pairsort:
             h1 = x
-            h2 = height - x[0]
-            selectedrects_2d1 = selectrects_2d(x[0], packages,[0]*(len(packages)+1))
-            selectedrects_2d2 = selectrects_2d(height-x[0], packages,[0]*(len(packages)+1)) 
-            layer1 = bp2d(Layer(0, [], ULD.dim.l, ULD.dim.w, x[0], -1, 0), selectedrects_2d1)   
-            layer2 = bp2d(Layer(0, [], ULD.dim.l, ULD.dim.w, height-x[0], -1, 0), selectedrects_2d2)
+            h2 = height - x
+            selectedrects_2d1,assigned_pkgs = selectrects_2d(h1, packages,[0]*(len(packages)+1),return_assigned=True)
+            selectedrects_2d2 = selectrects_2d(h2, packages,assigned_pkgs=assigned_pkgs)
+            print(freq_map[h1],freq_map[h2])
+            print(len(selectedrects_2d1),len(selectedrects_2d2))
+            layer1 = bp2d(Layer(0, [], ULD.dim.l, ULD.dim.w, h1, -1, 0), selectedrects_2d1)   
+            layer2 = bp2d(Layer(0, [], ULD.dim.l, ULD.dim.w, h2, -1, 0), selectedrects_2d2)
             if(layer1.packing_eff*h1 + layer2.packing_eff*h2 > rejection_threshold*(h1+h2)):
+                layer1.uldno = ULD.id
+                layer2.uldno = ULD.id
+                print("2 layers of packing efficiency ",layer1.packing_eff,layer2.packing_eff)  
                 return [layer1,layer2]
 
 
