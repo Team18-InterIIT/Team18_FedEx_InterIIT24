@@ -1,4 +1,5 @@
 import copy
+import tqdm
 import multiprocessing
 import random
 import sys
@@ -456,9 +457,11 @@ class COA(PackingAlgorithm):
         maximize_volume_utilization,
         n_jobs=1,
         n_calls=10,
-        random_state=42,
+        random_state=69,
     ):
-        optimizer = Optimizer(space, base_estimator="gp", random_state=random_state)
+        optimizer = Optimizer(
+            space, base_estimator="ET", random_state=random_state, n_initial_points=15
+        )
         if n_jobs == -1:
             n_jobs = multiprocessing.cpu_count()
         cpu_state = {}
@@ -466,46 +469,51 @@ class COA(PackingAlgorithm):
         with multiprocessing.Pool(processes=n_jobs) as pool:
             ready_ids = list(range(n_jobs))
 
-            while n_completed_calls < n_calls:
-                if len(ready_ids) > 0:
-                    n_updated = 0
-                    for cpu_id in ready_ids:
-                        if cpu_state.get(cpu_id) is not None:
-                            # update optimzier with completed results
-                            optimizer.tell(*cpu_state[cpu_id].get())
-                            n_updated += 1
-                            cpu_state[cpu_id] = None
-                    n_completed_calls += n_updated
+            with tqdm.tqdm(total=n_calls, desc="Optimization Progress") as pbar:
+                while n_completed_calls < n_calls:
+                    if len(ready_ids) > 0:
+                        n_updated = 0
+                        for cpu_id in ready_ids:
+                            if cpu_state.get(cpu_id) is not None:
+                                # update optimzier with completed results
+                                optimizer.tell(*cpu_state[cpu_id].get())
+                                n_updated += 1
+                                if pbar.n < n_calls:
+                                    pbar.update(1)
+                                cpu_state[cpu_id] = None
+                        n_completed_calls += n_updated
 
-                    # sample points for all idle CPUs
-                    sampled_points = optimizer.ask(len(ready_ids))
+                        # sample points for all idle CPUs
+                        sampled_points = optimizer.ask(len(ready_ids))
 
-                    # distribute tasks to idel CPUs
-                    for point, cpu_id in zip(sampled_points, ready_ids):
-                        cpu_state[cpu_id] = pool.apply_async(
-                            objective,
-                            args=(
-                                point,
-                                uld_COAs,
-                                env,
-                                pkgs,
-                                allowed_ULDs,
-                                verbose,
-                                maximize_volume_utilization,
-                            ),
-                        )
+                        # distribute tasks to idel CPUs
+                        for point, cpu_id in zip(sampled_points, ready_ids):
+                            cpu_state[cpu_id] = pool.apply_async(
+                                objective,
+                                args=(
+                                    point,
+                                    uld_COAs,
+                                    env,
+                                    pkgs,
+                                    allowed_ULDs,
+                                    verbose,
+                                    maximize_volume_utilization,
+                                ),
+                            )
 
-                    ready_ids = [
-                        cpu_id
-                        for cpu_id in cpu_state
-                        if cpu_state[cpu_id] is not None and cpu_state[cpu_id].ready()
-                    ]
-                else:
-                    ready_ids = [
-                        cpu_id
-                        for cpu_id in cpu_state
-                        if cpu_state[cpu_id] is not None and cpu_state[cpu_id].ready()
-                    ]
+                        ready_ids = [
+                            cpu_id
+                            for cpu_id in cpu_state
+                            if cpu_state[cpu_id] is not None
+                            and cpu_state[cpu_id].ready()
+                        ]
+                    else:
+                        ready_ids = [
+                            cpu_id
+                            for cpu_id in cpu_state
+                            if cpu_state[cpu_id] is not None
+                            and cpu_state[cpu_id].ready()
+                        ]
         best_params = optimizer.Xi[np.argmin(optimizer.yi)]
         return best_params
 
@@ -633,7 +641,7 @@ class COA(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 heuristic=priority_heuristic,
                 prune_COAs=False,
-                n_calls=20,
+                n_calls=40,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
@@ -647,7 +655,7 @@ class COA(PackingAlgorithm):
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                n_calls=20,
+                n_calls=60,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
