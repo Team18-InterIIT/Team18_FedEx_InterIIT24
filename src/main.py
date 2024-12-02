@@ -36,7 +36,7 @@ newPackage = Package(["401", "70", "70", "70", "0", "Priority", "0"])
 start_time = time.time()
 # for uld in range(1, 2):
 #     PackageInserter(env).insert_package(uld, newPackage)
-PackageInserter(env).parallel_insert_package(newPackage)
+PackageInserter(env).parallel_replace_package(newPackage)
 end_time = time.time() 
 print(f"Time taken to insert package: {end_time - start_time} seconds")
 
