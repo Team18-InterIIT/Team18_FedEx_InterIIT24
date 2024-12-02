@@ -1,18 +1,16 @@
 import copy
-import numpy as np
+import multiprocessing
 import random
 import sys
 from itertools import permutations
 
-from skopt.space import Integer
+import numpy as np
 from skopt import Optimizer
-
+from skopt.space import Integer
 
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
-
-import multiprocessing
 
 
 def objective(
@@ -300,16 +298,16 @@ class COA(PackingAlgorithm):
     ):
         if heuristic is None:
             heuristic = {
-                "included_cost": 8516012,
-                "caving_degree": 0,
-                "paste_number": 9550,
-                "paste_ratio": 382,
+                "included_cost": 5012633,
+                "caving_degree": 10000,
+                "paste_number": 4533,
+                "paste_ratio": 5896,
                 "largest_dim": 1000,
-                "middle_dim": 807,
-                "smallest_dim": 100,
-                "z_gravity": -7000,
-                "y_gravity": -400,
-                "x_gravity": -400,
+                "middle_dim": 529,
+                "smallest_dim": 284,
+                "z_gravity": -5000,
+                "y_gravity": -335,
+                "x_gravity": -100,
             }
 
         if allowed_ULDs is None:
@@ -614,16 +612,16 @@ class COA(PackingAlgorithm):
                 uld_COAs[uld_id] = [Point(0, 0, 0)]
 
         priority_heuristic = {
-            "included_cost": 1000000,
-            "caving_degree": 0,
-            "paste_number": 100000,
-            "paste_ratio": 1000,
-            "largest_dim": 1000,
-            "middle_dim": 100,
-            "smallest_dim": 100,
-            "z_gravity": -1000,
-            "y_gravity": -100,
-            "x_gravity": -100,
+            "included_cost": 6019543,
+            "caving_degree": 8533,
+            "paste_number": 4706,
+            "paste_ratio": 1852,
+            "largest_dim": 3838,
+            "middle_dim": 1350,
+            "smallest_dim": 410,
+            "z_gravity": -3607,
+            "y_gravity": -178,
+            "x_gravity": -649,
         }
 
         for uld_id in sorted_ULD_ids:
@@ -635,7 +633,7 @@ class COA(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 heuristic=priority_heuristic,
                 prune_COAs=False,
-                n_calls=100,
+                n_calls=20,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
@@ -649,7 +647,7 @@ class COA(PackingAlgorithm):
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                n_calls=200,
+                n_calls=20,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
