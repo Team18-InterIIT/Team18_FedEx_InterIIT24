@@ -222,8 +222,6 @@ class Environment:
         pkg.uld_id = uld.id
 
         if gravity:
-            if pkg.id in (65, 341):
-                pass
             corners, _ = self.apply_gravity(uld.id - 1, corners)
 
         pkg.corners = corners
