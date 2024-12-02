@@ -178,6 +178,7 @@ class ORSolver(PackingAlgorithm):
 
 
         f = open("data.txt", "w")
+        cost = 0
         if status == pywraplp.Solver.OPTIMAL:
             for b in data_2["all_bins"]:
                 print(f"Bin {b}")
@@ -200,5 +201,9 @@ class ORSolver(PackingAlgorithm):
                         f.write(
                             f"Item {data_2['pkg_id'][i]} volume: {data_2['volumes'][i]} weight: {data_2['weights'][i]}\n"
                         )
+                        print(env.packages[data_2['pkg_id'][i]-1])
+                        
+                        cost+=env.packages[data_2['pkg_id'][i]-1].cost
+        print(cost)
         f.close()
 
