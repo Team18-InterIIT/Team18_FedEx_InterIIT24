@@ -85,7 +85,7 @@ class Environment:
         new_env.copy_from(self)
         return new_env
 
-    def check_collision(self, uld: ULD, corners_to_check: tuple[Point, Point]) -> bool:
+    def find_collision(self, uld: ULD, corners_to_check: tuple[Point, Point]):
         """
         Check if the package with the given coordinates will collide with any other package in the ULD
 
@@ -99,7 +99,7 @@ class Environment:
             or corners_to_check[1].y > uld.dim.w
             or corners_to_check[1].z > uld.dim.h
         ):
-            return True
+            return -1
 
         for existing_pkg in uld.packages:
             if (
@@ -117,8 +117,13 @@ class Environment:
                 and corners_to_check[0].z == existing_pkg.corners[1].z
                 and corners_to_check[1].z == existing_pkg.corners[0].z
             ):
-                return True
-
+                return existing_pkg
+        return None
+    
+    def check_collision(self, uld: ULD, corners_to_check: tuple[Point, Point]) -> bool:
+        collision_status = self.find_collision(uld, corners_to_check)
+        if collision_status is not None:
+            return True
         return False
 
     def check_weight_limit(self, uld: ULD, pkg_weight: int) -> bool:
@@ -223,10 +228,27 @@ class Environment:
             corners, _ = self.apply_gravity(uld.id - 1, corners)
 
         pkg.corners = corners
-
+        if pkg not in self.packages: # For express packages
+            self.packages.append(pkg)
         uld.packages.append(pkg)
         uld.weight += pkg.weight
         uld.has_priority = uld.has_priority or pkg.is_priority
+
+        return True
+    
+    def remove_package(self, pkg: Package, uld: ULD):
+        """
+        Remove the package from the ULD and update the ULD's weight.
+
+        Parameters:
+        pkg (Package): The package to be removed.
+        uld (ULD): The ULD from which the package is to be removed.
+        """
+        self.pkg_addition_order.remove(pkg.id)
+        uld.packages.remove(pkg)
+        uld.weight -= pkg.weight
+        uld.has_priority = any(pkg.is_priority for pkg in uld.packages)
+        self.packages.remove(pkg)
 
     def cost(
         self,
