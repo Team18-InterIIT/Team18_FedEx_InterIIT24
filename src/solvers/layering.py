@@ -8,17 +8,39 @@ import collections
 from ortools.linear_solver import pywraplp
 
 class Layer:
-    def __init__(self, pe, packed_list, length, breadth, height, uldno, cost):
+    def __init__(self, pe, length, breadth, height, uldno, cost):
+        """
+        Initialize a rectangle with given parameters.
+
+        Parameters:
+        id (int): The identifier of the rectangle.
+        cost (float): The cost associated with the rectangle.
+        x (int): The x-coordinate of the rectangle's top-left corner.
+        y (int): The y-coordinate of the rectangle's top-left corner.
+        w (int): The width of the rectangle.
+        h (int): The height of the rectangle.
+        """
         self.packing_eff = pe
         self.packedrects : list[Rect] = []
         self.dim : Dim = Dim(length,breadth,height)
         self.uldno = uldno
-        self.cost = cost if cost != float("inf") else 1e9
+        self.cost = cost
         self.area = 0
 
+    def __repr__(self):
+        return f"Layer({self.uldno})"
+
+
+
     def add_rect(self, rect):
+        """
+        Add a rectangle to the ULD and update the cost and packing efficiency.
+
+        Parameters:
+        rect (Rect): The rectangle to be added to the ULD.
+        """
         self.packedrects.append(rect)
-        self.cost += rect.cost if rect.cost != float("inf") else 1e9
+        self.cost += rect.cost
         self.area += rect.w * rect.h
         self.packing_eff = self.area / (self.dim.l * self.dim.w)
 
@@ -30,9 +52,20 @@ class Rect:
         self.y = 0  # y-coordinate of the rectangle's top-left corner
         self.w = w  # width of the rectangle
         self.h = h  # height of the rectangle
-        self.wasPacked = False  # flag to track if the rectangle is packed        
+        self.wasPacked = False  # flag to track if the rectangle is packed
 
-def get_dim_freq(packages,k_param):
+
+def get_dim_freq(packages, k_param):
+    """
+    Calculate the frequency of dimensions in the given packages.
+
+    Parameters:
+    packages (list): A list of packages, each with dimensions.
+    k_param (int): A parameter to adjust the dimension frequency calculation.
+
+    Returns:
+    list: A sorted list of tuples containing dimensions and their frequencies.
+    """
     dimension_frequency = collections.Counter()
     for pkg in packages:
         for dim in pkg.dim: # made Dim iterable
@@ -45,7 +78,6 @@ def get_dim_freq(packages,k_param):
         dimension_frequency.items(), key=lambda x: x[1], reverse=True
     )
     return dimension_frequency
-
 
 
 def selectrects_2d(dimension, packages, assigned_pkgs):
@@ -103,7 +135,7 @@ def bp2d(layer: Layer, selectedrects):
     problem=hp.HyperPack(
         containers=container, items=items
     )
-    print("Start hyperpack")
+    print("Start hyperpack(local search)")
     problem.local_search()
     # problem.hypersearch()
 
@@ -140,7 +172,7 @@ def make_layers(packages,length,breadth,rejection_threshold = 0.8,assigned_pkgs 
         selectedrects = selectrects_2d(int(dim[0]), packages,assigned_pkgs)
         area = sum([rect.w*rect.h for rect in selectedrects])
         if(area >= length*breadth*rejection_threshold):
-            layer = bp2d(Layer(0, [], length, breadth, int(dim[0]), -1, 0), selectedrects)
+            layer = bp2d(Layer(0, length, breadth, int(dim[0]), -1, 0), selectedrects)
             if(layer.packing_eff > rejection_threshold):
                 layers.append(layer)
                 for rect in layers[-1].packedrects:
@@ -161,7 +193,7 @@ def make_layers_fancy(packages, length,breadth,rejection_threshold = 0.8,k_param
         layers, assigned_pkgs = make_layers(packages,length,breadth,rejection_threshold,assigned_pkgs,margin)
         all_layers.extend(layers)
         k_param -= 1  
-    return all_layers,assigned_pkgs
+    return all_layers
     nonpacked = []
     for i, pkg in enumerate(packages):
         if assigned_pkgs[i] == 0:
@@ -182,56 +214,56 @@ def make_layers_fancy(packages, length,breadth,rejection_threshold = 0.8,k_param
             print(rect.id)
     return layers
 
-def assign_layers(layers,ULDs,or_tools = False):
-    if(or_tools):   
-        solver = pywraplp.Solver.CreateSolver("SAT")
-        if solver is None:
-            print("SCIP solver unavailable.")
-            return
-        # Variables
-        x = {}
-        for i in range(len(layers)):
-            for b in range(len(ULDs)):
-                x[i, b] = solver.BoolVar(f"x_{i}_{b}")
+# def assign_layers(layers,ULDs,or_tools = False):
+#     if(or_tools):   
+#         solver = pywraplp.Solver.CreateSolver("SAT")
+#         if solver is None:
+#             print("SCIP solver unavailable.")
+#             return
+#         # Variables
+#         x = {}
+#         for i in range(len(layers)):
+#             for b in range(len(ULDs)):
+#                 x[i, b] = solver.BoolVar(f"x_{i}_{b}")
         
-        # Constraints.
-        # Each item is assigned to at most one bin.
-        for i in range(len(layers)):
-            solver.Add(sum(x[i, b] for b in range(len(ULDs))) <= 1)
+#         # Constraints.
+#         # Each item is assigned to at most one bin.
+#         for i in range(len(layers)):
+#             solver.Add(sum(x[i, b] for b in range(len(ULDs))) <= 1)
 
-        # The amount packed in each bin cannot exceed its capacity.
-        for b in range(len(ULDs)):
-            solver.Add(
-            sum(x[i, b] * layers[i].dim.h for i in range(len(layers)))
-            <= ULDs[b].dim.h
-            )
+#         # The amount packed in each bin cannot exceed its capacity.
+#         for b in range(len(ULDs)):
+#             solver.Add(
+#             sum(x[i, b] * layers[i].dim.h for i in range(len(layers)))
+#             <= ULDs[b].dim.h
+#             )
 
-        # Objective.
-        # Maximize total value of packed items.
-        objective = solver.Objective()
-        for i in range(len(layers)):
-            for b in range(len(ULDs)):
-                objective.SetCoefficient(x[i, b], layers[i].cost)
-        objective.SetMaximization()
-        print(len(layers),len(ULDs))
-        print(f"Solving with {solver.SolverVersion()}")
-        print(solver.NumVariables(), "variables")
-        print(solver.NumConstraints(), "constraints")
-        status = solver.Solve()
-        mapping = [None]*len(ULDs)
-        print("status:",status) 
-        if(not status):
-            for i in range(len(layers)):
-                for b in range(len(ULDs)):
-                    if x[i,b].solution_value() > 0:
-                        if(mapping[b] == None):
-                            mapping[b] = []
-                        layers[i].uldno = b
-                        mapping[b].append(layers[i])
-                        break
-            return mapping
-        else:
-            return None
+#         # Objective.
+#         # Maximize total value of packed items.
+#         objective = solver.Objective()
+#         for i in range(len(layers)):
+#             for b in range(len(ULDs)):
+#                 objective.SetCoefficient(x[i, b], layers[i].cost)
+#         objective.SetMaximization()
+#         print(len(layers),len(ULDs))
+#         print(f"Solving with {solver.SolverVersion()}")
+#         print(solver.NumVariables(), "variables")
+#         print(solver.NumConstraints(), "constraints")
+#         status = solver.Solve()
+#         mapping = [None]*len(ULDs)
+#         print("status:",status) 
+#         if(not status):
+#             for i in range(len(layers)):
+#                 for b in range(len(ULDs)):
+#                     if x[i,b].solution_value() > 0:
+#                         if(mapping[b] == None):
+#                             mapping[b] = []
+#                         layers[i].uldno = b
+#                         mapping[b].append(layers[i])
+#                         break
+#             return mapping
+#         else:
+#             return None
 
 
 def add_layer(env,assigned_layer,height):
@@ -249,7 +281,7 @@ def add_layer(env,assigned_layer,height):
                 p2 = Point(rect.x + rect.w,rect.y + rect.h, height+ h)
                 # Add package to environment with corresponding ULD
                 added = env.add_package(pkg, env.ULDs[assigned_layer.uldno], (p1, p2))
-                if(not added):
-                    print("Error placing package")
+                # if(not added):
+                #     print("Error placing package")
                 break
     return env
