@@ -26,6 +26,7 @@ class ThreeDBP_Pivoting(PackingAlgorithm):
                             pivot.z + h_inc,
                         ),
                     ),
+                    stability_check=False,
                 ):
                     return True
 
