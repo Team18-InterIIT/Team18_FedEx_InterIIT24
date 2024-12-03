@@ -227,6 +227,7 @@ uld_height=0, uld_weight=0):
         if(area >= length*breadth*rejection_threshold):
             # print(length, breadth)
             layer = bp2d(Layer(0, length, breadth, int(dim[0]), -1, 0, 0), selectedrects)
+            print(layer.packing_eff)
             layer.height_ratio = height_ratio
             layer.weight_ratio = layer.weight/uld_weight
             layer.cost_density = layer.cost_economy/(layer.area_economy*int(dim[0]))
@@ -376,6 +377,7 @@ def approve(
             layer.height_ratio = height_ratio
             layer.weight_ratio = layer.weight/uld_weight
             layer.cost_density = layer.cost_economy/(layer.area_economy*height)
+            print(layer.packing_eff,layer.cost_density,layer.weight_ratio,height_ratio)
             if(layer.packing_eff > rejection_threshold
                and layer.cost_density >= cost_th*avg_cost_const
                and layer.weight_ratio <= weight_ratio_th*layer.height_ratio):

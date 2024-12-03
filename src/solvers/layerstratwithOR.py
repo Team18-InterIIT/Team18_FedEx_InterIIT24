@@ -57,13 +57,13 @@ class LayerPacking(PackingAlgorithm):
         for uld in env.ULDs:
             print(uld.dim.h)
            
-            layers = fullpack(packages=env.packages, ULD=uld, rejection_threshold=0.85,
-             weight_ratio_th=1,
-             cost_th = 1,
+            layers = fullpack(packages=env.packages, ULD=uld, rejection_threshold=0.90,
+             weight_ratio_th=0.9, # decrease to make less strict
+             cost_th = 1, # increase to make strict
              assigned_pkgs = [],
              margin= 0,
              uld_height = uld.dim.h,
-             uld_weight = uld.dim.w,
+             uld_weight = uld.weight_limit,
              nmax=3)
             print()
             h = 0
