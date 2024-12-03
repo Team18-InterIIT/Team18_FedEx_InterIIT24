@@ -85,7 +85,10 @@ class Package:
         Calculate the volume of the package
     """
 
-    def __init__(self, pkg_row: list[str]):
+    def __init__(self, pkg_row: list[str],
+                can_rotate: bool = False,
+                 families: bool = False,
+                 cluster: bool = False):
         self.id: int = int(pkg_row[0])
         self.dim: Dim = Dim(*map(int, pkg_row[1:4]))
         self.weight: int = int(pkg_row[4])
@@ -94,7 +97,16 @@ class Package:
 
         self.uld_id: int = 0
         self.corners: tuple[Point, Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
-        self.can_be_rotated: bool = pkg_row[7] #modify
+        item_pos = 7
+        if(can_rotate):
+            self.can_be_rotated: bool = pkg_row[item_pos]
+            item_pos += 1
+        if(families):
+            self.family_no = pkg_row[item_pos]
+            item_pos += 1
+        if(cluster):
+            self.cluster_no = pkg_row[item_pos]
+            item_pos += 1
 
     def new():
         return Package(["0", "0", "0", "0", "0", "Economy", "0"])

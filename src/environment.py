@@ -48,12 +48,16 @@ class Environment:
     axes_id = {"length": 0, "width": 1, "height": 2}
     stability_id = {1: "Stable", 0: "Not Placed", -1: "Unstable"}
 
-    def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]]):
+    def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]],
+                 can_rotate: bool = False,
+                 families: bool = False,
+                 cluster: bool = False,
+                 ):
         self.K = K
 
         self.packages: list[Package] = list()
         for pkg_data_row in pkg_list:
-            self.packages.append(Package(pkg_data_row))
+            self.packages.append(Package(pkg_data_row, can_rotate, families, cluster))
 
         self.ULDs: list[ULD] = list()
         for uld_data_row in uld_list:
