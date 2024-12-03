@@ -76,6 +76,8 @@ class Package:
         The identifier of the ULD in which the package is placed
     corners: tuple[Point, Point]
         The coordinates of the corners of the package in the ULD
+    can_be_rotated: bool
+        The pacakge can only be rotated in 2/6 directions
 
     Methods
     -------
@@ -92,6 +94,7 @@ class Package:
 
         self.uld_id: int = 0
         self.corners: tuple[Point, Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
+        self.can_be_rotated: bool = pkg_row[7] #modify
 
     def new():
         return Package(["0", "0", "0", "0", "0", "Economy", "0"])
@@ -108,6 +111,7 @@ class Package:
         self.cost = pkg.cost
         self.uld_id = pkg.uld_id
         self.corners = pkg.corners
+        self.can_be_rotated = pkg.can_be_rotated
 
     def copy(self):
         new_pkg = Package.new()
