@@ -8,7 +8,7 @@ from environment import Environment
 from util import Util
 from insert_package import PackageInserter
 from entity import Package
-from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting_Simul_Annealing as PackingAlgorithm
+from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
 
 
 # Dynamically import the algorithm based on user selection
@@ -94,10 +94,10 @@ if st.button("Run Packing Algorithm"):
     st.write("Showing packing animation...")
 
     # If `env.animate()` generates a matplotlib plot, use st.pyplot to show it
-    fig = env.animate_st()  # Assuming animate() returns a matplotlib figure
-    print(fig)
-    if fig is not None:
-        st.pyplot(fig)  # Display the animation
+    # fig = env.animate_st()  # Assuming animate() returns a matplotlib figure
+    # print(fig)
+    # if fig is not None:
+    #     st.pyplot(fig)  # Display the animation
 
     # If `env.animate()` generates a Plotly chart, use st.plotly_chart to show it
     # Uncomment this if you're using Plotly for animation
