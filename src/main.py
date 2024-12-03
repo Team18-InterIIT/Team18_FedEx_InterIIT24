@@ -35,4 +35,4 @@ env.write(
 )
 
 # uncomment the below line to save to json
-env.save(str(PackingAlgorithm.__name__))
+# env.save(str(PackingAlgorithm.__name__))
