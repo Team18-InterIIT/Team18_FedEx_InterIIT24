@@ -8,6 +8,9 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from sortedcontainers import SortedList
+import numpy as np
+import streamlit as st
+
 
 from entity import ULD, Package, Point
 from geometry_helpers import is_point_in_convex_hull, rectangle_intersection
@@ -532,6 +535,124 @@ class Environment:
         plt.tight_layout()
         plt.show()
         plt.close()
+    
+
+    def animate_st(self, repeat=False, stepped=True):
+        """
+        Animate the process of adding packages to the ULDs.
+
+        Parameters:
+        repeat (bool): If True, the animation will loop after reaching the last frame.
+        stepped (bool): If True, the animation will be drawn step-by-step.
+        """
+        
+        # Create a figure for animation
+        fig = plt.figure(figsize=(15, 10))
+        num_ULDs = len(self.ULDs)
+        rows = 2
+        cols = (num_ULDs + 1) // 2
+        axes = []
+        gs = fig.add_gridspec(rows + 1, cols, height_ratios=[*[1] * rows, 0.1])
+
+        # Create subplots for each ULD
+        for i, uld in enumerate(self.ULDs):
+            ax = fig.add_subplot(gs[i], projection="3d")
+            ax.set_xlabel("Length")
+            ax.set_ylabel("Width")
+            ax.set_zlabel("Height")
+            ax.set_xlim(0, uld.dim.l)
+            ax.set_ylim(0, uld.dim.w)
+            ax.set_zlim(0, uld.dim.h)
+            axes.append(ax)
+
+        def update(frame):
+            """
+            Update function to redraw the animation frame.
+            """
+            for ax, uld in zip(axes, self.ULDs):
+                ax.cla()  # Clear previous plot
+                ax.set_xlabel("Length")
+                ax.set_ylabel("Width")
+                ax.set_zlabel("Height")
+                ax.set_xlim(0, uld.dim.l)
+                ax.set_ylim(0, uld.dim.w)
+                ax.set_zlim(0, uld.dim.h)
+
+            uld_data = {uld.id: (0, 0, uld.weight_limit, 0) for uld in self.ULDs}
+
+            for pkg_id in self.pkg_addition_order[: frame + 1]:
+                pkg = next(pkg for pkg in self.packages if pkg.id == pkg_id)
+                uld = next(uld for uld in self.ULDs if uld.id == pkg.uld_id)
+                uld_data[uld.id] = (
+                    uld_data[uld.id][0] + 1,
+                    uld_data[uld.id][1] + pkg.weight,
+                    uld_data[uld.id][2],
+                    uld_data[uld.id][3] + pkg.volume() / uld.volume(),
+                )
+                summary = f"ULD {uld.id}\nNo. of packages: {uld_data[uld.id][0]}\nWeight: {uld_data[uld.id][1]}/{uld_data[uld.id][2]}\nVolume Utilisation: {round(uld_data[uld.id][3] * 100, 3)}%"
+                ax = axes[self.ULDs.index(uld)]
+                ax.set_title(
+                    summary,
+                    loc="left",
+                    fontdict={"fontsize": 7, "fontfamily": "monospace"},
+                )
+
+                x = [pkg.corners[0].x, pkg.corners[1].x]
+                y = [pkg.corners[0].y, pkg.corners[1].y]
+                z = [pkg.corners[0].z, pkg.corners[1].z]
+
+                points = (
+                    ((0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0)),
+                    ((0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)),
+                    ((0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)),
+                    ((0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)),
+                    ((0, 0, 0), (0, 1, 0), (0, 1, 1), (0, 0, 1)),
+                    ((1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)),
+                )
+                verts = [
+                    [(x[p[0]], y[p[1]], z[p[2]]) for p in point] for point in points
+                ]
+
+                color = "green" if not pkg.is_priority else "cyan"
+                if self.stable[pkg.id - 1] == -1:
+                    if pkg.is_priority:
+                        color = "purple"
+                    else:
+                        color = "orange"
+
+                ax.add_collection3d(
+                    Poly3DCollection(
+                        verts,
+                        facecolors=color,
+                        linewidths=1,
+                        edgecolors="r",
+                        alpha=0.2,
+                    )
+                )
+
+            plt.draw()
+
+        # Streamlit session state for tracking the current frame
+        if 'current_frame' not in st.session_state:
+            st.session_state.current_frame = 0  # Initialize current frame if it doesn't exist
+
+        # Streamlit buttons to control previous and next frame
+        prev_button = st.button("Previous")
+        next_button = st.button("Next")
+
+        # Button logic for frame navigation
+        if prev_button and st.session_state.current_frame > 0:
+            st.session_state.current_frame -= 1
+
+        if next_button and st.session_state.current_frame < len(self.pkg_addition_order) - 1:
+            st.session_state.current_frame += 1
+
+        # Update the plot with the current frame
+        update(st.session_state.current_frame)
+
+        # Return the figure to be displayed in Streamlit
+        plt.tight_layout()
+        return fig
 
     def reset_simulation(self, uld_ids):
         p.resetSimulation()
