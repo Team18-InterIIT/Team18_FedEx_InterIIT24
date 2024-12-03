@@ -28,11 +28,12 @@ model.solve(env)
 # To read from a solution file, use the following line instead of the above line
 # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
 
-# remove the below line to save to json
-#env.jsave("sol_3DBP") # filename without extension
 env.summary()
 # env.plot()
 env.animate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
 )
+
+# uncomment the below line to save to json
+# env.save(str(PackingAlgorithm.__name__))

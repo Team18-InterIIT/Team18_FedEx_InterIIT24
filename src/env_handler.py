@@ -1,9 +1,5 @@
-
 from environment import Environment
 
 
-env = Environment.jinit("sol_3DBP")
+env = Environment.init("ThreeDBP_Pivoting")
 env.summary()
-
-
-

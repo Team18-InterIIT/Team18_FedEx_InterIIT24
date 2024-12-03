@@ -48,7 +48,7 @@ class Environment:
     axes_id = {"length": 0, "width": 1, "height": 2}
     stability_id = {1: "Stable", 0: "Not Placed", -1: "Unstable"}
 
-    def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]],pkg_addition_order: list[int] = []):
+    def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]]):
         self.K = K
 
         self.packages: list[Package] = list()
@@ -789,7 +789,7 @@ class Environment:
                 uld.has_priority = any(pkg.is_priority for pkg in uld.packages)
                 uld.weight = sum(pkg.weight for pkg in uld.packages)
 
-    def check_stability(self, pkg_id, corners, tolerance = 3):
+    def check_stability(self, pkg_id, corners, tolerance=3):
         """
         First make a dictionary with pkg_id as the key and the coordinates
         of the package sorted by z-coordinate as the value
@@ -820,7 +820,7 @@ class Environment:
         target_z_up = to_insert[0].z
         target_z_down = to_insert[0].z - tolerance
 
-            # Find the start of the intersecting intervals in O(log n)
+        # Find the start of the intersecting intervals in O(log n)
         left_z = 0
         right_z = n - 1
 
@@ -832,7 +832,9 @@ class Environment:
             else:
                 right_z = mid
 
-        start_z = left_z if self.stable_coords[left_z][0].z >= target_z_down else left_z + 1
+        start_z = (
+            left_z if self.stable_coords[left_z][0].z >= target_z_down else left_z + 1
+        )
 
         # Find the end of the intersecting intervals in O(log n)
         left_z = 0
@@ -846,7 +848,9 @@ class Environment:
             else:
                 left_z = mid
 
-        end_z = right_z if self.stable_coords[right_z][0].z <= target_z_up else right_z - 1
+        end_z = (
+            right_z if self.stable_coords[right_z][0].z <= target_z_up else right_z - 1
+        )
 
         left_z = start_z
         right_z = end_z
@@ -986,14 +990,13 @@ class Environment:
             corners = pkg.get_corners()
             self.check_stability(pkg.id - 1, corners)
 
-    # Json
-    def jsave(self,fname):
-        with open("./solutions/json_envs/"+fname+".json", "wb") as f:
+    def save(self, fname):
+        with open("./solutions/env_pkls/" + fname + ".pkl", "wb") as f:
             pickle.dump(self, f)
-    
+
     @classmethod
-    def jinit(cls,fname):
-        with open("./solutions/json_envs/"+fname+".json", "rb") as f:
+    def init(cls, fname):
+        with open("./solutions/env_pkls/" + fname + ".pkl", "rb") as f:
             env = pickle.load(f)
             return env
 
