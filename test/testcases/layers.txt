@@ -1,0 +1,18 @@
+4000
+
+ULD Identifier,Length (cm),Width (cm),Height (cm),Weight Limit (kg)
+U0,100,100,100,2500
+
+Package Identifier,Length (cm),Width (cm),Height (cm),Weight (kg),Type (P/E),Cost of Delay
+P-1,40,30,40,61,Economy,176
+P-2,60,50,40,53,Priority,-
+P-3,50,20,40,17,Priority,-
+P-4,50,50,40,73,Economy,138
+P-5,70,30,40,93,Economy,139
+P-6,70,40,60,47,Priority,-
+P-7,30,80,60,117,Economy,102
+P-8,100,20,60,142,Economy,108
+P-9,60,25,60,50,Priority,-
+P-10,60,25,60,81,Priority,-
+
+
