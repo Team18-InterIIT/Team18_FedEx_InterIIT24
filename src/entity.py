@@ -86,6 +86,12 @@ class Package:
 
         self.uld_id: int = 0
         self.corners: tuple[Point, Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
+        # print("len",len(pkg_row))
+        if(len(pkg_row)>7):
+            self.cluster_id=str(pkg_row[7])
+        else:
+            self.cluster_id='0'
+
 
     def new(self):
         return Package(["0", "0", "0", "0", "0", "Economy", "0"])
@@ -167,6 +173,7 @@ class ULD:
         self.has_priority: bool = False
         self.weight: int = 0
         self.packages: list[Package] = list()
+        self.cluster_dict = {} # {cluster_id: <frequency of occurance in that ULD>}
 
     def new(self):
         return ULD(["0", "0", "0", "0", "0"])

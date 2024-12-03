@@ -35,13 +35,15 @@ class Parser:
                     i = j + 1
                 line: str = lines[i]
                 if pkg_list is None and line.startswith("Package"):
-                    pkg_list = [line.strip().split(",") for line in lines[i + 1 :]]
+                    pkg_list = [line.strip().split(",") for line in lines[i + 1 :]] 
                     for row in range(len(pkg_list)):
-                        pkg_list[row][0] = pkg_list[row][0][2:]
+                        pkg_list[row][0] = int(pkg_list[row][0][2:])
+                        # print(pkg_list[row][0], type(int(pkg_list[row][0])))
                     i = j + 1
 
         uld_list.sort(key=lambda x: int(x[0]))
         pkg_list.sort(key=lambda x: int(x[0]))
+       
 
         self.K = K
         self.uld_list = uld_list
