@@ -35,9 +35,13 @@ class Rect:
         self.wasPacked = False  # flag to track if the rectangle is packed
 
 
-def get_dim_freq(packages, k_param):
+def get_dim_freq(packages, k_param,assigned_pkgs=None):
+    if(assigned_pkgs == None):
+        assigned_pkgs = [0] * (len(packages) + 1)
     dimension_frequency = collections.Counter()
     for pkg in packages:
+        if(assigned_pkgs[pkg.id] == 1):
+            continue
         for dim in pkg.dim:  # made Dim iterable
             for i in range(1, k_param + 1):
                 dimension_frequency[dim + i] += 1
@@ -172,8 +176,43 @@ def gensets(lens, n, h, current_set=None, all_sets=None):
 
     return all_sets
 
+def genlayers(lens, n, h, current_set=None, all_sets=None):
+    layers = []
+    if(assigned_packages != []):
+        assigned_pkgs = assigned_packages
+    else:
+        assigned_pkgs = [0] * (len(packages) + 1) 
+    for l in s:
+        selectedrects_2d, assigned_pkgs = selectrects_2d(
+            l, packages, assigned_pkgs=assigned_pkgs, return_assigned=True
+        )
+        if len(selectedrects_2d) == 0:
+            break
+        layer = bp2d(
+            Layer(0, [], ULD.dim.l, ULD.dim.w, l, -1, 0), selectedrects_2d
+        )
+        layers.append(layer)
+    if len(layers) == len(s):
+        pe = sum([layer.packing_eff * layer.dim.h for layer in layers]) / height
+        if pe > rejection_threshold:
+            for layer in layers:
+                layer.uldno = ULD.id
+            return layers
 
-def fullpack(packages, ULD, rejection_threshold=0.8, nmax=3):
+def layer_replace(ULD,packages,assigned_pkgs,nmax = 3):
+    height = ULD.dim.h
+    for n in range(nmax):
+        freq_dist = get_dim_freq(packages, 0,assigned_pkgs=assigned_pkgs)
+        freq_map = {}
+        lens = []
+        for freq in freq_dist:
+            freq_map[freq[0]] = freq[1]
+            lens.append(freq[0])
+        sets = gensets(lens, n + 1, height)
+        sets = sorted(sets, key=len)
+        for s in sets:
+
+def fullpack(packages, ULD, rejection_threshold=0.8, nmax=3,assigned_packages=[]):
     height = ULD.dim.h
     for n in range(nmax):
         freq_dist = get_dim_freq(packages, 0)
@@ -185,24 +224,7 @@ def fullpack(packages, ULD, rejection_threshold=0.8, nmax=3):
         sets = gensets(lens, n + 1, height)
         sets = sorted(sets, key=len)
         for s in sets:
-            layers = []
-            assigned_pkgs = [0] * (len(packages) + 1)
-            for l in s:
-                selectedrects_2d, assigned_pkgs = selectrects_2d(
-                    l, packages, assigned_pkgs=assigned_pkgs, return_assigned=True
-                )
-                if len(selectedrects_2d) == 0:
-                    break
-                layer = bp2d(
-                    Layer(0, [], ULD.dim.l, ULD.dim.w, l, -1, 0), selectedrects_2d
-                )
-                layers.append(layer)
-            if len(layers) == len(s):
-                pe = sum([layer.packing_eff * layer.dim.h for layer in layers]) / height
-                if pe > rejection_threshold:
-                    for layer in layers:
-                        layer.uldno = ULD.id
-                    return layers
+            
 
 
 def flatbed_pack(packages, ULD, rejection_threshold=0.8):
@@ -294,28 +316,6 @@ def make_layers_fancy(packages, length, breadth, rejection_threshold=0.8, k_para
         all_layers.extend(layers)
         k_param -= 1
     return all_layers, assigned_pkgs
-    nonpacked = []
-    for i, pkg in enumerate(packages):
-        if assigned_pkgs[i] == 0:
-            nonpacked.append(pkg)
-    new_layers = []
-    new_map = get_dim_freq(nonpacked, 3)
-    for dim in new_map:
-        selectedrects = selectrects_2d(int(dim[0]), nonpacked, assigned_pkgs)
-        new_layers.append(
-            bp2d(Layer(0, [], length, breadth, int(dim[0]), 0, 0), selectedrects)
-        )
-        if new_layers[-1].packing_eff > 0.9:
-            for rect in new_layers[-1].packedrects:
-                assigned_pkgs[rect.id] = 1
-        else:
-            new_layers.pop()
-
-    for layer in layers:
-        print("LAYER:")
-        for rect in layer.packedrects:
-            print(rect.id)
-    return layers
 
 
 def assign_layers(layers, ULDs, or_tools=False):

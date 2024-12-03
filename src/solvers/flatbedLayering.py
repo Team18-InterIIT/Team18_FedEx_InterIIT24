@@ -17,7 +17,19 @@ class LayerPacking(PackingAlgorithm):
             print()
             h = 0
             for layer in layers:
+                print(layer.packing_eff)
+                print(h)
                 add_layer(env,layer,h)
                 h += layer.dim.h
+    def improve(self,env:Environment):
+        for uld in env.ULDs:
+            assigned_pkgs = [0]*len(env.packages+1)
+            for pkg in uld.packages:
+                assigned_pkgs[pkg.id] = 1
         
+        for uld in env.ULDs:
+            for pkg in uld.packages:
+                assigned_pkgs[pkg.id] = 0
+            layers = fullpack(env.packages,uld,assigned_pkgs)
+
         

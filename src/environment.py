@@ -9,10 +9,10 @@ from matplotlib.widgets import Button
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from sortedcontainers import SortedList
 import pickle
-
+import matplotlib
 from entity import ULD, Package, Point
-matplotlib.use('Qt5Agg')  from geometry_helpers import is_point_in_convex_hull, rectangle_intersection
-
+from geometry_helpers import is_point_in_convex_hull, rectangle_intersection
+matplotlib.use('Qt5Agg')
 
 class Environment:
     """

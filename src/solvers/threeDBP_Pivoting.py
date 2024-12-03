@@ -19,7 +19,7 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
         random.seed(42)
 
         def pivot_package(pkg: Package, uld: ULD, pivot: Point) -> bool:
-            for l_inc, b_inc, h_inc in itertools.permutations(
+            for l_inc, b_inc, h_inc in permutations(
                 [pkg.dim.l, pkg.dim.w, pkg.dim.h]
             ):
                 if env.add_package(
