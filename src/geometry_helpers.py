@@ -76,7 +76,6 @@ def is_point_in_convex_hull(points, test_point):
         return False
 
     # Check if point is outside the convex hull
-    all_left_or_on = True
     for i in range(len(convex_hull)):
         # Take two consecutive points from the convex hull
         p1 = convex_hull[i]

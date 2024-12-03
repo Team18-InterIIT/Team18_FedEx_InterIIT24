@@ -47,11 +47,11 @@ class Parser:
         self.uld_list = uld_list
         self.pkg_list = pkg_list
 
-    def get_K(self):
+    def get_K(self) -> int:
         return self.K
 
-    def get_uld_list(self):
+    def get_uld_list(self) -> list[list[str]]:
         return self.uld_list
 
-    def get_pkg_list(self):
+    def get_pkg_list(self) -> list[list[str]]:
         return self.pkg_list

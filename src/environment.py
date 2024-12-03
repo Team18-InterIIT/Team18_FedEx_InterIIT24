@@ -1,4 +1,6 @@
+import copy
 import os
+import pickle
 import time
 
 import matplotlib.pyplot as plt
@@ -8,7 +10,6 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from sortedcontainers import SortedList
-import pickle
 
 from entity import ULD, Package, Point
 from geometry_helpers import is_point_in_convex_hull, rectangle_intersection
@@ -39,36 +40,40 @@ class Environment:
                 floating_check, stability_check, fragility_check) -> bool
         Add a package to the ULD at the given coordinates
         taking into account various constraints
-    pack_to_ULD(pkg, uld) -> bool
-        Pack the package to the ULD
-    pack() -> None
-        Pack the packages to the ULDs
     """
 
     axes_id = {"length": 0, "width": 1, "height": 2}
     stability_id = {1: "Stable", 0: "Not Placed", -1: "Unstable"}
 
-    def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]],
-                 can_rotate: bool = False,
-                 families: bool = False,
-                 cluster: bool = False,
-                 ):
+    def __init__(
+        self,
+        K,
+        uld_list: list[list[str]],
+        pkg_list: list[list[str]],
+        orientation_constraint: bool = False,
+        families: bool = False,
+        cluster: bool = False,
+    ):
         self.K = K
 
         self.packages: list[Package] = list()
         for pkg_data_row in pkg_list:
-            self.packages.append(Package(pkg_data_row, can_rotate, families, cluster))
+            self.packages.append(
+                Package(pkg_data_row, orientation_constraint, families, cluster)
+            )
 
         self.ULDs: list[ULD] = list()
         for uld_data_row in uld_list:
             self.ULDs.append(ULD(uld_data_row))
 
-        self.pkg_addition_order = []
-        self.stable_coords = SortedList(key=Environment.sort_by_z)
-        self.stable = {}
+        self.pkg_addition_order: list[int] = []
+        self.stable_coords: SortedList[tuple[Point, Point]] = SortedList(
+            key=Environment.sort_by_z
+        )
+        self.stable: dict[int, int] = {}
 
-    def new(self):
-        return Environment(self.K, [], [])
+    def new(self) -> "Environment":
+        return Environment(0, [], [])
 
     def reset(self):
         for uld in self.ULDs:
@@ -78,14 +83,18 @@ class Environment:
             pkg.reset()
 
         self.pkg_addition_order = []
+        self.stable_coords = SortedList(key=Environment.sort_by_z)
+        self.stable = {}
 
     def copy_from(self, other: "Environment"):
         self.K = other.K
         self.packages = [pkg.copy() for pkg in other.packages]
         self.ULDs = [uld.copy() for uld in other.ULDs]
-        self.pkg_addition_order = other.pkg_addition_order.copy()
+        self.pkg_addition_order = copy.deepcopy(other.pkg_addition_order)
+        self.stable_coords = copy.deepcopy(other.stable_coords)
+        self.stable = copy.deepcopy(other.stable)
 
-    def copy(self):
+    def copy(self) -> "Environment":
         new_env = self.new()
         new_env.copy_from(self)
         return new_env
@@ -136,11 +145,12 @@ class Environment:
 
     def apply_gravity(
         self, uld_id: int, corners: tuple[Point, Point], gravity=(0, 0, -1)
-    ):
+    ) -> tuple[tuple[Point, Point], int]:
         """
         Apply gravity to the package in the ULD
 
         Returns the new coordinates of the package, by taking all bottom corners and moving them by gravity
+        and the height by which the package has dropped
         """
         uld = self.ULDs[uld_id]
         x1_min, y1_min, z1_min = corners[0].x, corners[0].y, corners[0].z
@@ -284,13 +294,15 @@ class Environment:
 
         return delay_cost, priority_cost
 
-    def sort_by_z(coord):
+    def sort_by_z(coord) -> int:
         return coord[0].z
 
     def plot(self):
         """
         Plot the packages in the ULDs
         """
+        self.global_stability_check()
+
         fig = plt.figure(figsize=(15, 10))
         num_ULDs = len(self.ULDs)
         rows = 2
@@ -371,7 +383,7 @@ class Environment:
             f"\nCost ==> Priority: {priority_cost} + Delay: {delay_cost} = {priority_cost + delay_cost}"
         )
 
-    def animate(self, repeat=False, stepped=True):
+    def animate(self, repeat: bool = False, stepped: bool = True):
         """
         Animate the process of adding packages to the ULDs.
 
@@ -517,21 +529,18 @@ class Environment:
         plt.show()
         plt.close()
 
-    def reset_simulation(self, uld_ids):
+    def _start_simulation(self, uld_ids: list[int]):
         p.resetSimulation()
-        p.setAdditionalSearchPath(
-            pybullet_data.getDataPath()
-        )  # Adds search path for PyBullet data (like URDFs)
-        p.setGravity(0, 0, -9.8)  # Set gravity
+        p.setAdditionalSearchPath(pybullet_data.getDataPath())
+        p.setGravity(0, 0, -9.8)
 
-        package_list = []  # List to store package IDs
-        gap = 20  # Gap between each ULD
+        package_list = []
+        gap = 30
 
         for index, uld_id in enumerate(uld_ids):
             uld = self.ULDs[uld_id]
             x_offset = index * (cm_to_m(uld.dim.l) + cm_to_m(gap))
 
-            # Add bottom wall (floor) for the ULD
             floor_thickness = 0.1
 
             # Bottom wall
@@ -564,7 +573,7 @@ class Environment:
                     cm_to_m(uld.dim.w) / 2,
                     wall_height / 2,
                 ],
-                rgbaColor=[1, 1, 1, 0],  # Fully transparent color
+                rgbaColor=[1, 1, 1, 0],
             )
             p.createMultiBody(
                 baseMass=0,
@@ -592,7 +601,7 @@ class Environment:
                     cm_to_m(uld.dim.w) / 2,
                     wall_height / 2,
                 ],
-                rgbaColor=[1, 1, 1, 0],  # Fully transparent color
+                rgbaColor=[1, 1, 1, 0],
             )
             p.createMultiBody(
                 baseMass=0,
@@ -620,7 +629,7 @@ class Environment:
                     wall_thickness / 2,
                     wall_height / 2,
                 ],
-                rgbaColor=[1, 1, 1, 0],  # Fully transparent color
+                rgbaColor=[1, 1, 1, 0],
             )
             p.createMultiBody(
                 baseMass=0,
@@ -648,7 +657,7 @@ class Environment:
                     wall_thickness / 2,
                     wall_height / 2,
                 ],
-                rgbaColor=[1, 1, 1, 0],  # Fully transparent color
+                rgbaColor=[1, 1, 1, 0],
             )
             p.createMultiBody(
                 baseMass=0,
@@ -668,7 +677,6 @@ class Environment:
                 ],
             )
 
-            # Iterate over the packages in the ULD
             for pkg in uld.packages:
                 # Create the collision shape for the package (a box)
                 package_shape = p.createCollisionShape(
@@ -697,13 +705,9 @@ class Environment:
 
                 # Calculate the global coordinates of the package based on the corners (assuming pkg.corners is a list of two points)
                 global_coords = [
-                    x_offset
-                    + cm_to_m(pkg.corners[0].x + pkg.corners[1].x)
-                    / 2,  # x-coordinate of the center
-                    cm_to_m(pkg.corners[0].y + pkg.corners[1].y)
-                    / 2,  # y-coordinate of the center
-                    cm_to_m(pkg.corners[0].z + pkg.corners[1].z)
-                    / 2,  # z-coordinate of the center
+                    x_offset + cm_to_m(pkg.corners[0].x + pkg.corners[1].x) / 2,
+                    cm_to_m(pkg.corners[0].y + pkg.corners[1].y) / 2,
+                    cm_to_m(pkg.corners[0].z + pkg.corners[1].z) / 2,
                 ]
 
                 # Create the package body in the simulation with the calculated global position
@@ -718,9 +722,8 @@ class Environment:
     def simulate(self, uld_ids=None):
         if uld_ids is None:
             uld_ids = list(range(len(self.ULDs)))
-        # Connect to the physics engine in GUI mode
         p.connect(p.GUI)
-        self.reset_simulation(uld_ids)
+        self._start_simulation(uld_ids)
 
         print("Press 'c' to start the simulation...")
         while True:
@@ -733,7 +736,7 @@ class Environment:
         while True:
             keys = p.getKeyboardEvents()
             if ord("x") in keys and keys[ord("x")] & p.KEY_WAS_TRIGGERED:
-                self.reset_simulation(uld_ids)
+                self._start_simulation(uld_ids)
                 print("Simulation reset. Press 'c' to start again.")
                 while True:
                     keys = p.getKeyboardEvents()
@@ -790,7 +793,7 @@ class Environment:
                 uld.has_priority = any(pkg.is_priority for pkg in uld.packages)
                 uld.weight = sum(pkg.weight for pkg in uld.packages)
 
-    def check_stability(self, pkg_id, corners, tolerance=3):
+    def check_stability(self, pkg_id, corners, tolerance=3) -> int:
         """
         First make a dictionary with pkg_id as the key and the coordinates
         of the package sorted by z-coordinate as the value
@@ -996,12 +999,12 @@ class Environment:
             pickle.dump(self, f)
 
     @classmethod
-    def init(cls, fname):
+    def init(cls, fname) -> "Environment":
         with open("./solutions/env_pkls/" + fname + ".pkl", "rb") as f:
             env = pickle.load(f)
             return env
 
 
-def cm_to_m(value):
+def cm_to_m(value) -> float:
     """Convert centimeters to meters."""
     return value * 0.01

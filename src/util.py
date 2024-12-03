@@ -1,6 +1,8 @@
-from collections import deque, defaultdict
+from collections import defaultdict, deque
+
 from entity import ULD, Package
 from environment import Environment
+
 
 class Util:
     def __init__(self, env: Environment):

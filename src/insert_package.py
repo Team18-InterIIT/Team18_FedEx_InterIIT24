@@ -1,9 +1,12 @@
-from environment import Environment
-from entity import ULD, Package, Point
-from itertools import permutations
 import multiprocessing
+from itertools import permutations
 from multiprocessing import Pool
+
 import numpy as np
+
+from entity import ULD, Package, Point
+from environment import Environment
+
 
 class PackageInserter:
     """

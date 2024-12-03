@@ -14,10 +14,10 @@ class Point:
         self.y: int = y
         self.z: int = z
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Point({self.x}, {self.y}, {self.z})"
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return self.x == other.x and self.y == other.y and self.z == other.z
 
     def __iter__(self):
@@ -48,8 +48,11 @@ class Dim:
         self.w: int = width
         self.h: int = height
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"{self.l}x{self.w}x{self.h}"
+
+    def __eq__(self, other) -> bool:
+        return self.l == other.l and self.w == other.w and self.h == other.h
 
     def __iter__(self):
         yield self.l
@@ -77,18 +80,33 @@ class Package:
     corners: tuple[Point, Point]
         The coordinates of the corners of the package in the ULD
     can_be_rotated: bool
-        The pacakge can only be rotated in 2/6 directions
+        The pacakge can only be rotated in 2/6 directions (along z-axis)
+    family_no:
+    cluster_no:
 
     Methods
     -------
+    new() -> Package
+        Create a new Package object
+    reset()
+        Reset the package to its initial state
+    copy_from(other: Package)
+        Copy the attributes of another Package object
+    copy() -> Package
+        Create a copy of the Package object
     volume() -> int
         Calculate the volume of the package
+    get_corners() -> list[Point]
+        Find the coordinates of the corners of the package
     """
 
-    def __init__(self, pkg_row: list[str],
-                can_rotate: bool = False,
-                 families: bool = False,
-                 cluster: bool = False):
+    def __init__(
+        self,
+        pkg_row: list[str],
+        orientation_constraint: bool = False,
+        families: bool = False,
+        cluster: bool = False,
+    ):
         self.id: int = int(pkg_row[0])
         self.dim: Dim = Dim(*map(int, pkg_row[1:4]))
         self.weight: int = int(pkg_row[4])
@@ -97,43 +115,51 @@ class Package:
 
         self.uld_id: int = 0
         self.corners: tuple[Point, Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
+
         item_pos = 7
-        if(can_rotate):
+        if orientation_constraint:
             self.can_be_rotated: bool = pkg_row[item_pos]
             item_pos += 1
-        if(families):
+        if families:
             self.family_no = pkg_row[item_pos]
             item_pos += 1
-        if(cluster):
+        if cluster:
             self.cluster_no = pkg_row[item_pos]
             item_pos += 1
 
-    def new():
+    def new() -> "Package":
         return Package(["0", "0", "0", "0", "0", "Economy", "0"])
 
     def reset(self):
         self.uld_id = 0
         self.corners = (Point(-1, -1, -1), Point(-1, -1, -1))
 
-    def copy_from(self, pkg):
-        self.id = pkg.id
-        self.dim = pkg.dim
-        self.weight = pkg.weight
-        self.is_priority = pkg.is_priority
-        self.cost = pkg.cost
-        self.uld_id = pkg.uld_id
-        self.corners = pkg.corners
-        self.can_be_rotated = pkg.can_be_rotated
+    def copy_from(self, other: "Package"):
+        self.id = other.id
+        self.dim = other.dim
+        self.weight = other.weight
+        self.is_priority = other.is_priority
+        self.cost = other.cost
 
-    def copy(self):
+        self.uld_id = other.uld_id
+        self.corners = other.corners
+
+        if hasattr(other, "can_be_rotated"):
+            self.can_be_rotated = other.can_be_rotated
+        if hasattr(other, "family_no"):
+            self.family_no = other.family_no
+        if hasattr(other, "cluster_no"):
+            self.cluster_no = other.cluster_no
+
+    def copy(self) -> "Package":
         new_pkg = Package.new()
         new_pkg.copy_from(self)
         return new_pkg
 
-    def volume(self):
+    def volume(self) -> int:
         return self.dim.l * self.dim.w * self.dim.h
 
-    def get_corners(self):
+    def get_corners(self) -> list[Point]:
         x_min, y_min, z_min = self.corners[0].x, self.corners[0].y, self.corners[0].z
         x_max, y_max, z_max = self.corners[1].x, self.corners[1].y, self.corners[1].z
         return [
@@ -147,7 +173,7 @@ class Package:
             Point(x_max, y_max, z_max),
         ]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Package {self.id}\t {self.dim}\t {self.weight}\t {self.is_priority}\t {self.cost}\t {self.uld_id}\t {self.corners}"
 
     def __hash__(self):
@@ -175,8 +201,22 @@ class ULD:
 
     Methods
     -------
+    new() -> ULD
+        Create a new ULD object
+    reset()
+        Reset the ULD to its initial state
+    copy_from(uld: ULD)
+        Copy the attributes of another ULD object
+    copy() -> ULD
+        Create a copy of the ULD object
     volume() -> int
         Calculate the volume of the ULD
+    volume_utilisation() -> float
+        Calculate the volume utilisation of the ULD
+    center_of_gravity() -> Point
+        Find the center of gravity of the ULD
+    is_balanced() -> bool
+        Check if the ULD is balanced (center of gravity is within 10% of the ULD's center)
     summary() -> str
         Return a summary of the ULD
     """
@@ -190,7 +230,7 @@ class ULD:
         self.weight: int = 0
         self.packages: list[Package] = list()
 
-    def new():
+    def new() -> "ULD":
         return ULD(["0", "0", "0", "0", "0"])
 
     def reset(self):
@@ -198,15 +238,16 @@ class ULD:
         self.weight = 0
         self.packages = []
 
-    def copy_from(self, uld):
+    def copy_from(self, uld: "ULD"):
         self.id = uld.id
         self.dim = uld.dim
         self.weight_limit = uld.weight_limit
+
         self.has_priority = uld.has_priority
         self.weight = uld.weight
         self.packages = [pkg.copy() for pkg in uld.packages]
 
-    def copy(self):
+    def copy(self) -> "ULD":
         new_uld = ULD.new()
         new_uld.copy_from(self)
         return new_uld
@@ -217,13 +258,13 @@ class ULD:
     def volume_utilisation(self) -> float:
         return sum(pkg.volume() for pkg in self.packages) / self.volume()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"ULD {self.id}\t {self.dim}\t {self.weight}/{self.weight_limit}\t {'Prioritised' if self.has_priority else 'Not prioritised'}\t No. of packages: {len(self.packages)}"
 
     def __hash__(self):
         return hash((self.id, self.weight, len(self.packages)))
 
-    def center_of_gravity(self):
+    def center_of_gravity(self) -> Point:
         """
         Find the center of gravity of all the packages in the ULD
         """
@@ -253,7 +294,7 @@ class ULD:
         )
         return Point(x, y, z)
 
-    def is_balanced(self):
+    def is_balanced(self) -> bool:
         """
         Check if the ULD is balanced
         Make sure the center of gravity is within 10% of the ULD's center
@@ -265,7 +306,7 @@ class ULD:
             and abs(cog.y - center_of_uld.y) < 0.1 * self.dim.w
         )
 
-    def summary(self):
+    def summary(self) -> str:
         return (
             f"ULD {self.id}\n"
             f"No. of packages: {len(self.packages)}\n"
