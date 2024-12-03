@@ -2,13 +2,14 @@ import sys
 import streamlit as st
 import time
 import altair as alt
-
 # Import your required classes and functions from your existing code
 import parser
 from environment import Environment
 from util import Util
 from insert_package import PackageInserter
 from entity import Package
+from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting_Simul_Annealing as PackingAlgorithm
+
 
 # Dynamically import the algorithm based on user selection
 ALGORITHMS = {
@@ -81,17 +82,26 @@ if st.button("Run Packing Algorithm"):
     end_time = time.time()
     st.write(f"Time taken to solve the packing problem: {end_time - start_time:.2f} seconds")
 
-    # Package Insertion
-    newPackage = Package(["401", "70", "70", "70", "0", "Priority", "0"])
-    start_time = time.time()
-    PackageInserter(env).parallel_insert_package(newPackage)
-    end_time = time.time()
-    st.write(f"Time taken to insert package: {end_time - start_time:.2f} seconds")
+    # # Package Insertion
+    # newPackage = Package(["401", "70", "70", "70", "0", "Priority", "0"])
+    # start_time = time.time()
+    # PackageInserter(env).parallel_replace_package(newPackage)
+    # end_time = time.time()
+    # st.write(f"Time taken to insert package: {end_time - start_time:.2f} seconds")
 
     # Show the packing animation (if implemented in your `env.animate()` method)
     st.subheader("Packing Animation")
     st.write("Showing packing animation...")
-    env.animate()
+
+    # If `env.animate()` generates a matplotlib plot, use st.pyplot to show it
+    fig = env.animate_st()  # Assuming animate() returns a matplotlib figure
+    print(fig)
+    if fig is not None:
+        st.pyplot(fig)  # Display the animation
+
+    # If `env.animate()` generates a Plotly chart, use st.plotly_chart to show it
+    # Uncomment this if you're using Plotly for animation
+    # st.plotly_chart(env.animate())  # Assuming animate() returns a Plotly figure
 
     # Save the result
     solution_file = f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
