@@ -176,12 +176,8 @@ def gensets(lens, n, h, current_set=None, all_sets=None):
 
     return all_sets
 
-def genlayers(lens, n, h, current_set=None, all_sets=None):
+def genlayers(s,ULD,packages,assigned_pkgs,old_cost = 0):
     layers = []
-    if(assigned_packages != []):
-        assigned_pkgs = assigned_packages
-    else:
-        assigned_pkgs = [0] * (len(packages) + 1) 
     for l in s:
         selectedrects_2d, assigned_pkgs = selectrects_2d(
             l, packages, assigned_pkgs=assigned_pkgs, return_assigned=True
@@ -193,12 +189,14 @@ def genlayers(lens, n, h, current_set=None, all_sets=None):
         )
         layers.append(layer)
     if len(layers) == len(s):
-        pe = sum([layer.packing_eff * layer.dim.h for layer in layers]) / height
-        if pe > rejection_threshold:
+        pe = sum([layer.packing_eff * layer.dim.h for layer in layers]) / ULD.dim.h
+        new_cost = sum([layer.cost for layer in layers])
+        if new_cost > old_cost:
+            print(new_cost, old_cost)
             for layer in layers:
                 layer.uldno = ULD.id
             return layers
-
+    
 def layer_replace(ULD,packages,assigned_pkgs,nmax = 3):
     height = ULD.dim.h
     for n in range(nmax):
@@ -210,7 +208,12 @@ def layer_replace(ULD,packages,assigned_pkgs,nmax = 3):
             lens.append(freq[0])
         sets = gensets(lens, n + 1, height)
         sets = sorted(sets, key=len)
+        old_cost = sum([pkg.cost for pkg in ULD.packages])
         for s in sets:
+            layers = genlayers(s,ULD,packages,assigned_pkgs,old_cost)
+            if layers != None:
+                return layers
+        return None
 
 def fullpack(packages, ULD, rejection_threshold=0.8, nmax=3,assigned_packages=[]):
     height = ULD.dim.h
@@ -224,7 +227,27 @@ def fullpack(packages, ULD, rejection_threshold=0.8, nmax=3,assigned_packages=[]
         sets = gensets(lens, n + 1, height)
         sets = sorted(sets, key=len)
         for s in sets:
-            
+            layers = []
+            if(assigned_packages != []):
+                assigned_pkgs = assigned_packages
+            else:
+                assigned_pkgs = [0] * (len(packages) + 1) 
+            for l in s:
+                selectedrects_2d, assigned_pkgs = selectrects_2d(
+                    l, packages, assigned_pkgs=assigned_pkgs, return_assigned=True
+                )
+                if len(selectedrects_2d) == 0:
+                    break
+                layer = bp2d(
+                    Layer(0, [], ULD.dim.l, ULD.dim.w, l, -1, 0), selectedrects_2d
+                )
+                layers.append(layer)
+            if len(layers) == len(s):
+                pe = sum([layer.packing_eff * layer.dim.h for layer in layers]) / height
+                if pe > rejection_threshold:
+                    for layer in layers:
+                        layer.uldno = ULD.id
+                    return layers
 
 
 def flatbed_pack(packages, ULD, rejection_threshold=0.8):
@@ -386,7 +409,12 @@ def add_layer(env, assigned_layer, height):
                     print(assigned_layer.dim.h, h)
                 p2 = Point(rect.x + rect.w, rect.y + rect.h, height + h)
                 # Add package to environment with corresponding ULD
-                added = env.add_package(pkg, env.ULDs[assigned_layer.uldno], (p1, p2))
+                uldno = 0
+                for uld in env.ULDs:
+                    if uld.id == assigned_layer.uldno:
+                        break
+                    uldno += 1
+                added = env.add_package(pkg, env.ULDs[uldno], (p1, p2))
                 if not added:
                     print("Error placing package")
                 break

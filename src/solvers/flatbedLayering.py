@@ -5,7 +5,7 @@ from environment import Environment
 from entity import Point,Package,Dim
 import rectpack as rp
 from algorithm_interface import PackingAlgorithm
-from solvers.layering import make_layers,assign_layers,add_layer,make_layers_fancy,flatbed_pack,fullpack
+from solvers.layering import make_layers,assign_layers,add_layer,make_layers_fancy,flatbed_pack,fullpack,layer_replace
 
 
 class LayerPacking(PackingAlgorithm):
@@ -23,13 +23,23 @@ class LayerPacking(PackingAlgorithm):
                 h += layer.dim.h
     def improve(self,env:Environment):
         for uld in env.ULDs:
-            assigned_pkgs = [0]*len(env.packages+1)
+            assigned_pkgs = [0]*(len(env.packages)+1)
             for pkg in uld.packages:
                 assigned_pkgs[pkg.id] = 1
         
         for uld in env.ULDs:
-            for pkg in uld.packages:
-                assigned_pkgs[pkg.id] = 0
-            layers = fullpack(env.packages,uld,assigned_pkgs)
+            if(not uld.has_priority):
+                for pkg in uld.packages:
+                    assigned_pkgs[pkg.id] = 0
+                layers = layer_replace(uld,env.packages,assigned_pkgs)
+                if(layers != None):
+                    print("Accepted better")
+                    uld.reset()
+                    for layer in layers:
+                        add_layer(env,layer,uld.dim.h)
+                        uld.dim.h += layer.dim.h
+                        for pkg in layer.packages:
+                            assigned_pkgs[pkg.id] = 1
+        return env
 
         
