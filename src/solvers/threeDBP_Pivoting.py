@@ -18,34 +18,24 @@ class ThreeDBP_Pivoting_Simul_Annealing(PackingAlgorithm):
         """
         random.seed(42)
 
-        def pivot_package(
-            pkg: Package, uld: ULD, pivot: Point, signs: tuple[int, int, int]
-        ) -> bool:
-            for l_inc, w_inc, h_inc in permutations((pkg.dim.l, pkg.dim.w, pkg.dim.h)):
-                l_inc = signs[0] * l_inc
-                w_inc = signs[1] * w_inc
-                h_inc = signs[2] * h_inc
-                corners = (
-                    Point(
-                        *map(
-                            min,
-                            zip(
-                                (pivot.x, pivot.y, pivot.z),
-                                (pivot.x + l_inc, pivot.y + w_inc, pivot.z + h_inc),
-                            ),
-                        )
+        def pivot_package(pkg: Package, uld: ULD, pivot: Point) -> bool:
+            for l_inc, b_inc, h_inc in itertools.permutations(
+                [pkg.dim.l, pkg.dim.w, pkg.dim.h]
+            ):
+                if env.add_package(
+                    pkg,
+                    uld,
+                    corners=(
+                        pivot,
+                        Point(
+                            pivot.x + l_inc,
+                            pivot.y + b_inc,
+                            pivot.z + h_inc,
+                        ),
                     ),
-                    Point(
-                        *map(
-                            max,
-                            zip(
-                                (pivot.x, pivot.y, pivot.z),
-                                (pivot.x + l_inc, pivot.y + w_inc, pivot.z + h_inc),
-                            ),
-                        )
-                    ),
-                )
-                return env.add_package(pkg, uld, corners=corners)
+                    stability_check=False,
+                ):
+                    return True
 
         def generate_pivots(existing_pkg):
             x, y, z = (

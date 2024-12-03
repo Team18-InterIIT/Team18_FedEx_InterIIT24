@@ -177,6 +177,7 @@ columns = [
 
 # Create DataFrame
 df = pd.DataFrame(pkgs, columns=columns)
+df.sort_values(by="Package Identifier", inplace=True, key=lambda x: x.str.split("-").str[1].astype(int))
 
 with open("output.txt", "w") as file:
     # Write the value of K
