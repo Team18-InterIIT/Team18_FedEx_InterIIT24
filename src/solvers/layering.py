@@ -199,11 +199,7 @@ def bp2d(layer: Layer, selectedrects):
 
 
 #=================================================================#
-#rejection_threshold is for 2D packing efficiency 
-#weight_ratio_th is the threshold or rejecting very heavy layers 
-# it is x => weight of layer/ weight capacity of ULD <= x* height of layer/ height of ULD 
-# similarly cost rejection ratio cost_th
-# it is y => cost of layer/ volume of layer >= y* avg_cost (constant) 
+
 def make_layers(packages,length,breadth,rejection_threshold = 0.8,
 weight_ratio_th = 0.95
 , cost_th = 0.9, assigned_pkgs =[],margin = 0,
@@ -354,6 +350,12 @@ def gensets(lens, n, h, current_set=None, all_sets=None):
 
     return all_sets
 
+
+#rejection_threshold is for 2D packing efficiency 
+#weight_ratio_th is the threshold or rejecting very heavy layers 
+# it is x => weight of layer/ weight capacity of ULD <= x* height of layer/ height of ULD 
+# similarly cost rejection ratio cost_th
+# it is y => cost of layer/ volume of layer >= y* avg_cost (constant) 
 def approve(
         selectedrects,
         length,
