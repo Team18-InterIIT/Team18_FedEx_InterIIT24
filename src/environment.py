@@ -510,6 +510,7 @@ class Environment:
                 repeat=repeat,
             )
 
+        plt.subplots_adjust(top=0.9)
         plt.tight_layout()
         plt.show()
         plt.close()
