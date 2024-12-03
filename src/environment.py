@@ -8,6 +8,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from sortedcontainers import SortedList
+import pickle
 
 from entity import ULD, Package, Point
 from geometry_helpers import is_point_in_convex_hull, rectangle_intersection
@@ -47,7 +48,7 @@ class Environment:
     axes_id = {"length": 0, "width": 1, "height": 2}
     stability_id = {1: "Stable", 0: "Not Placed", -1: "Unstable"}
 
-    def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]]):
+    def __init__(self, K, uld_list: list[list[str]], pkg_list: list[list[str]],pkg_addition_order: list[int] = []):
         self.K = K
 
         self.packages: list[Package] = list()
@@ -982,6 +983,17 @@ class Environment:
         for pkg in sorted(self.packages, key=lambda pkg: pkg.get_corners()[0].z):
             corners = pkg.get_corners()
             self.check_stability(pkg.id - 1, corners)
+
+    # Json
+    def jsave(self,fname):
+        with open("./solutions/json_envs/"+fname+".json", "wb") as f:
+            pickle.dump(self, f)
+    
+    @classmethod
+    def jinit(cls,fname):
+        with open("./solutions/json_envs/"+fname+".json", "rb") as f:
+            env = pickle.load(f)
+            return env
 
 
 def cm_to_m(value):
