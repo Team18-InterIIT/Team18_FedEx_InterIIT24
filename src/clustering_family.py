@@ -4,13 +4,14 @@ from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import parser
-
+import random
+import math
 """
-Stand Alone File that create the clusters randomly. 
+Stand Alone File that create the clusters based on dimensions(can be made randomly too) and makes families randomly. 
 """
 
 
-def clustering(K,uldList,pList, num_clusters):
+def clustering(K,uldList,pList, num_clusters, family_creation):
     pack = []
     package_ids = []  # To store package IDs
     
@@ -76,9 +77,11 @@ def clustering(K,uldList,pList, num_clusters):
         pack[0] = f"P-{pack[0]}"
 
 # List of lists (each list is a row)
-    
+    if family_creation:
+        for pkg in pList:
+            pkg.append(0 if random.random() < 0.5 else random.randrange(1,family_creation))
     # Specify the file path
-    file_path = f'test/data_cluster{num_clusters}.txt'
+    file_path = f'test/data_cluster{num_clusters}_fam{family_creation}.txt'
 
     # Open the CSV file in append mode (use 'w' to overwrite)
     with open(file_path, mode='w', newline='') as file:
@@ -103,5 +106,7 @@ uld_list = parser.get_uld_list()
 for uld in uld_list:
     uld[0]=str(f"U{uld[0]}")
 pkg_list = parser.get_pkg_list()
+
 num_clusters=3
-clustering(K,uld_list,pkg_list,num_clusters)
+family_creation = 2
+clustering(K,uld_list,pkg_list,num_clusters,family_creation)

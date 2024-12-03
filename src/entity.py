@@ -23,6 +23,10 @@ class Point:
     def __hash__(self):
         return hash((self.x, self.y, self.z))
 
+    def dist(self,point: 'Point'=None): 
+        if point is None:
+            point=Point(0,0,0)
+        return ((self.x-point.x)**2+(self.y-point.y)**2+(self.z-point.z)**2)**0.5
 
 class Dim:
     """
@@ -70,6 +74,15 @@ class Package:
         The identifier of the ULD in which the package is placed
     corners: tuple[Point, Point]
         The coordinates of the corners of the package in the ULD
+    cluster_id:
+        All objects of the same cluster needto be packed in same ULD as much as possible. 
+    cluster_thresh:
+        the Minimum "Cluster Union Ratio (CUR)" for each ULD. CUR = max(frequncy of clusterid)/total packages. 
+    family_id:
+        All objects of the same family must be packed adjecent to each other as much as possible.
+    family_thresh_dist:
+        The maximum allowable distance between two packages of same family.  
+    
 
     Methods
     -------
@@ -77,20 +90,29 @@ class Package:
         Calculate the volume of the package
     """
 
-    def __init__(self, pkg_row: list[str]):
+    def __init__(self, pkg_row: list[str],cluster_thresh=0.6,family_thresh_dist=5):
         self.id: int = int(pkg_row[0])
         self.dim: Dim = Dim(*map(int, pkg_row[1:4]))
         self.weight: int = int(pkg_row[4])
         self.is_priority: bool = pkg_row[5] == "Priority"
         self.cost: float = float("inf") if self.is_priority else float(pkg_row[6])
 
+
         self.uld_id: int = 0
         self.corners: tuple[Point, Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
-        # print("len",len(pkg_row))
         if(len(pkg_row)>7):
             self.cluster_id=str(pkg_row[7])
         else:
             self.cluster_id='0'
+        
+        self.cluster_thresh = cluster_thresh
+
+        if(len(pkg_row)>8):
+            self.family_id=str(pkg_row[8])
+        else:
+            self.family_id='0'
+
+        self.family_threshold_distance=family_thresh_dist
 
 
     def new(self):
@@ -137,7 +159,14 @@ class Package:
     def __hash__(self):
         return hash((self.id, self.uld_id, *self.corners))
 
-
+    def min_dist(self, pkg: 'Package'):
+        #Returns the minimum distance between 2 boxes (comparing corners). 
+        distance= float('inf')
+        for corner1 in self.get_corners():
+            for corner2 in pkg.get_corners():
+                if corner1.dist(corner2)<distance:
+                    distance = corner1.dist(corner2)
+        return distance
 class ULD:
     """
     Represents a ULD
@@ -156,7 +185,11 @@ class ULD:
         The total weight of the packages in the ULD
     packages: list[Package]
         The packages packed in the ULD
+    cluster_dict:
+        {'cluster_id' : int } -- a record of how many packets of a given clusterid are in the ULD
 
+    family_dict
+        {'family_id' : [Package,...]} -- record of the list of same-family packages placed next to each other in a ULD. List of Package Class Objects. 
     Methods
     -------
     volume() -> int
@@ -173,8 +206,8 @@ class ULD:
         self.has_priority: bool = False
         self.weight: int = 0
         self.packages: list[Package] = list()
-        self.cluster_dict = {} # {cluster_id: <frequency of occurance in that ULD>}
-
+        self.cluster_dict = {} 
+        self.family_dict={} 
     def new(self):
         return ULD(["0", "0", "0", "0", "0"])
 

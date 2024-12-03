@@ -19,7 +19,7 @@ if len(sys.argv) == 2:
     test_file = sys.argv[1]
 else:
     # test_file = "test/Challenge_FedEx.txt"
-    test_file = "test/data_cluster3.txt"
+    test_file = "test/data_cluster2_fam2.txt"
 
 parser = parser.Parser(test_file)
 K = parser.get_K()

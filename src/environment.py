@@ -137,7 +137,8 @@ class Environment:
         floating_check: bool = True,
         stability_check: bool = True,
         fragility_check: bool = True,
-        cluster_check: bool=True
+        cluster_check: bool=False,
+        family_check: bool=False
     ) -> bool:
         """
         Add a package to the ULD at the given coordinates,
@@ -154,15 +155,48 @@ class Environment:
         num_cluster=len(uld.cluster_dict.keys())    #number of families in the cluster    
         num_pack = len(uld.packages)
         if num_pack>=10 and num_cluster>1 and cluster_check:
-            # if any(existing_pkg.cluster_id != pkg.cluster_id for existing_pkg in uld.packages): --strict
-            # if uld.cluster_dict[pkg.cluster_id]>num_pack/(num_fam+1) and uld.cluster_dict[pkg.cluster_id]<num_pack/(num_fam-1): --range of frequency%
-            # print(max(uld.cluster_dict.values())/num_pack) --initial FUR calculation
-            # if (uld.cluster_dict[pkg.cluster_id]!=max(uld.cluster_dict.values()) and max(uld.cluster_dict.values())/(num_pack))<0.6: --fur calculation and not inserting nonfrequent pack.
-            # if (max(uld.cluster_dict.values())+ (uld.cluster_dict[pkg.cluster_id]==max(uld.cluster_dict.values())))/(num_pack)<0.6:  #modified fur for real time % calcuation. 
 
-            if (max(uld.cluster_dict.values())+ (uld.cluster_dict[pkg.cluster_id]==max(uld.cluster_dict.values())))/(num_pack+1)<0.6:  #modified fur --best
+            # if any(existing_pkg.cluster_id != pkg.cluster_id for existing_pkg in uld.packages): #--strict
+            # if uld.cluster_dict[pkg.cluster_id]>num_pack/(num_fam+1) and uld.cluster_dict[pkg.cluster_id]<num_pack/(num_fam-1): #--range of frequency%
+            # print(max(uld.cluster_dict.values())/num_pack) --initial FUR calculation
+            # if (uld.cluster_dict[pkg.cluster_id]!=max(uld.cluster_dict.values()) and max(uld.cluster_dict.values())/(num_pack))<pkg.cluster_thresh: #--fur calculation and not inserting nonfrequent pack.
+            # if (max(uld.cluster_dict.values())+ (uld.cluster_dict[pkg.cluster_id]==max(uld.cluster_dict.values())))/(num_pack)<pkg.cluster_thresh:  #modified fur for real time % calcuation. 
+
+            if (max(uld.cluster_dict.values())+ (uld.cluster_dict[pkg.cluster_id]==max(uld.cluster_dict.values())))/(num_pack+1)<pkg.cluster_thresh:  #modified fur --best
                 return False
+        
+        if family_check:
             
+            """ STRICT CONDITION
+            if any(pkg.family_id in _.family_dict.keys() for _ in self.ULDs) :
+                if pkg.family_id not in uld.family_dict.keys():                             
+                        return False
+            else:
+                if uld.packages and pkg.family_id in uld.family_dict.keys() and len(uld.family_dict[pkg.family_id])==len(uld.packages):
+                    family_close = False
+                    for other_pkg in uld.family_dict[pkg.family_id]:
+                        if pkg.min_dist(other_pkg) <= pkg.family_threshold_distance:
+                            family_close=True
+                            break
+                    if not family_close:
+                        return family_close"""
+                    
+            # if any(pkg.family_id in _.family_dict.keys() for _ in self.ULDs) : #--strict condiiton
+            if pkg.family_id in uld.family_dict.keys():                #--relaxed condition    
+                    # return False
+                family_close = False
+                for other_pkg in uld.family_dict[pkg.family_id]:
+                    if pkg.min_dist(other_pkg) <= pkg.family_threshold_distance:
+                        family_close=True
+                        break
+                if not family_close:
+                    return family_close
+                
+
+            
+            
+
+
 
         if collision_check and self.check_collision(uld, corners):
             return False
@@ -186,6 +220,10 @@ class Environment:
         else:
             uld.cluster_dict[pkg.cluster_id]=1
 
+        if(pkg.family_id in uld.family_dict.keys()):
+            uld.family_dict[pkg.family_id].append(pkg)
+        else:
+            uld.family_dict[pkg.family_id]=[pkg]            
         return True
 
     def cost(
@@ -315,9 +353,14 @@ class Environment:
             f"\nPercentage of non-priority packages placed: {round((len(placed) - len(priority_pkgs_placed)) / (len(packages) - len(priority_pkgs)) * 100, 3) if len(packages) != len(priority_pkgs) else 100}%"
             f"\nCost ==> Priority: {priority_cost} + Delay: {delay_cost} = {priority_cost + delay_cost}",
         )
-        print("ULD-Wise cluster Data: ")
+        print("ULD-Wise Cluster  Data: ")
         for uld in self.ULDs:
-            print(f"{uld.id} = {uld.cluster_dict} / {len(uld.packages)}")
+            print(f"{uld.id} = {uld.cluster_dict} Clusters and Family: ",end='')
+            for family_id in uld.family_dict.keys():
+                print(f"\t{family_id} = {len(uld.family_dict[family_id])}", end=' ')    
+            print(f"  /{len(uld.packages)}")
+            print("")
+        
 
     def animate(self, repeat=False, stepped=True):
         """
