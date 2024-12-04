@@ -198,6 +198,7 @@ class Environment:
         if collision_check and self.check_collision(uld, corners):
             return False
 
+        self.stable[pkg.id - 1] = 0
         if stability_check:
             dummy = pkg.copy()
             dummy.corners = corners
@@ -223,6 +224,9 @@ class Environment:
 
         pkg.corners = corners
 
+        if pkg not in self.packages:
+            self.packages.append(pkg)
+            
         uld.packages.append(pkg)
         uld.weight += pkg.weight
         uld.has_priority = uld.has_priority or pkg.is_priority
@@ -341,6 +345,7 @@ class Environment:
         plt.tight_layout()
         plt.show()
         plt.close()
+        return fig
 
     def summary(self):
         """
