@@ -352,9 +352,15 @@ class COA(PackingAlgorithm):
                         found_atleast_one_package = False
 
                     for pkg in pkgs:
-                        for x_inc, y_inc, z_inc in permutations(
-                            (pkg.dim.l, pkg.dim.w, pkg.dim.h)
-                        ):
+                        if hasattr(pkg, "can_be_rotated") and not pkg.can_be_rotated:
+                            rotations = [
+                                (pkg.dim.l, pkg.dim.w, pkg.dim.h),
+                                (pkg.dim.w, pkg.dim.l, pkg.dim.h),
+                            ]
+                        else:
+                            rotations = permutations((pkg.dim.l, pkg.dim.w, pkg.dim.h))
+
+                        for x_inc, y_inc, z_inc in rotations:
                             orientation = Point(
                                 coa.x + x_inc, coa.y + y_inc, coa.z + z_inc
                             )
@@ -476,19 +482,22 @@ class COA(PackingAlgorithm):
         if n_jobs == -1:
             n_jobs = multiprocessing.cpu_count()
         n_completed_calls = 0
-        args=(uld_COAs, env, pkgs, allowed_ULDs, verbose, maximize_volume_utilization)
-        
-        n_calls = ((n_jobs + n_calls - 1)//n_jobs)*n_jobs #scaling n_calls to the next multiple of n_jobs
+        args = (uld_COAs, env, pkgs, allowed_ULDs, verbose, maximize_volume_utilization)
+
+        n_calls = (
+            (n_jobs + n_calls - 1) // n_jobs
+        ) * n_jobs  # scaling n_calls to the next multiple of n_jobs
         progress_bar = tqdm(total=n_calls, desc="Optimizing")
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
-            while n_completed_calls<n_calls:
+            while n_completed_calls < n_calls:
                 sampled_points = optimizer.ask(n_jobs)
-                futures = [executor.submit(objective, point, *args) for point in sampled_points]
+                futures = [
+                    executor.submit(objective, point, *args) for point in sampled_points
+                ]
                 for future in as_completed(futures):
                     optimizer.tell(*future.result())
                     progress_bar.update(1)
                 n_completed_calls += n_jobs
-            
 
         # with multiprocessing.Pool(processes=n_jobs) as pool:
         #     ready_ids = list(range(n_jobs))
@@ -691,7 +700,7 @@ class COA(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 heuristic=priority_heuristic,
                 prune_COAs=False,
-                n_calls=60,
+                n_calls=30,
                 multiprocessing=True,
                 maximize_volume_utilization=True,
             )
@@ -706,7 +715,7 @@ class COA(PackingAlgorithm):
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                n_calls=60,
+                n_calls=40,
                 multiprocessing=True,
                 maximize_volume_utilization=True,
             )
