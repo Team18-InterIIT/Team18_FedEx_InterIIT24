@@ -12,7 +12,7 @@ from insert_package import PackageInserter
 from entity import Package
 
 # Initialize the Plotly figure for 3D plotting
-def animate_st(env: Environment, repeat=False, stepped=True):
+def st_animate(_env: Environment, repeat=False, stepped=True):
     """
     Animate the process of adding packages to the ULDs using Plotly and Streamlit.
 
@@ -38,13 +38,18 @@ def animate_st(env: Environment, repeat=False, stepped=True):
         showlegend=False
     )
 
-    # Updating the animation frame-by-frame
     def update(frame):
-        fig.data = []  # Clear previous data
-        
+        """
+        Update function that adds the packages as 3D mesh to the plot for the given frame.
+        """
+        # Track ULD data (this keeps track of packages added to each ULD)
         uld_data = {uld.id: (0, 0, uld.weight_limit, 0) for uld in env.ULDs}
         
-        for pkg_id in env.pkg_addition_order[:frame + 1]:
+        # Clear all previous traces to prepare for the next frame
+        fig.data = []
+
+        # Add traces for packages in the current frame
+        for pkg_id in env.pkg_addition_order[:frame + 1]: 
             pkg = next(pkg for pkg in env.packages if pkg.id == pkg_id)
             uld = next(uld for uld in env.ULDs if uld.id == pkg.uld_id)
             uld_data[uld.id] = (
@@ -67,8 +72,8 @@ def animate_st(env: Environment, repeat=False, stepped=True):
                 else:
                     color = "orange"
 
-            # Add package as mesh (3D box)
-            fig.add_trace(Mesh3d(
+            # Add package as mesh (3D box) to the figure
+            fig.add_trace(go.Mesh3d(
                 x=x, y=y, z=z,
                 color=color,
                 opacity=0.5,
@@ -76,30 +81,27 @@ def animate_st(env: Environment, repeat=False, stepped=True):
                 showlegend=False
             ))
 
-            # Update ULD title
+            # Update ULD title (show package data in the plot title)
             fig.update_layout(
                 title=summary
             )
 
-        # Display the plot step-by-step
+        # Display the plot step-by-step using Streamlit
         st.plotly_chart(fig, use_container_width=True)
 
     # Frame control (Next and Previous)
     if stepped:
         st.write("Step-by-step animation")
-        current_frame = -1
-
+        
         def next_frame():
-            nonlocal current_frame
-            if current_frame < len(env.pkg_addition_order) - 1:
-                current_frame += 1
-                update(current_frame)
+            if st.session_state.current_frame < len(env.pkg_addition_order) - 1:
+                st.session_state.current_frame += 1
+                update(st.session_state.current_frame)
 
         def prev_frame():
-            nonlocal current_frame
-            if current_frame >= 0:
-                current_frame -= 1
-                update(current_frame)
+            if st.session_state.current_frame >= 0:
+                st.session_state.current_frame -= 1
+                update(st.session_state.current_frame)
 
         # Create buttons for next/previous
         col1, col2 = st.columns(2)
@@ -238,8 +240,11 @@ else:
     st.dataframe(df_pkg_list)  # Show the dataframe with proper column names
 
 # Run the Packing Algorithm
-if st.button("Run Packing Algorithm"):
-   
+if "run_algorithm" not in st.session_state:
+    st.session_state.run_algorithm = False
+
+@st.cache_data
+def run_algo():
     # Load data (without CSV reading)
     K, uld_list, pkg_list = load_data(test_file)
 
@@ -253,18 +258,32 @@ if st.button("Run Packing Algorithm"):
         model.solve(env)
     end_time = time.time()
     st.write(f"Time taken to solve the packing problem: {end_time - start_time:.2f} seconds")
+    return env
 
+@st.cache_data
+def st_plot(_env):
     # Show the packing animation (if implemented in your `env.animate()` method)
     st.subheader("Packing Animation")
     st.write("Showing packing animation...")
-
     fig = env.plot()
     st.pyplot(fig, clear_figure=False)
+
+if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
+   
+    env = run_algo() # Run the algorithm
+    
+    st_plot(env) # Plot
+
+    if "current_frame" not in st.session_state:
+        st.session_state.current_frame = -1
+
+    st_animate(env) # Animate the package insertion process
 
     # Save the result
     solution_file = f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
     env.write(file_path=solution_file)
     st.write(f"Solution saved at {solution_file}")
+    st.session_state.run_algorithm = True
 
 # Closing the div tag for center-alignment
 st.markdown('</div>', unsafe_allow_html=True)
