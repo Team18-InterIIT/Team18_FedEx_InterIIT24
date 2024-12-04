@@ -1,11 +1,12 @@
 import copy
-import tqdm
 import multiprocessing
 import random
 import sys
 from itertools import permutations
 
 import numpy as np
+import skopt
+import tqdm
 from skopt import Optimizer
 from skopt.space import Integer
 
@@ -15,7 +16,14 @@ from environment import Environment
 
 
 def objective(
-    params, uld_COAs, env, pkgs, allowed_ULDs, verbose, maximize_volume_utilization
+    params,
+    uld_COAs,
+    env,
+    pkgs,
+    allowed_ULDs,
+    verbose,
+    maximize_volume_utilization,
+    return_params=True,
 ):
     heuristic = {
         "included_cost": params[0],
@@ -61,7 +69,11 @@ def objective(
 
     env_copy.global_stability_check()
     num_unstable = sum((1 if env_copy.stable[i] == -1 else 0) for i in env_copy.stable)
-    return params, (cost + 100 * num_unstable)
+
+    if return_params:
+        return params, (cost + 100 * num_unstable)
+    else:
+        return cost + 100 * num_unstable
 
 
 class COA(PackingAlgorithm):
@@ -498,6 +510,7 @@ class COA(PackingAlgorithm):
                                     allowed_ULDs,
                                     verbose,
                                     maximize_volume_utilization,
+                                    True,
                                 ),
                             )
 
@@ -525,6 +538,8 @@ class COA(PackingAlgorithm):
         prune_COAs: bool = True,
         verbose: bool = False,
         n_calls: int = 20,
+        n_jobs: int = -1,
+        multiprocessing: bool = True,
         maximize_volume_utilization: bool = True,
         **kwargs,
     ):
@@ -546,19 +561,43 @@ class COA(PackingAlgorithm):
             Integer(-1000, -100, name="x_gravity"),
         ]
 
-        best_params = COA.gp_minimize(
-            objective,
-            space,
-            uld_COAs,
-            env,
-            pkgs,
-            allowed_ULDs,
-            verbose,
-            maximize_volume_utilization,
-            n_calls=n_calls,
-            random_state=42,
-            n_jobs=-1,
-        )
+        if not multiprocessing:
+
+            def objective_wrapper(params):
+                return objective(
+                    params,
+                    uld_COAs,
+                    env,
+                    pkgs,
+                    allowed_ULDs,
+                    True,
+                    maximize_volume_utilization,
+                    return_params=False,
+                )
+
+            res = skopt.gp_minimize(
+                objective_wrapper,
+                space,
+                n_calls=n_calls,
+                n_jobs=n_jobs,
+                random_state=42,
+            )
+
+            best_params = res.x
+        else:
+            best_params = COA.gp_minimize(
+                objective,
+                space,
+                uld_COAs,
+                env,
+                pkgs,
+                allowed_ULDs,
+                verbose,
+                maximize_volume_utilization,
+                n_calls=n_calls,
+                random_state=42,
+                n_jobs=n_jobs,
+            )
 
         best_heuristic = {
             "included_cost": best_params[0],
@@ -641,7 +680,8 @@ class COA(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 heuristic=priority_heuristic,
                 prune_COAs=False,
-                n_calls=40,
+                n_calls=10,
+                multiprocessing=True,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
@@ -655,7 +695,8 @@ class COA(PackingAlgorithm):
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                n_calls=80,
+                n_calls=10,
+                multiprocessing=True,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
