@@ -134,6 +134,9 @@ class Package:
     def __repr__(self):
         return f"Package {self.id}\t {self.dim}\t {self.weight}\t {self.is_priority}\t {self.cost}\t {self.uld_id}\t {self.corners}"
 
+    def __eq__(self, other):
+        return self.id == other.id
+
     def __hash__(self):
         return hash((self.id, self.uld_id, *self.corners))
 

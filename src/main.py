@@ -22,18 +22,16 @@ pkg_list = parser.get_pkg_list()
 env = Environment(K, uld_list, pkg_list)
 
 model = PackingAlgorithm()
-
 model.solve(env)
 # To read from a solution file, use the following line instead of the above line
 # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
 
+# env.init(str(PackingAlgorithm.__name__))
+
 env.summary()
-# env.plot()
+# print(env.packages)
+env.plot()
 # env.animate()
 # env.simulate()
-env.write(
-    file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
-)
-
 # uncomment the below line to save to json
-# env.save(str(PackingAlgorithm.__name__))
+env.save(str(PackingAlgorithm.__name__))
