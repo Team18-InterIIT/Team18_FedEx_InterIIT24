@@ -8,6 +8,7 @@ from itertools import permutations
 import numpy as np
 from skopt import Optimizer
 from skopt.space import Integer
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
@@ -533,45 +534,67 @@ class COA(PackingAlgorithm):
 
         print(f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}")
 
-        space = [
-            Integer(100000, 10000000, name="included_cost"),
-            Integer(1000, 10000, name="caving_degree"),
-            Integer(500, 5000, name="paste_number"),
-            Integer(1000, 10000, name="paste_ratio"),
-            Integer(1000, 10000, name="largest_dim"),
-            Integer(250, 2500, name="middle_dim"),
-            Integer(100, 1000, name="smallest_dim"),
-            Integer(-5000, -500, name="z_gravity"),
-            Integer(-1000, -100, name="y_gravity"),
-            Integer(-1000, -100, name="x_gravity"),
-        ]
+        def hyperopt_objective(params):
+            heuristic = params
 
-        best_params = COA.gp_minimize(
-            objective,
-            space,
-            uld_COAs,
-            env,
-            pkgs,
-            allowed_ULDs,
-            verbose,
-            maximize_volume_utilization,
-            n_calls=n_calls,
-            random_state=42,
-            n_jobs=-1,
+            uld_COAs_copy = copy.deepcopy(uld_COAs)
+            env_copy = copy.deepcopy(env)
+            pkgs_copy = copy.deepcopy(pkgs)
+
+            cost = COA.A3(
+                uld_COAs_copy,
+                env_copy,
+                pkgs_copy,
+                heuristic=heuristic,
+                allowed_ULDs=allowed_ULDs,
+                verbose=verbose,
+            )
+
+            if maximize_volume_utilization is not None:
+                volume_utilization = sum(
+                    uld.volume_utilisation() for uld in env_copy.ULDs
+                ) / len(allowed_ULDs)
+                cost += 1000 * (
+                    (1 - volume_utilization)
+                    if maximize_volume_utilization
+                    else (volume_utilization)
+                )
+
+                if verbose:
+                    print(f"Volume Utilization: {volume_utilization}")
+
+            if verbose:
+                print(f"Cost: {cost}")
+
+            env_copy.global_stability_check()
+            num_unstable = sum(
+                (1 if env_copy.stable[i] == -1 else 0) for i in env_copy.stable
+            )
+            return {"loss": cost + 100 * num_unstable, "status": STATUS_OK}
+
+        space = {
+            "included_cost": hp.uniform("included_cost", 100000, 10000000),
+            "caving_degree": hp.uniform("caving_degree", 1000, 10000),
+            "paste_number": hp.uniform("paste_number", 500, 5000),
+            "paste_ratio": hp.uniform("paste_ratio", 1000, 10000),
+            "largest_dim": hp.uniform("largest_dim", 1000, 10000),
+            "middle_dim": hp.uniform("middle_dim", 250, 2500),
+            "smallest_dim": hp.uniform("smallest_dim", 100, 1000),
+            "z_gravity": hp.uniform("z_gravity", -5000, -500),
+            "y_gravity": hp.uniform("y_gravity", -1000, -100),
+            "x_gravity": hp.uniform("x_gravity", -1000, -100),
+        }
+
+        trials = Trials()
+        best_params = fmin(
+            fn=hyperopt_objective,
+            space=space,
+            algo=tpe.suggest,
+            max_evals=100,
+            trials=trials,
         )
 
-        best_heuristic = {
-            "included_cost": best_params[0],
-            "caving_degree": best_params[1],
-            "paste_number": best_params[2],
-            "paste_ratio": best_params[3],
-            "largest_dim": best_params[4],
-            "middle_dim": best_params[5],
-            "smallest_dim": best_params[6],
-            "z_gravity": best_params[7],
-            "y_gravity": best_params[8],
-            "x_gravity": best_params[9],
-        }
+        best_heuristic = best_params
 
         print(f"Best heuristic:\n{best_heuristic}\n\n", file=open("heuristic.log", "a"))
 
