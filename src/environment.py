@@ -503,10 +503,10 @@ class Environment:
                     update(current_frame)
                     print(
                         "Removed package",
-                        self.pkg_addition_order[current_frame] - 1,
+                        self.pkg_addition_order[current_frame + 1] - 1,
                         "which is",
                         Environment.stability_id[
-                            self.stable[self.pkg_addition_order[current_frame] - 1]
+                            self.stable[self.pkg_addition_order[current_frame + 1] - 1]
                         ],
                     )
 
