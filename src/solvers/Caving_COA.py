@@ -1,4 +1,5 @@
 import copy
+from concurrent.futures import ProcessPoolExecutor
 import tqdm
 import multiprocessing
 import random
@@ -63,7 +64,59 @@ def objective(
     num_unstable = sum((1 if env_copy.stable[i] == -1 else 0) for i in env_copy.stable)
     return params, (cost + 100 * num_unstable)
 
+def beam_A3(
+        env: Environment,
+        uld_COAs: dict[int, list[Point]],
+        pkgs: list[Package],
+        best_coa: Point,
+        best_pkg: Package,
+        best_uld: ULD,
+        best_orientation: Point,
+        heuristic: dict[str, int],
+        allowed_ULDs: list[ULD],
+        verbose: bool = False,
+        maximize_volume_utilization: bool = True,
+        prune_COAs=True,
+):
+    new_env = copy.deepcopy(env)
+    new_uld_COAs = copy.deepcopy(uld_COAs)
+    new_pkgs = copy.deepcopy(pkgs)
 
+    best_coa = copy.deepcopy(best_coa)
+    best_pkg = copy.deepcopy(best_pkg)
+    best_orientation = copy.deepcopy(best_orientation)
+    best_uld = copy.deepcopy(best_uld)
+    new_env.add_package(
+        best_pkg.id,
+        best_uld.id,
+        corners=(best_coa, best_orientation),
+        collision_check=False,
+        stability_check=False,
+        gravity=True,
+    )
+
+    new_pkgs.remove(best_pkg)
+    new_uld_COAs[best_uld.id - 1].remove(best_coa)
+    for new_coa in COA.generate_COAs(best_coa, best_orientation):
+        new_uld_COAs[best_uld.id - 1].append(new_coa)
+    cost = COA.A3(
+        new_uld_COAs,
+        new_env,
+        new_pkgs,
+        heuristic=heuristic,
+        allowed_ULDs=allowed_ULDs,
+        verbose=False,
+        prune_COAs=prune_COAs,
+    )
+    for uld_id in allowed_ULDs:
+        cost += (1 - new_env.ULDs[uld_id].volume_utilisation()) * 1000
+    new_env.global_stability_check()
+    num_unstable = sum(
+        (1 if new_env.stable[i] == -1 else 0) for i in new_env.stable
+    )
+    cost += num_unstable * 100
+    return (cost, best_coa, best_pkg, best_orientation, best_uld)
+    
 class COA(PackingAlgorithm):
     """
     https://www.sciencedirect.com/science/article/pii/S0305054807001785
@@ -400,7 +453,7 @@ class COA(PackingAlgorithm):
                                 for param, weight in heuristic.items()
                             )
 
-                            if len(values) < 3:
+                            if len(values) < 7:
                                 value = current_value
                                 best_coa = coa
                                 best_pkg = pkg
@@ -443,46 +496,72 @@ class COA(PackingAlgorithm):
                 break
 
             max_vals = []
+            # with ProcessPoolExecutor(max_workers=3) as executor:
+            args = []
             for i in values:
-                new_env = copy.deepcopy(env)
-                new_uld_COAs = copy.deepcopy(uld_COAs)
-                new_pkgs = copy.deepcopy(pkgs)
+                best_coa = i[1]
+                best_pkg = i[2]
+                best_orientation = i[3]
+                best_uld = i[4]
+                args.append((env, uld_COAs, pkgs, best_coa, best_pkg, best_uld, best_orientation, heuristic, allowed_ULDs, True, True, prune_COAs))
+                # max_vals.append(beam_A3(env,
+                #         uld_COAs,
+                #         pkgs,
+                #         best_coa,
+                #         best_pkg,
+                #         best_uld,
+                #         best_orientation,
+                #         heuristic, 
+                #         allowed_ULDs,
+                #         verbose=verbose,
+                #         maximize_volume_utilization=True,
+                #         prune_COAs=prune_COAs))
+                
+                # new_env = copy.deepcopy(env)
+                # new_uld_COAs = copy.deepcopy(uld_COAs)
+                # new_pkgs = copy.deepcopy(pkgs)
 
-                best_coa = copy.deepcopy(i[1])
-                best_pkg = copy.deepcopy(i[2])
-                best_orientation = copy.deepcopy(i[3])
-                best_uld = copy.deepcopy(i[4])
-                new_env.add_package(
-                    best_pkg.id,
-                    best_uld.id,
-                    corners=(best_coa, best_orientation),
-                    collision_check=False,
-                    stability_check=False,
-                    gravity=True,
-                )
+                # best_coa = copy.deepcopy(i[1])
+                # best_pkg = copy.deepcopy(i[2])
+                # best_orientation = copy.deepcopy(i[3])
+                # best_uld = copy.deepcopy(i[4])
+                # new_env.add_package(
+                #     best_pkg.id,
+                #     best_uld.id,
+                #     corners=(best_coa, best_orientation),
+                #     collision_check=False,
+                #     stability_check=False,
+                #     gravity=True,
+                # )
 
-                new_pkgs.remove(best_pkg)
-                new_uld_COAs[best_uld.id - 1].remove(best_coa)
-                for new_coa in COA.generate_COAs(best_coa, best_orientation):
-                    new_uld_COAs[best_uld.id - 1].append(new_coa)
-                cost = COA.A3(
-                    new_uld_COAs,
-                    new_env,
-                    new_pkgs,
-                    heuristic=heuristic,
-                    allowed_ULDs=allowed_ULDs,
-                    verbose=False,
-                    prune_COAs=prune_COAs,
-                )
-                for uld_id in allowed_ULDs:
-                    cost += (1 - new_env.ULDs[uld_id].volume_utilisation()) * 1000
-                new_env.global_stability_check()
-                num_unstable = sum(
-                    (1 if new_env.stable[i] == -1 else 0) for i in new_env.stable
-                )
-                cost += num_unstable * 100
-                print(cost)
-                max_vals.append((cost, best_coa, best_pkg, best_orientation, best_uld))
+                # new_pkgs.remove(best_pkg)
+                # new_uld_COAs[best_uld.id - 1].remove(best_coa)
+                # for new_coa in COA.generate_COAs(best_coa, best_orientation):
+                #     new_uld_COAs[best_uld.id - 1].append(new_coa)
+                # cost = COA.A3(
+                #     new_uld_COAs,
+                #     new_env,
+                #     new_pkgs,
+                #     heuristic=heuristic,
+                #     allowed_ULDs=allowed_ULDs,
+                #     verbose=False,
+                #     prune_COAs=prune_COAs,
+                # )
+                # for uld_id in allowed_ULDs:
+                #     cost += (1 - new_env.ULDs[uld_id].volume_utilisation()) * 1000
+                # new_env.global_stability_check()
+                # num_unstable = sum(
+                #     (1 if new_env.stable[i] == -1 else 0) for i in new_env.stable
+                # )
+                # cost += num_unstable * 100
+                # print(cost)
+                # max_vals.append((cost, best_coa, best_pkg, best_orientation, best_uld))
+            answers = []
+            with ProcessPoolExecutor(max_workers=7) as executor:
+                for i in args:
+                    answers.append(executor.submit(beam_A3, *i))
+            for future in answers:
+                max_vals.append(future.result())
 
             max_vals.sort(key=lambda x: x[0])
 
