@@ -54,17 +54,15 @@ class Environment:
         pkg_list: list[list[str]],
         orientation_constraint: bool = False,
         families: bool = False,
-        cluster: bool = False,
     ):
         self.K = K
         self.orientation_constraint = orientation_constraint
         self.families = families
-        self.cluster = cluster
 
         self.packages: list[Package] = list()
         for pkg_data_row in pkg_list:
             self.packages.append(
-                Package(pkg_data_row, orientation_constraint, families, cluster)
+                Package(pkg_data_row, orientation_constraint, families)
             )
 
         self.ULDs: list[ULD] = list()
@@ -307,7 +305,7 @@ class Environment:
     def sort_by_z(coord) -> int:
         return coord[0].z
 
-    def plot(self, stress_dict=None, stress_plot: bool = False):
+    def plot(self, stress_plot: bool = False):
         """
         Plot the packages in the ULDs
         """
@@ -317,12 +315,15 @@ class Environment:
         num_ULDs = len(self.ULDs)
         rows = 2
         cols = (num_ULDs + 1) // 2
+
         if stress_plot:
+            stress_dict = self.calculate_stress_on_packages()
             stress_values = [
                 stress_dict.get(pkg.id, 0) for uld in self.ULDs for pkg in uld.packages
             ]
             norm = Normalize(vmin=min(stress_values), vmax=max(stress_values))
             cmap = get_cmap("plasma")
+
         for i, uld in enumerate(self.ULDs):
             ax = fig.add_subplot(rows, cols, i + 1, projection="3d")
             for pkg in uld.packages:
@@ -375,9 +376,20 @@ class Environment:
         if stress_plot:
             sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
             sm.set_array([])
-            cbar = plt.colorbar(sm, ax=fig.axes, shrink=0.6, aspect=20, pad=0.02)
+            cbar = plt.colorbar(
+                sm,
+                ax=fig.axes,
+                orientation="horizontal",
+                shrink=0.6,
+                aspect=40,
+                pad=0.02,
+            )
             cbar.set_label("Stress (Pascals)")
-        plt.tight_layout()
+            cbar.ax.xaxis.set_ticks_position("bottom")
+            cbar.ax.xaxis.set_label_position("bottom")
+
+        if not stress_plot:
+            plt.tight_layout()
         plt.show()
         plt.close()
 
@@ -553,7 +565,6 @@ class Environment:
         plt.close()
 
     def _start_simulation(self, uld_ids: list[int]):
-        self.global_stability_check()
         p.resetSimulation()
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.setGravity(0, 0, -9.8)
@@ -837,18 +848,18 @@ class Environment:
         package_stress = {}
 
         package_ids = self._start_simulation(uld_ids)
-        area_per_package = {}
-        for uld in self.ULDs:
-            area_per_package = {
-                package_id: (
-                    (pkg.corners[1].x - pkg.corners[0].x)
-                    * (pkg.corners[1].y - pkg.corners[0].y)
-                )
-                * (0.01**2)  # Convert from cm² to m²
-                for package_id, pkg in zip(package_ids.keys(), package_ids.values())
-            }
+        area_per_package = {
+            package_id: (
+                (pkg.corners[1].x - pkg.corners[0].x)
+                * (pkg.corners[1].y - pkg.corners[0].y)
+            )
+            * (0.01**2)  # Convert from cm² to m²
+            for package_id, pkg in zip(package_ids.keys(), package_ids.values())
+        }
+
         for _ in range(1000):
             p.stepSimulation()
+
         for package_id in package_ids:
             # Retrieve all contact points for the current package
             contact_points = p.getContactPoints(bodyA=package_id)
@@ -869,6 +880,7 @@ class Environment:
                 stress = None
 
             package_stress[package_ids[package_id].id] = stress
+
         p.disconnect()
         return package_stress
 

@@ -26,13 +26,14 @@ model = PackingAlgorithm()
 model.solve(env)
 # To read from a solution file, use the following line instead of the above line
 # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
-stress = env.calculate_stress_on_packages()
+
 env.summary()
-env.plot(stress_dict=stress, stress_plot=True)
+env.plot()
+# env.plot(stress_plot=True)
 # env.animate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
 )
 
-# uncomment the below line to save to json
+# uncomment the below line to pickle the environment
 # env.save(str(PackingAlgorithm.__name__))
