@@ -77,6 +77,61 @@ def objective(
         return cost + 100 * num_unstable
 
 
+def beam_A3(
+    env: Environment,
+    uld_COAs: dict[int, list[Point]],
+    pkgs: list[Package],
+    best_coa: Point,
+    best_pkg: Package,
+    best_uld: ULD,
+    best_orientation: Point,
+    heuristic: dict[str, int],
+    allowed_ULDs: list[ULD],
+    verbose: bool = False,
+    maximize_volume_utilization: bool = True,
+    prune_COAs=True,
+):
+    new_env = copy.deepcopy(env)
+    new_uld_COAs = copy.deepcopy(uld_COAs)
+    new_pkgs = copy.deepcopy(pkgs)
+
+    best_coa = copy.deepcopy(best_coa)
+    best_pkg = copy.deepcopy(best_pkg)
+    best_orientation = copy.deepcopy(best_orientation)
+    best_uld = copy.deepcopy(best_uld)
+    new_env.add_package(
+        best_pkg.id,
+        best_uld.id,
+        corners=(best_coa, best_orientation),
+        collision_check=False,
+        stability_check=False,
+        gravity=True,
+    )
+
+    for pkg in new_pkgs:
+        if pkg.id == best_pkg.id:
+            new_pkgs.remove(pkg)
+
+    new_uld_COAs[best_uld.id - 1].remove(best_coa)
+    for new_coa in COA.generate_COAs(best_coa, best_orientation):
+        new_uld_COAs[best_uld.id - 1].append(new_coa)
+    cost = COA.A3(
+        new_uld_COAs,
+        new_env,
+        new_pkgs,
+        heuristic=heuristic,
+        allowed_ULDs=allowed_ULDs,
+        verbose=False,
+        prune_COAs=prune_COAs,
+    )
+    for uld_id in allowed_ULDs:
+        cost += (1 - new_env.ULDs[uld_id].volume_utilisation()) * 1000
+    new_env.global_stability_check()
+    num_unstable = sum((1 if new_env.stable[i] == -1 else 0) for i in new_env.stable)
+    cost += num_unstable * 100
+    return (cost, best_coa, best_pkg, best_orientation, best_uld)
+
+
 class COA(PackingAlgorithm):
     """
     https://www.sciencedirect.com/science/article/pii/S0305054807001785
@@ -300,6 +355,234 @@ class COA(PackingAlgorithm):
             Point(x, y, z + h),
         ]
 
+    def A4(
+        uld_COAs: dict[int, list[Point]],
+        env: Environment,
+        pkgs: list[Package],
+        heuristic: dict[str, int] = None,
+        allowed_ULDs: list[int] = None,
+        verbose: bool = True,
+        prune_COAs: bool = True,
+        **kwargs,
+    ):
+        if heuristic is None:
+            heuristic = {
+                "included_cost": 5012633,
+                "caving_degree": 10000,
+                "paste_number": 4533,
+                "paste_ratio": 5896,
+                "largest_dim": 1000,
+                "middle_dim": 529,
+                "smallest_dim": 284,
+                "z_gravity": -5000,
+                "y_gravity": -335,
+                "x_gravity": -100,
+            }
+
+        if allowed_ULDs is None:
+            allowed_ULDs = list(range(len(env.ULDs)))
+
+        total_pkgs = len(pkgs)
+
+        if verbose:
+            print(
+                f"A3 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}"
+            )
+
+        while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
+            best_coa = None
+            best_pkg = None
+            best_orientation = None
+            best_uld = None
+
+            max_value = float("-inf")
+            values = []
+
+            for uld_id in allowed_ULDs:
+                uld = env.ULDs[uld_id]
+                COAs = uld_COAs[uld_id]
+
+                if prune_COAs:
+                    COAs_to_remove = []
+
+                for coa in COAs:
+                    if prune_COAs:
+                        found_atleast_one_package = False
+
+                    for pkg in pkgs:
+                        for x_inc, y_inc, z_inc in permutations(
+                            (pkg.dim.l, pkg.dim.w, pkg.dim.h)
+                        ):
+                            orientation = Point(
+                                coa.x + x_inc, coa.y + y_inc, coa.z + z_inc
+                            )
+
+                            if not env.add_package(
+                                pkg.id,
+                                uld.id,
+                                corners=(coa, orientation),
+                                simulate=True,
+                                stability_check=False,
+                            ):
+                                continue
+
+                            found_atleast_one_package = True
+
+                            current_values = {
+                                "included_cost": (
+                                    (pkg.cost**1.5 / pkg.volume() ** 0.8)
+                                    if not pkg.is_priority
+                                    else -(
+                                        sum(
+                                            pkg.cost
+                                            for pkg in env.packages
+                                            if (not pkg.is_priority and pkg.uld_id == 0)
+                                        )
+                                        + sum(
+                                            env.K
+                                            for uld in env.ULDs
+                                            if uld.has_priority
+                                        )
+                                        + env.K
+                                        if (not uld.has_priority and pkg.is_priority)
+                                        else 0
+                                    )
+                                ),
+                                "caving_degree": COA.caving_degree(
+                                    uld, coa, orientation
+                                ),
+                                "paste_number": COA.paste_number(uld, coa, orientation),
+                                "paste_ratio": COA.paste_ratio(uld, coa, orientation),
+                                "z_gravity": (coa.z + orientation.z) / 2,
+                                "y_gravity": (coa.y + orientation.y) / 2,
+                                "x_gravity": (coa.x + orientation.x) / 2,
+                            }
+                            (
+                                current_values["largest_dim"],
+                                current_values["middle_dim"],
+                                current_values["smallest_dim"],
+                            ) = sorted([x_inc, y_inc, z_inc], reverse=True)
+
+                            current_value = sum(
+                                weight * current_values[param]
+                                for param, weight in heuristic.items()
+                            )
+
+                            if len(values) < 7:
+                                value = current_value
+                                best_coa = coa
+                                best_pkg = pkg
+                                best_orientation = orientation
+                                best_uld = uld
+                                values.append(
+                                    (
+                                        value,
+                                        best_coa,
+                                        best_pkg,
+                                        best_orientation,
+                                        best_uld,
+                                    )
+                                )
+                                values.sort(key=lambda x: x[0])
+                            else:
+                                value = current_value
+                                best_coa = coa
+                                best_pkg = pkg
+                                best_orientation = orientation
+                                best_uld = uld
+                                values[0] = (
+                                    value,
+                                    best_coa,
+                                    best_pkg,
+                                    best_orientation,
+                                    best_uld,
+                                )
+                                values.sort(key=lambda x: x[0])
+
+                    if prune_COAs and not found_atleast_one_package:
+                        COAs_to_remove.append(coa)
+
+                if prune_COAs:
+                    for coa in COAs_to_remove:
+                        COAs.remove(coa)
+            if len(values) == 0:
+                break
+            if best_coa is None:
+                break
+
+            max_vals = []
+            # with ProcessPoolExecutor(max_workers=3) as executor:
+            args = []
+            for i in values:
+                best_coa = i[1]
+                best_pkg = i[2]
+                best_orientation = i[3]
+                best_uld = i[4]
+                args.append(
+                    (
+                        env,
+                        uld_COAs,
+                        pkgs,
+                        best_coa,
+                        best_pkg,
+                        best_uld,
+                        best_orientation,
+                        heuristic,
+                        allowed_ULDs,
+                        True,
+                        True,
+                        prune_COAs,
+                    )
+                )
+
+            answers = []
+            with ProcessPoolExecutor(max_workers=7) as executor:
+                for i in args:
+                    answers.append(executor.submit(beam_A3, *i))
+            for future in answers:
+                max_vals.append(future.result())
+
+            max_vals.sort(key=lambda x: x[0])
+
+            print(f"Minimixed cost is {max_vals[0][0]}")
+
+            best_coa = max_vals[0][1]
+            best_pkg = max_vals[0][2]
+            best_orientation = max_vals[0][3]
+            best_uld = max_vals[0][4]
+
+            env.add_package(
+                best_pkg.id,
+                best_uld.id,
+                corners=(best_coa, best_orientation),
+                collision_check=False,
+                weight_limit_check=False,
+                stability_check=False,
+                gravity=True,
+            )
+
+            for pkg in pkgs:
+                if pkg.id == best_pkg.id:
+                    pkgs.remove(pkg)
+
+            uld_COAs[best_uld.id - 1].remove(best_coa)
+            for new_coa in COA.generate_COAs(best_coa, best_orientation):
+                uld_COAs[best_uld.id - 1].append(new_coa)
+
+            if verbose:
+                print(
+                    f"\r {total_pkgs - len(pkgs)}/{total_pkgs} : Package added to ULD {best_uld.id}    ",
+                    end="",
+                )
+                sys.stdout.flush()
+
+        if verbose:
+            print("")
+
+        cost = sum(env.cost(priority_check=False))
+
+        return cost
+
     def A3(
         uld_COAs: dict[int, list[Point]],
         env: Environment,
@@ -501,54 +784,6 @@ class COA(PackingAlgorithm):
                     progress_bar.update(1)
                 n_completed_calls += n_jobs
 
-        # with multiprocessing.Pool(processes=n_jobs) as pool:
-        #     ready_ids = list(range(n_jobs))
-
-        #     with tqdm.tqdm(total=n_calls, desc="Optimization Progress") as pbar:
-        #         while n_completed_calls < n_calls:
-        #             if len(ready_ids) > 0:
-        #                 n_updated = 0
-        #                 for cpu_id in ready_ids:
-        #                     if cpu_state.get(cpu_id) is not None:
-        #                         # update optimzier with completed results
-        #                         optimizer.tell(*cpu_state[cpu_id].get())
-        #                         n_updated += 1
-        #                         if pbar.n < n_calls:
-        #                             pbar.update(1)
-        #                         cpu_state[cpu_id] = None
-        #                 n_completed_calls += n_updated
-
-        #                 # sample points for all idle CPUs
-        #                 sampled_points = optimizer.ask(len(ready_ids))
-
-        #                 # distribute tasks to idel CPUs
-        #                 for point, cpu_id in zip(sampled_points, ready_ids):
-        #                     cpu_state[cpu_id] = pool.apply_async(
-        #                         objective,
-        #                         args=(
-        #                             point,
-        #                             uld_COAs,
-        #                             env,
-        #                             pkgs,
-        #                             allowed_ULDs,
-        #                             verbose,
-        #                             maximize_volume_utilization,
-        #                         ),
-        #                     )
-
-        #                 ready_ids = [
-        #                     cpu_id
-        #                     for cpu_id in cpu_state
-        #                     if cpu_state[cpu_id] is not None
-        #                     and cpu_state[cpu_id].ready()
-        #                 ]
-        #             else:
-        #                 ready_ids = [
-        #                     cpu_id
-        #                     for cpu_id in cpu_state
-        #                     if cpu_state[cpu_id] is not None
-        #                     and cpu_state[cpu_id].ready()
-        #                 ]
         best_params = optimizer.Xi[np.argmin(optimizer.yi)]
         return best_params
 
@@ -563,6 +798,7 @@ class COA(PackingAlgorithm):
         n_jobs: int = -1,
         multiprocessing: bool = True,
         maximize_volume_utilization: bool = True,
+        simulate: bool = False,
         **kwargs,
     ):
         if allowed_ULDs is None:
@@ -575,9 +811,9 @@ class COA(PackingAlgorithm):
             Integer(1000, 10000, name="caving_degree"),
             Integer(500, 5000, name="paste_number"),
             Integer(1000, 10000, name="paste_ratio"),
-            Integer(1000, 10000, name="largest_dim"),
-            Integer(250, 2500, name="middle_dim"),
-            Integer(100, 1000, name="smallest_dim"),
+            Integer(-10000, 10000, name="largest_dim"),
+            Integer(-2500, 2500, name="middle_dim"),
+            Integer(-1000, 1000, name="smallest_dim"),
             Integer(-5000, -500, name="z_gravity"),
             Integer(-1000, -100, name="y_gravity"),
             Integer(-1000, -100, name="x_gravity"),
@@ -636,16 +872,17 @@ class COA(PackingAlgorithm):
 
         print(f"Best heuristic:\n{best_heuristic}\n\n", file=open("heuristic.log", "a"))
 
-        COA.A3(
-            uld_COAs,
-            env,
-            pkgs,
-            heuristic=best_heuristic,
-            prune_COAs=prune_COAs,
-            allowed_ULDs=allowed_ULDs,
-            verbose=verbose,
-            maximize_volume_utilization=None,
-        )
+        if not simulate:
+            COA.A3(
+                uld_COAs,
+                env,
+                pkgs,
+                heuristic=best_heuristic,
+                prune_COAs=prune_COAs,
+                allowed_ULDs=allowed_ULDs,
+                verbose=verbose,
+                maximize_volume_utilization=None,
+            )
 
         return best_heuristic
 
@@ -695,15 +932,25 @@ class COA(PackingAlgorithm):
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            COA.Ai(
+            best_params = COA.Ai(
                 uld_COAs,
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
                 heuristic=priority_heuristic,
                 prune_COAs=False,
-                n_calls=30,
+                n_calls=10,
                 multiprocessing=True,
+                maximize_volume_utilization=True,
+                simulate=True,
+            )
+            COA.A4(
+                uld_COAs,
+                env,
+                priority_pkgs,
+                allowed_ULDs=[uld_id],
+                heuristic=best_params,
+                prune_COAs=False,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
@@ -712,13 +959,24 @@ class COA(PackingAlgorithm):
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            COA.Ai(
+            best_params = COA.Ai(
+                uld_COAs,
+                env,
+                priority_pkgs,
+                allowed_ULDs=[uld_id],
+                heuristic=priority_heuristic,
+                prune_COAs=False,
+                n_calls=60,
+                multiprocessing=True,
+                maximize_volume_utilization=True,
+                simulate=True,
+            )
+            COA.A4(
                 uld_COAs,
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                n_calls=40,
-                multiprocessing=True,
+                heuristic=best_params,
                 maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
