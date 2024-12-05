@@ -55,6 +55,9 @@ class Environment:
         cluster: bool = False,
     ):
         self.K = K
+        self.orientation_constraint = orientation_constraint
+        self.families = families
+        self.cluster = cluster
 
         self.packages: list[Package] = list()
         for pkg_data_row in pkg_list:
@@ -71,6 +74,11 @@ class Environment:
             key=Environment.sort_by_z
         )
         self.stable: dict[int, int] = {}
+
+        if self.families:
+            self.family_dict: dict[Package, int] = {}
+            for pkg in self.packages:
+                self.family_dict[pkg] = pkg.family_no
 
     def new(self) -> "Environment":
         return Environment(0, [], [])
