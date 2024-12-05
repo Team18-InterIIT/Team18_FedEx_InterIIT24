@@ -796,10 +796,12 @@ class COA(PackingAlgorithm):
             family_cost,
         )
 
-        n_calls = (
-            (n_jobs + n_calls - 1) // n_jobs
-        ) * n_jobs  # scaling n_calls to the next multiple of n_jobs
-        progress_bar = tqdm(total=n_calls, desc="Optimizing")
+        # scaling n_calls to the next multiple of n_jobs
+        n_calls = ((n_jobs + n_calls - 1) // n_jobs) * n_jobs
+
+        progress_bar = tqdm(total=n_calls, desc="Tuning", postfix="Best Cost: inf")
+        best_cost = float("inf")
+
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
             while n_completed_calls < n_calls:
                 sampled_points = optimizer.ask(n_jobs)
@@ -807,8 +809,15 @@ class COA(PackingAlgorithm):
                     executor.submit(objective, point, *args) for point in sampled_points
                 ]
                 for future in as_completed(futures):
-                    optimizer.tell(*future.result())
+                    result = future.result()
+                    optimizer.tell(*result)
                     progress_bar.update(1)
+
+                    current_cost = result[1]
+                    if current_cost < best_cost:
+                        best_cost = current_cost
+                        progress_bar.set_postfix_str(f"Best Cost: {best_cost:.4f}")
+
                 n_completed_calls += n_jobs
 
         best_params = optimizer.Xi[np.argmin(optimizer.yi)]
