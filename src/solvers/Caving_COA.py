@@ -99,6 +99,7 @@ def beam_A3(
     best_pkg = copy.deepcopy(best_pkg)
     best_orientation = copy.deepcopy(best_orientation)
     best_uld = copy.deepcopy(best_uld)
+
     new_env.add_package(
         best_pkg.id,
         best_uld.id,
@@ -108,13 +109,15 @@ def beam_A3(
         gravity=True,
     )
 
-    for pkg in new_pkgs:
+    for i, pkg in enumerate(new_pkgs):
         if pkg.id == best_pkg.id:
-            new_pkgs.remove(pkg)
+            new_pkgs.pop(i)
+            break
 
     new_uld_COAs[best_uld.id - 1].remove(best_coa)
     for new_coa in COA.generate_COAs(best_coa, best_orientation):
         new_uld_COAs[best_uld.id - 1].append(new_coa)
+
     cost = COA.A3(
         new_uld_COAs,
         new_env,
@@ -124,11 +127,14 @@ def beam_A3(
         verbose=False,
         prune_COAs=prune_COAs,
     )
+
     for uld_id in allowed_ULDs:
         cost += (1 - new_env.ULDs[uld_id].volume_utilisation()) * 1000
+
     new_env.global_stability_check()
     num_unstable = sum((1 if new_env.stable[i] == -1 else 0) for i in new_env.stable)
     cost += num_unstable * 100
+
     return (cost, best_coa, best_pkg, best_orientation, best_uld)
 
 
@@ -395,7 +401,6 @@ class COA(PackingAlgorithm):
             best_orientation = None
             best_uld = None
 
-            max_value = float("-inf")
             values = []
 
             for uld_id in allowed_ULDs:
@@ -544,7 +549,7 @@ class COA(PackingAlgorithm):
 
             max_vals.sort(key=lambda x: x[0])
 
-            print(f"Minimixed cost is {max_vals[0][0]}")
+            print(f"Minimized cost: {max_vals[0][0]}")
 
             best_coa = max_vals[0][1]
             best_pkg = max_vals[0][2]
@@ -571,7 +576,7 @@ class COA(PackingAlgorithm):
 
             if verbose:
                 print(
-                    f"\r {total_pkgs - len(pkgs)}/{total_pkgs} : Package added to ULD {best_uld.id}    ",
+                    f"\r {total_pkgs - len(pkgs)}/{total_pkgs} : Package added to ULD {best_uld.id}  \t",
                     end="",
                 )
                 sys.stdout.flush()
@@ -966,7 +971,7 @@ class COA(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 heuristic=priority_heuristic,
                 prune_COAs=False,
-                n_calls=60,
+                n_calls=10,
                 multiprocessing=True,
                 maximize_volume_utilization=True,
                 simulate=True,
