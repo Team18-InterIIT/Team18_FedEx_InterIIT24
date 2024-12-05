@@ -6,12 +6,14 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from itertools import permutations
 
 import numpy as np
-from algorithm_interface import PackingAlgorithm
-from entity import ULD, Package, Point
-from environment import Environment
+import skopt
 from skopt import Optimizer
 from skopt.space import Integer
 from tqdm import tqdm
+
+from algorithm_interface import PackingAlgorithm
+from entity import ULD, Package, Point
+from environment import Environment
 
 
 def objective(
