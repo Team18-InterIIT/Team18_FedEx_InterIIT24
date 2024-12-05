@@ -8,6 +8,8 @@ import pybullet as p
 import pybullet_data
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
+from matplotlib.colors import Normalize
+from matplotlib.cm import get_cmap
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from sortedcontainers import SortedList
 
@@ -305,7 +307,7 @@ class Environment:
     def sort_by_z(coord) -> int:
         return coord[0].z
 
-    def plot(self):
+    def plot(self, stress_dict=None, stress_plot: bool = False):
         """
         Plot the packages in the ULDs
         """
@@ -315,7 +317,12 @@ class Environment:
         num_ULDs = len(self.ULDs)
         rows = 2
         cols = (num_ULDs + 1) // 2
-
+        if stress_plot:
+            stress_values = [
+                stress_dict.get(pkg.id, 0) for uld in self.ULDs for pkg in uld.packages
+            ]
+            norm = Normalize(vmin=min(stress_values), vmax=max(stress_values))
+            cmap = get_cmap("plasma")
         for i, uld in enumerate(self.ULDs):
             ax = fig.add_subplot(rows, cols, i + 1, projection="3d")
             for pkg in uld.packages:
@@ -334,13 +341,16 @@ class Environment:
                 verts = [
                     [(x[p[0]], y[p[1]], z[p[2]]) for p in point] for point in points
                 ]
-
-                color = "green" if not pkg.is_priority else "cyan"
-                if self.stable[pkg.id - 1] == -1:
-                    if pkg.is_priority:
-                        color = "purple"
-                    else:
-                        color = "orange"
+                if not stress_plot:
+                    color = "green" if not pkg.is_priority else "cyan"
+                    if self.stable[pkg.id - 1] == -1:
+                        if pkg.is_priority:
+                            color = "purple"
+                        else:
+                            color = "orange"
+                else:
+                    value = stress_dict.get(pkg.id)
+                    color = cmap(norm(value))
 
                 ax.add_collection3d(
                     Poly3DCollection(
@@ -362,6 +372,11 @@ class Environment:
 
             ax.set_title(uld.summary())
 
+        if stress_plot:
+            sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+            sm.set_array([])
+            cbar = plt.colorbar(sm, ax=fig.axes, shrink=0.6, aspect=20, pad=0.02)
+            cbar.set_label("Stress (Pascals)")
         plt.tight_layout()
         plt.show()
         plt.close()
@@ -399,7 +414,7 @@ class Environment:
         repeat (bool): If True, the animation will loop after reaching the last frame.
         stepped (bool): If True, the animation will be drawn step-by-step.
         """
-
+        self.global_stability_check()
         fig = plt.figure(figsize=(15, 10))
         num_ULDs = len(self.ULDs)
         rows = 2
@@ -538,11 +553,12 @@ class Environment:
         plt.close()
 
     def _start_simulation(self, uld_ids: list[int]):
+        self.global_stability_check()
         p.resetSimulation()
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.setGravity(0, 0, -9.8)
 
-        package_list = []
+        package_list = {}
         gap = 30
 
         for index, uld_id in enumerate(uld_ids):
@@ -725,7 +741,8 @@ class Environment:
                     baseVisualShapeIndex=package_visual,
                     basePosition=global_coords,
                 )
-                package_list.append(package_id)
+                package_list[package_id] = pkg
+        return package_list
 
     def simulate(self, uld_ids=None):
         if uld_ids is None:
@@ -800,6 +817,60 @@ class Environment:
             for uld in self.ULDs:
                 uld.has_priority = any(pkg.is_priority for pkg in uld.packages)
                 uld.weight = sum(pkg.weight for pkg in uld.packages)
+
+    def calculate_stress_on_packages(self, uld_ids=None):
+        """
+        Calculate stress on each package based on contact forces.
+
+        Args:
+            package_ids (list): List of package IDs in the simulation.
+            area_per_package (dict): Dictionary mapping package ID to its surface area (in m²).
+
+        Returns:
+            dict: Dictionary mapping package ID to calculated stress (in Pascals).
+        """
+        if uld_ids is None:
+            uld_ids = list(range(len(self.ULDs)))
+        p.connect(p.DIRECT)  # Use DIRECT mode for headless simulation
+        p.setAdditionalSearchPath(pybullet_data.getDataPath())
+        p.setGravity(0, 0, -9.8)
+        package_stress = {}
+
+        package_ids = self._start_simulation(uld_ids)
+        area_per_package = {}
+        for uld in self.ULDs:
+            area_per_package = {
+                package_id: (
+                    (pkg.corners[1].x - pkg.corners[0].x)
+                    * (pkg.corners[1].y - pkg.corners[0].y)
+                )
+                * (0.01**2)  # Convert from cm² to m²
+                for package_id, pkg in zip(package_ids.keys(), package_ids.values())
+            }
+        for _ in range(1000):
+            p.stepSimulation()
+        for package_id in package_ids:
+            # Retrieve all contact points for the current package
+            contact_points = p.getContactPoints(bodyA=package_id)
+
+            # Sum the normal forces acting on the package
+            total_force = 0
+            for contact in contact_points:
+                total_force += contact[9]  # Normal force (index 9)
+
+            # Get the surface area of the package
+            surface_area = area_per_package.get(package_id, 0)
+
+            if surface_area > 0:
+                # Calculate stress (Pascals)
+                stress = total_force / surface_area
+            else:
+                # If no area is defined, set stress to None or handle as needed
+                stress = None
+
+            package_stress[package_ids[package_id].id] = stress
+        p.disconnect()
+        return package_stress
 
     def check_stability(self, pkg_id, corners, tolerance=3) -> int:
         """
