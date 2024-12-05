@@ -39,6 +39,7 @@ def objective(
         "z_gravity": params[7],
         "y_gravity": params[8],
         "x_gravity": params[9],
+        "density": params[10],
     }
 
     uld_COAs_copy: dict[int, list] = copy.deepcopy(uld_COAs)
@@ -69,9 +70,7 @@ def objective(
 
     if minimize_unstable:
         env_copy.global_stability_check()
-        num_unstable = sum(
-            (1 if env_copy.stable[i] == -1 else 0) for i in env_copy.stable
-        )
+        num_unstable = sum((1 if val == -1 else 0) for val in env_copy.stable.values())
         stability_cost = num_unstable * 100
         cost += stability_cost
 
@@ -80,7 +79,7 @@ def objective(
         for uld_id in allowed_ULDs:
             uld = env_copy.ULDs[uld_id]
             fam_cost += graphFamilyCost(uld, env_copy.family_dict)
-        print("hi", fam_cost)
+        fam_cost *= 50
         cost += fam_cost
 
     if verbose:
@@ -621,6 +620,7 @@ class COA(PackingAlgorithm):
                 "z_gravity": -5000,
                 "y_gravity": -335,
                 "x_gravity": -100,
+                "density": 0,
             }
 
         if allowed_ULDs is None:
@@ -705,6 +705,7 @@ class COA(PackingAlgorithm):
                                 "z_gravity": (coa.z + orientation.z) / 2,
                                 "y_gravity": (coa.y + orientation.y) / 2,
                                 "x_gravity": (coa.x + orientation.x) / 2,
+                                "density": pkg.weight / pkg.volume(),
                             }
                             (
                                 current_values["largest_dim"],
@@ -835,14 +836,14 @@ class COA(PackingAlgorithm):
         multiprocessing: bool = True,
         maximize_volume_utilization: bool = True,
         minimize_unstable: bool = True,
-        family_cost: bool = True,
+        family_cost: bool = False,
         simulate: bool = False,
         **kwargs,
     ):
         if allowed_ULDs is None:
             allowed_ULDs = list(range(len(env.ULDs)))
 
-        if not hasattr(env.packages[0], "family_no"):
+        if not env.families:
             family_cost = False
 
         print(f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}")
@@ -858,6 +859,7 @@ class COA(PackingAlgorithm):
             Integer(-5000, -500, name="z_gravity"),
             Integer(-1000, -100, name="y_gravity"),
             Integer(-1000, -100, name="x_gravity"),
+            Integer(-5000000, 5000000, name="density"),
         ]
 
         if not multiprocessing:
@@ -912,6 +914,7 @@ class COA(PackingAlgorithm):
             "z_gravity": best_params[7],
             "y_gravity": best_params[8],
             "x_gravity": best_params[9],
+            "density": best_params[10],
         }
 
         print(f"Best heuristic:\n{best_heuristic}\n\n", file=open("heuristic.log", "a"))
@@ -971,6 +974,7 @@ class COA(PackingAlgorithm):
             "z_gravity": -3607,
             "y_gravity": -178,
             "x_gravity": -649,
+            "density": 0,
         }
 
         for uld_id in sorted_ULD_ids:
@@ -986,7 +990,7 @@ class COA(PackingAlgorithm):
                 simulate=True,
             )
 
-            COA.A4(
+            COA.A3(
                 uld_COAs,
                 env,
                 priority_pkgs,
@@ -1010,7 +1014,7 @@ class COA(PackingAlgorithm):
                 simulate=True,
             )
 
-            COA.A4(
+            COA.A3(
                 uld_COAs,
                 env,
                 economy_pkgs,
