@@ -392,7 +392,7 @@ class COA(PackingAlgorithm):
 
         if verbose:
             print(
-                f"A3 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}"
+                f"A4 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}"
             )
 
         while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
@@ -516,7 +516,6 @@ class COA(PackingAlgorithm):
                 break
 
             max_vals = []
-            # with ProcessPoolExecutor(max_workers=3) as executor:
             args = []
             for i in values:
                 best_coa = i[1]
@@ -549,7 +548,7 @@ class COA(PackingAlgorithm):
 
             max_vals.sort(key=lambda x: x[0])
 
-            print(f"Minimized cost: {max_vals[0][0]}")
+            print(f"Minimized cost: {max_vals[0][0]}", end="")
 
             best_coa = max_vals[0][1]
             best_pkg = max_vals[0][2]
@@ -767,7 +766,7 @@ class COA(PackingAlgorithm):
         random_state=42,
     ):
         optimizer = Optimizer(
-            space, base_estimator="ET", random_state=random_state, n_initial_points=15
+            space, base_estimator="gp", random_state=random_state, n_initial_points=15
         )
         if n_jobs == -1:
             n_jobs = multiprocessing.cpu_count()
@@ -942,13 +941,13 @@ class COA(PackingAlgorithm):
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
-                heuristic=priority_heuristic,
                 prune_COAs=False,
-                n_calls=10,
+                n_calls=100,
                 multiprocessing=True,
                 maximize_volume_utilization=True,
                 simulate=True,
             )
+
             COA.A4(
                 uld_COAs,
                 env,
@@ -969,13 +968,13 @@ class COA(PackingAlgorithm):
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
-                heuristic=priority_heuristic,
                 prune_COAs=False,
-                n_calls=10,
+                n_calls=120,
                 multiprocessing=True,
                 maximize_volume_utilization=True,
                 simulate=True,
             )
+
             COA.A4(
                 uld_COAs,
                 env,
