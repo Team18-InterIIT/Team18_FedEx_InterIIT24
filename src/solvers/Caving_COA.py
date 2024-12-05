@@ -994,7 +994,7 @@ class COA(PackingAlgorithm):
             best_params = COA.Ai(
                 uld_COAs,
                 env,
-                priority_pkgs,
+                economy_pkgs,
                 allowed_ULDs=[uld_id],
                 n_calls=10,
                 multiprocessing=True,
