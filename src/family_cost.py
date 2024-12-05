@@ -17,7 +17,7 @@ def floyd_warshall(adj_matrix):
 
     Parameters:
         adj_matrix (numpy.ndarray): Adjacency matrix of the graph. 
-            Non-edges should be represented with np.inf.
+            Non-edges should be represented with np.inf. [THIS IS TAKEN CARE OF IN DIST MATRIX]
 
     Returns:
         numpy.ndarray: Matrix where element (i, j) contains the shortest path length from node i to node j.
@@ -27,6 +27,10 @@ def floyd_warshall(adj_matrix):
     
     # Initialize the distance matrix
     dist = adj_matrix.copy()
+    for i in range(n):
+        for j in range(n):
+            if(dist[i][j] != 1):
+                dist[i][j] = np.inf
     
     # Run Floyd-Warshall
     for k in range(n):
@@ -121,7 +125,9 @@ def graphFamilyCost(uld: ULD, family: dict[Package, int]) -> float:
             sum = 0
             for i in range(len(packagesInFamily)):
                 for j in range(len(packagesInFamily)):
-                    sum += pairWiseDist[ packageToIndex[packagesInFamily[i]] ][ packageToIndex[packagesInFamily[j]] ]
+                    distance = pairWiseDist[ packageToIndex[packagesInFamily[i]] ][ packageToIndex[packagesInFamily[j]] ]
+                    if(distance != np.inf): # when a box is not connected only, then ignore it. 
+                        sum += distance
             sum /= 2 * len(packagesInFamily)
             costArr.append(sum)
     
