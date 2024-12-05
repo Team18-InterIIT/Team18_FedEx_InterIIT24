@@ -14,6 +14,7 @@ from tqdm import tqdm
 from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
+from family_cost import graphFamilyCost, centroidFamilyCost
 
 
 def objective(
@@ -24,8 +25,9 @@ def objective(
     allowed_ULDs,
     verbose,
     maximize_volume_utilization,
-    return_params=True,
-):
+    minimize_unstable,
+    family_cost,
+) -> tuple[list[int], float]:
     heuristic = {
         "included_cost": params[0],
         "caving_degree": params[1],
@@ -65,16 +67,26 @@ def objective(
         if verbose:
             print(f"Volume Utilization: {volume_utilization}")
 
+    if minimize_unstable:
+        env_copy.global_stability_check()
+        num_unstable = sum(
+            (1 if env_copy.stable[i] == -1 else 0) for i in env_copy.stable
+        )
+        stability_cost = num_unstable * 100
+        cost += stability_cost
+
+    if family_cost:
+        fam_cost = 0
+        for uld_id in allowed_ULDs:
+            uld = env_copy.ULDs[uld_id]
+            fam_cost += graphFamilyCost(uld, env_copy.family_dict)
+        print("hi", fam_cost)
+        cost += fam_cost
+
     if verbose:
         print(f"Cost: {cost}")
 
-    env_copy.global_stability_check()
-    num_unstable = sum((1 if env_copy.stable[i] == -1 else 0) for i in env_copy.stable)
-
-    if return_params:
-        return params, (cost + 100 * num_unstable)
-    else:
-        return cost + 100 * num_unstable
+    return params, cost
 
 
 def beam_A3(
@@ -761,17 +773,28 @@ class COA(PackingAlgorithm):
         allowed_ULDs,
         verbose,
         maximize_volume_utilization,
+        minimize_unstable,
+        family_cost,
         n_jobs=1,
         n_calls=10,
         random_state=42,
     ):
         optimizer = Optimizer(
-            space, base_estimator="gp", random_state=random_state, n_initial_points=15
+            space, base_estimator="ET", random_state=random_state, n_initial_points=15
         )
         if n_jobs == -1:
             n_jobs = multiprocessing.cpu_count()
         n_completed_calls = 0
-        args = (uld_COAs, env, pkgs, allowed_ULDs, verbose, maximize_volume_utilization)
+        args = (
+            uld_COAs,
+            env,
+            pkgs,
+            allowed_ULDs,
+            verbose,
+            maximize_volume_utilization,
+            minimize_unstable,
+            family_cost,
+        )
 
         n_calls = (
             (n_jobs + n_calls - 1) // n_jobs
@@ -802,11 +825,16 @@ class COA(PackingAlgorithm):
         n_jobs: int = -1,
         multiprocessing: bool = True,
         maximize_volume_utilization: bool = True,
+        minimize_unstable: bool = True,
+        family_cost: bool = True,
         simulate: bool = False,
         **kwargs,
     ):
         if allowed_ULDs is None:
             allowed_ULDs = list(range(len(env.ULDs)))
+
+        if not hasattr(env.packages[0], "family_no"):
+            family_cost = False
 
         print(f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}")
 
@@ -815,9 +843,9 @@ class COA(PackingAlgorithm):
             Integer(1000, 10000, name="caving_degree"),
             Integer(500, 5000, name="paste_number"),
             Integer(1000, 10000, name="paste_ratio"),
-            Integer(-10000, 10000, name="largest_dim"),
-            Integer(-2500, 2500, name="middle_dim"),
-            Integer(-1000, 1000, name="smallest_dim"),
+            Integer(1000, 10000, name="largest_dim"),
+            Integer(250, 2500, name="middle_dim"),
+            Integer(100, 1000, name="smallest_dim"),
             Integer(-5000, -500, name="z_gravity"),
             Integer(-1000, -100, name="y_gravity"),
             Integer(-1000, -100, name="x_gravity"),
@@ -834,8 +862,9 @@ class COA(PackingAlgorithm):
                     allowed_ULDs,
                     True,
                     maximize_volume_utilization,
-                    return_params=False,
-                )
+                    minimize_unstable,
+                    family_cost,
+                )[1]
 
             res = skopt.gp_minimize(
                 objective_wrapper,
@@ -856,6 +885,8 @@ class COA(PackingAlgorithm):
                 allowed_ULDs,
                 verbose,
                 maximize_volume_utilization,
+                minimize_unstable,
+                family_cost,
                 n_calls=n_calls,
                 random_state=42,
                 n_jobs=n_jobs,
@@ -885,7 +916,6 @@ class COA(PackingAlgorithm):
                 prune_COAs=prune_COAs,
                 allowed_ULDs=allowed_ULDs,
                 verbose=verbose,
-                maximize_volume_utilization=None,
             )
 
         return best_heuristic
@@ -942,9 +972,8 @@ class COA(PackingAlgorithm):
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
                 prune_COAs=False,
-                n_calls=100,
+                n_calls=10,
                 multiprocessing=True,
-                maximize_volume_utilization=True,
                 simulate=True,
             )
 
@@ -955,7 +984,6 @@ class COA(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 heuristic=best_params,
                 prune_COAs=False,
-                maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
 
@@ -968,10 +996,8 @@ class COA(PackingAlgorithm):
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
-                prune_COAs=False,
-                n_calls=120,
+                n_calls=10,
                 multiprocessing=True,
-                maximize_volume_utilization=True,
                 simulate=True,
             )
 
@@ -981,6 +1007,5 @@ class COA(PackingAlgorithm):
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
                 heuristic=best_params,
-                maximize_volume_utilization=True,
             )
             print(f"{'='*60}")
