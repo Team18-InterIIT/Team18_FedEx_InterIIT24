@@ -7,7 +7,7 @@ from environment import Environment
 from algorithm_interface import PackingAlgorithm as PackingAlgorithm
 
 # For Example:
-from solvers.Caving_COA import COA as PackingAlgorithm
+from solvers.layerpack import LayerPack as PackingAlgorithm
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
