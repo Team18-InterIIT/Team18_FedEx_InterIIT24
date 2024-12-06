@@ -1,8 +1,10 @@
 import sys
 import parser
 from environment import Environment
+
 # The following import statement should be replaced with the correct import statement
 from algorithm_interface import PackingAlgorithm as PackingAlgorithm
+
 # For Example:
 from solvers.hybrid import Hybrid as PackingAlgorithm
 from util import Util
@@ -25,6 +27,7 @@ model.solve(env, search="normal", layering=True, n_calls=10)
 # To read from a solution file, use the following line instead of the above line
 # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
 
+env.global_stability_check()
 order = Util(env).order()
 env.pkg_addition_order = []
 for uld_id, order_list in order.items():
