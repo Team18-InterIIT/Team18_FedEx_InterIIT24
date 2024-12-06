@@ -186,6 +186,7 @@ class LayerPack(PackingAlgorithm):
     def gp_minimize(
         objective,
         space,
+        uld_heights,
         env,
         pkgs,
         allowed_ULDs,
@@ -204,6 +205,7 @@ class LayerPack(PackingAlgorithm):
             n_jobs = multiprocessing.cpu_count()
         n_completed_calls = 0
         args = (
+            uld_heights,
             env,
             pkgs,
             allowed_ULDs,
@@ -264,7 +266,7 @@ class LayerPack(PackingAlgorithm):
         print(f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}")
 
         space = [
-            Integer(0, 1, name="no_of_layers"),
+            Integer(1, 4, name="no_of_layers"),
             Integer(1000, 10000, name="layer_cost"),
             Integer(-10000, -1000, name="layer_height"),
             Integer(10000, 100000, name="layer_efficiency"),
