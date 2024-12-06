@@ -306,6 +306,12 @@ if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
     family_packages = True if family_toggle else False
     env = run_algo(file=test_file, orientation_constraint=orientation_constraint, families=family_packages, search=search_method)
     
+    # Order the packages for insertion
+    order = Util(env).order()
+    env.pkg_addition_order = []
+    for uld_id, order_list in order.items():
+        env.pkg_addition_order.extend(order_list)
+    
     st_plot(env, file=test_file) # Plot
 
     if "current_frame" not in st.session_state:
