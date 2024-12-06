@@ -194,9 +194,18 @@ if uploaded_file is not None:
         f.write(uploaded_file.getvalue())  # Save the file content
     # Now, use the saved file as your test_file
     test_file = save_path
+    # Resetting session state variables
+    if "last_uploaded_file" in st.session_state:
+        if st.session_state.last_uploaded_file != file_name:
+            if "data_shown" in st.session_state:
+                st.session_state.data_shown = False
+            if "run_algorithm" in st.session_state:
+                st.session_state.run_algorithm = False
+    st.session_state.last_uploaded_file = file_name
 else:
     # Use a default file if no file is uploaded
     test_file = "test/Challenge_FedEx.txt"
+    st.last_uploaded_file = None
 
 # Algorithm Selection Section
 st.sidebar.header("Select Packing Algorithm")
@@ -278,7 +287,7 @@ if "run_algorithm" not in st.session_state:
     st.session_state.run_algorithm = False
 
 @st.cache_data
-def run_algo():
+def run_algo(file=test_file):
     # Load data (without CSV reading)
     K, uld_list, pkg_list = load_data(test_file)
 
@@ -295,7 +304,7 @@ def run_algo():
     return env
 
 @st.cache_data
-def st_plot(_env):
+def st_plot(_env, file=test_file):
     # Show the packing animation (if implemented in your `env.animate()` method)
     st.subheader("Packing Animation")
     st.write("Showing packing animation...")
@@ -304,9 +313,9 @@ def st_plot(_env):
 
 if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
    
-    env = run_algo() # Run the algorithm
+    env = run_algo(file=test_file) # Run the algorithm
     
-    st_plot(env) # Plot
+    st_plot(env, file=test_file) # Plot
 
     if "current_frame" not in st.session_state:
         st.session_state.current_frame = -1
