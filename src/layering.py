@@ -263,7 +263,7 @@ def make_layers(
     packages: list[Package],
     uld: ULD,
     rejection_threshold=0.9,
-    weight_ratio_threshold=0.95,
+    weight_ratio_threshold=0.3,
     margin=0,
 ) -> list[Layer]:
     """
@@ -293,7 +293,7 @@ def make_layers(
 
 
 def add_layer(
-    env: Environment, layer: Layer, z_coordinate: int, simulate: bool = False
+    env: Environment, layer: Layer, z_coordinate: int = 0, simulate: bool = False
 ):
     """
     Add a layer of packages to the environment
