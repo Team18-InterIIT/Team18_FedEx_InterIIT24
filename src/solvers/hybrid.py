@@ -46,6 +46,9 @@ class Hybrid(PackingAlgorithm):
                 print("Layering is not feasible. Turning off layering.")
                 layering = False
 
+        if layering:
+            uld_heights = {uld_id: 0 for uld_id in range(len(env.ULDs))}
+
         uld_COAs = {uld_id: [] for uld_id in range(len(env.ULDs))}
         for uld in env.ULDs:
             for pkg in uld.packages:
@@ -63,6 +66,7 @@ class Hybrid(PackingAlgorithm):
             print(f"ULD: {uld_id + 1}")
             if layering:
                 best_layer_heuristic = LayerPack.Ai_L(
+                    uld_heights,
                     env,
                     priority_pkgs,
                     allowed_ULDs=[uld_id],
@@ -77,6 +81,7 @@ class Hybrid(PackingAlgorithm):
                 )
 
                 no_of_layers_added = LayerPack.A3_L(
+                    uld_heights,
                     env,
                     priority_pkgs,
                     allowed_ULDs=[uld_id],
@@ -121,6 +126,7 @@ class Hybrid(PackingAlgorithm):
             print(f"ULD: {uld_id + 1}")
             if layering:
                 best_layer_heuristic = LayerPack.Ai_L(
+                    uld_heights,
                     env,
                     economy_pkgs,
                     allowed_ULDs=[uld_id],
@@ -135,6 +141,7 @@ class Hybrid(PackingAlgorithm):
                 )
 
                 no_of_layers_added = LayerPack.A3_L(
+                    uld_heights,
                     env,
                     economy_pkgs,
                     allowed_ULDs=[uld_id],

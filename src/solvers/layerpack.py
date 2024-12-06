@@ -19,6 +19,7 @@ from layering import add_layer, make_layers
 
 def objective(
     params,
+    uld_heights,
     env,
     pkgs,
     allowed_ULDs,
@@ -36,10 +37,12 @@ def objective(
         "weight_threshold": params[5],
     }
 
+    uld_heights_copy = copy.deepcopy(uld_heights)
     env_copy: Environment = copy.deepcopy(env)
     pkgs_copy: list = copy.deepcopy(pkgs)
 
     LayerPack.A3_L(
+        uld_heights_copy,
         env_copy,
         pkgs_copy,
         heuristic=heuristic,
@@ -83,6 +86,7 @@ def objective(
 
 class LayerPack(PackingAlgorithm):
     def A3_L(
+        uld_heights: dict[int, int],
         env: Environment,
         pkgs: list[Package],
         heuristic: dict[str, int] = None,
@@ -158,7 +162,8 @@ class LayerPack(PackingAlgorithm):
             if best_layer is None:
                 break
 
-            if add_layer(env, best_layer, z_coordinate=0):
+            if add_layer(env, best_layer, z_coordinate=uld_heights[best_uld.id - 1]):
+                uld_heights[best_uld.id - 1] += best_layer.dim.h
                 no_of_layers_added += 1
 
             rect_ids = [rect.id for rect in best_layer.rects]
@@ -236,6 +241,7 @@ class LayerPack(PackingAlgorithm):
         return best_params
 
     def Ai_L(
+        uld_heights: dict[int, int],
         env: Environment,
         pkgs: list[Package],
         allowed_ULDs: list[int] = None,
@@ -271,6 +277,7 @@ class LayerPack(PackingAlgorithm):
             def objective_wrapper(params):
                 return objective(
                     params,
+                    uld_heights,
                     env,
                     pkgs,
                     allowed_ULDs,
@@ -293,6 +300,7 @@ class LayerPack(PackingAlgorithm):
             best_params = LayerPack.gp_minimize(
                 objective,
                 space,
+                uld_heights,
                 env,
                 pkgs,
                 allowed_ULDs,
@@ -318,6 +326,7 @@ class LayerPack(PackingAlgorithm):
 
         if not simulate:
             LayerPack.A3_L(
+                uld_heights,
                 env,
                 pkgs,
                 heuristic=best_heuristic,
@@ -346,6 +355,8 @@ class LayerPack(PackingAlgorithm):
             pkg for pkg in env.packages if not pkg.is_priority and pkg.uld_id == 0
         ]
 
+        uld_heights = {uld_id: 0 for uld_id in range(len(env.ULDs))}
+
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
             best_params = LayerPack.Ai_L(
@@ -358,6 +369,7 @@ class LayerPack(PackingAlgorithm):
             )
 
             LayerPack.A3_L(
+                uld_heights,
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
@@ -379,6 +391,7 @@ class LayerPack(PackingAlgorithm):
             )
 
             LayerPack.A3_L(
+                uld_heights,
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
