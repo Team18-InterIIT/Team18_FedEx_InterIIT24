@@ -187,8 +187,8 @@ def bp2d(layer: Layer, selectedrects: list[Rect]):
     2D Bin Packing Algorithm
     """
     uld = layer.uld
-    container = {f"ULD{uld.id}": {"L": uld.dim.l, "W": uld.dim.w}}
-    items = {str(rect.id): {"w": rect.dim.w, "l": rect.dim.l} for rect in selectedrects}
+    container = {f"ULD{uld.id}": {"L": uld.dim.w, "W": uld.dim.l}}
+    items = {str(rect.id): {"w": rect.dim.l, "l": rect.dim.w} for rect in selectedrects}
 
     problem = hp.HyperPack(containers=container, items=items)
     problem.local_search()
