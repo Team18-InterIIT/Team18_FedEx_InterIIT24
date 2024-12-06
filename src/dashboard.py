@@ -22,7 +22,7 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
     """
     # Create a subplot with a 3D scatter plot
     env.global_stability_check()
-    fig = make_subplots(rows=1, cols=1, specs=[[{'type': 'scatter3d'}]])
+    fig = go.Figure()
 
     # Define the initial plot layout
     fig.update_layout(
@@ -38,6 +38,8 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
         title="3D Package Insertion Animation",
         showlegend=False
     )
+    # Use a placeholder to dynamically update the plot
+    plot_placeholder = st.empty()
 
     def update(frame):
         """
@@ -73,31 +75,30 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
                     color = "purple"
                 else:
                     color = "orange"
-            print(color, x, y, z)
             
             # Get the coordinates for the bottom-left and top-right corners
             x_min, y_min, z_min = pkg.corners[0].x, pkg.corners[0].y, pkg.corners[0].z
             x_max, y_max, z_max = pkg.corners[1].x, pkg.corners[1].y, pkg.corners[1].z
             
             # Define the 8 vertices of the cuboid (box)
-            x = [x_min, x_max, x_min, x_min, x_max, x_max, x_min, x_max]
-            y = [y_min, y_min, y_max, y_min, y_max, y_min, y_max, y_max]
-            z = [z_min, z_min, z_min, z_max, z_min, z_max, z_max, z_max]
+            x = [x_min, x_min, x_max, x_max, x_min, x_min, x_max, x_max]
+            y = [y_min, y_max, y_max, y_min, y_min, y_max, y_max, y_min]
+            z = [z_min, z_min, z_min, z_min, z_max, z_max, z_max, z_max]
 
-            # Define the faces of the cuboid (indexing the 8 vertices)
-            i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2],
-            j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3],
-            k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6],
+            # Define the faces of the triangular mesh
+            i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2]
+            j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3]
+            k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6]
 
             # Add the cuboid as a mesh (3D box)
-            fig.add_trace(go.Figure(data=[go.Mesh3d(
+            fig.add_trace(go.Mesh3d(
                 x=x, y=y, z=z,
                 i=i, j=j, k=k,
-                color='cyan',  # Set color
-                opacity=0.5,   # Set opacity
+                color=color,  # Set color
+                opacity=0.4,   # Set opacity
                 name=f"Package {pkg.id}",
-                showlegend=False
-            )]))
+                showlegend=False,
+            ))
 
             # Update the layout for the 3D plot
             fig.update_layout(
@@ -105,7 +106,7 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
             )
 
         # Display the plot step-by-step using Streamlit
-        st.plotly_chart(fig, use_container_width=True)
+        plot_placeholder.plotly_chart(fig, use_container_width=True)
 
     # Frame control (Next and Previous)
     if stepped:
@@ -177,10 +178,25 @@ else:
         strategy.
     """)
 
+import os
+
 # File Uploader Section
 st.sidebar.header("Upload Test File")
 uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type="txt", label_visibility="collapsed")
-test_file = uploaded_file if uploaded_file else "test/Challenge_FedEx.txt"
+
+if uploaded_file is not None:
+    # Get the uploaded file's name
+    file_name = uploaded_file.name
+    # Define the path to save the file (ensure the directory exists)
+    save_path = os.path.join(os.getcwd(), file_name)  # Save it in the current directory
+    # Save the file
+    with open(save_path, "wb") as f:
+        f.write(uploaded_file.getvalue())  # Save the file content
+    # Now, use the saved file as your test_file
+    test_file = save_path
+else:
+    # Use a default file if no file is uploaded
+    test_file = "test/Challenge_FedEx.txt"
 
 # Algorithm Selection Section
 st.sidebar.header("Select Packing Algorithm")
