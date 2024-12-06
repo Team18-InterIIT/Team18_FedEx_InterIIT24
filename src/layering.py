@@ -221,7 +221,6 @@ def _make_layers(
     uld: ULD,
     rejection_threshold: int,
     weight_ratio_threshold: int,
-    cost_threshold: int,
     margin: int,
 ) -> list[Layer]:
     """
@@ -239,10 +238,7 @@ def _make_layers(
         if len(selectedrects) == 0:
             continue
         area = sum([rect.dim.l * rect.dim.w for rect in selectedrects])
-        layer_cost = sum([rect.cost for rect in selectedrects])
 
-        avg_cost_const = 0.00021
-        layer_vol = length * width * int(dim[0])
         height_ratio = int(dim[0]) / uld.dim.h
 
         if area >= length * width * rejection_threshold:
@@ -254,14 +250,8 @@ def _make_layers(
             layer.height_ratio = height_ratio
             layer.weight_ratio = layer.weight / uld.weight_limit
 
-            economy_area = sum(
-                [rect.area for rect in selectedrects if not rect.is_priority]
-            )
-
-            layer.cost_density = (layer.cost / economy_area) if economy_area != 0 else 0
             if (
-                layer.packing_eff > rejection_threshold
-                and layer.cost_density >= cost_threshold * avg_cost_const
+                layer.packing_eff >= rejection_threshold
                 and layer.weight_ratio <= weight_ratio_threshold * layer.height_ratio
             ):
                 layers.append(layer)
@@ -274,7 +264,6 @@ def make_layers(
     uld: ULD,
     rejection_threshold=0.9,
     weight_ratio_threshold=0.95,
-    cost_threshold=0.9,
     margin=0,
 ) -> list[Layer]:
     """
@@ -286,7 +275,6 @@ def make_layers(
         uld,
         rejection_threshold,
         weight_ratio_threshold,
-        cost_threshold,
         margin,
     )
 
@@ -297,7 +285,6 @@ def make_layers(
             uld,
             rejection_threshold,
             weight_ratio_threshold,
-            cost_threshold,
             tol + 1,
         )
         all_layers.extend(layers)

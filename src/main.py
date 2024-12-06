@@ -23,7 +23,7 @@ env = Environment(K, uld_list, pkg_list)
 
 model = PackingAlgorithm()
 
-model.solve(env, search="normal", layering=False)
+model.solve(env, search="normal", layering=True)
 # To read from a solution file, use the following line instead of the above line
 # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
 

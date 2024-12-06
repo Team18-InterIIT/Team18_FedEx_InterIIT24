@@ -33,8 +33,7 @@ def objective(
         "layer_height": params[2],
         "layer_efficiency": params[3],
         "efficiency_threshold": params[4],
-        "cost_threshold": params[5],
-        "weight_threshold": params[6],
+        "weight_threshold": params[5],
     }
 
     env_copy: Environment = copy.deepcopy(env)
@@ -45,7 +44,7 @@ def objective(
         pkgs_copy,
         heuristic=heuristic,
         allowed_ULDs=allowed_ULDs,
-        verbose=verbose,
+        verbose=False,
     )
     cost = sum(env_copy.cost(priority_check=False))
 
@@ -94,17 +93,15 @@ class LayerPack(PackingAlgorithm):
         if heuristic is None:
             heuristic = {
                 "no_of_layers": 0,
-                "layer_cost": 100,
-                "layer_height": 1,
-                "layer_efficiency": 1,
-                "efficiency_threshold": 0.9,
-                "cost_threshold": 1.2,
-                "weight_threshold": 1.05,
+                "layer_cost": 10000,
+                "layer_height": -10000,
+                "layer_efficiency": 10000,
+                "efficiency_threshold": 0.95,
+                "weight_threshold": 0.3,
             }
 
         no_of_layers = heuristic.pop("no_of_layers")
         efficiency_threshold = heuristic.pop("efficiency_threshold")
-        cost_threshold = heuristic.pop("cost_threshold")
         weight_threshold = heuristic.pop("weight_threshold")
 
         if allowed_ULDs is None:
@@ -116,6 +113,8 @@ class LayerPack(PackingAlgorithm):
             print(
                 f"A3_L on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}"
             )
+
+        no_of_layers_added = 0
 
         for _ in range(no_of_layers):
             best_layer = None
@@ -129,7 +128,6 @@ class LayerPack(PackingAlgorithm):
                     pkgs,
                     uld,
                     rejection_threshold=efficiency_threshold,
-                    cost_threshold=cost_threshold,
                     weight_ratio_threshold=weight_threshold,
                 )
 
@@ -160,7 +158,8 @@ class LayerPack(PackingAlgorithm):
             if best_layer is None:
                 break
 
-            add_layer(env, best_layer, z_coordinate=0)
+            if add_layer(env, best_layer, z_coordinate=0):
+                no_of_layers_added += 1
 
             rect_ids = [rect.id for rect in best_layer.rects]
             pkgs[:] = [pkg for pkg in pkgs if pkg.id not in rect_ids]
@@ -177,7 +176,7 @@ class LayerPack(PackingAlgorithm):
 
         cost = sum(env.cost(priority_check=False))
 
-        return cost
+        return cost, no_of_layers_added
 
     def gp_minimize(
         objective,
@@ -240,7 +239,7 @@ class LayerPack(PackingAlgorithm):
         env: Environment,
         pkgs: list[Package],
         allowed_ULDs: list[int] = None,
-        verbose: bool = True,
+        verbose: bool = False,
         n_calls: int = 20,
         n_jobs: int = -1,
         multiprocessing: bool = True,
@@ -263,8 +262,7 @@ class LayerPack(PackingAlgorithm):
             Integer(1000, 10000, name="layer_cost"),
             Integer(-10000, -1000, name="layer_height"),
             Integer(10000, 100000, name="layer_efficiency"),
-            Real(0.9, 1, name="efficiency_threshold"),
-            Real(0.8, 2, name="cost_threshold"),
+            Real(0.95, 1, name="efficiency_threshold"),
             Real(0, 0.3, name="weight_threshold"),
         ]
 
@@ -276,7 +274,7 @@ class LayerPack(PackingAlgorithm):
                     env,
                     pkgs,
                     allowed_ULDs,
-                    True,
+                    verbose,
                     maximize_volume_utilization,
                     minimize_unstable,
                     family_cost,
@@ -313,8 +311,7 @@ class LayerPack(PackingAlgorithm):
             "layer_height": best_params[2],
             "layer_efficiency": best_params[3],
             "efficiency_threshold": best_params[4],
-            "cost_threshold": best_params[5],
-            "weight_threshold": best_params[6],
+            "weight_threshold": best_params[5],
         }
 
         print(f"Best heuristic:\n{best_heuristic}\n\n", file=open("heuristic.log", "a"))

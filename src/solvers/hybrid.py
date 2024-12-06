@@ -5,6 +5,7 @@ from entity import ULD, Package, Point
 from environment import Environment
 from solvers.Caving_COA import COA
 from solvers.layerpack import LayerPack
+from layering import make_layers
 
 
 class Hybrid(PackingAlgorithm):
@@ -15,6 +16,7 @@ class Hybrid(PackingAlgorithm):
             solver = COA.A3
         elif search in ("hyper", "slow"):
             solver = COA.A4
+            layering = False
 
         sorted_ULD_ids = sorted(
             range(len(env.ULDs)),
@@ -31,6 +33,15 @@ class Hybrid(PackingAlgorithm):
         economy_pkgs = [
             pkg for pkg in env.packages if not pkg.is_priority and pkg.uld_id == 0
         ]
+
+        if layering:
+            # If it is not possible to make good layers, then the layering is turned off
+            uld = env.ULDs[sorted_ULD_ids[-1]]
+            layers = make_layers(priority_pkgs, uld, rejection_threshold=0.95)
+            layers = make_layers(economy_pkgs, uld, rejection_threshold=0.95)
+            if len(layers) == 0:
+                print("Layering is not feasible")
+                layering = False
 
         uld_COAs = {uld_id: [] for uld_id in range(len(env.ULDs))}
         for uld in env.ULDs:
@@ -52,9 +63,9 @@ class Hybrid(PackingAlgorithm):
                     env,
                     priority_pkgs,
                     allowed_ULDs=[uld_id],
-                    n_calls=10,
+                    n_calls=1,
                     n_jobs=-1,
-                    verbose=True,
+                    verbose=False,
                     multiprocessing=True,
                     maximize_volume_utilization=True,
                     minimize_untable=True,
@@ -62,7 +73,7 @@ class Hybrid(PackingAlgorithm):
                     simulate=True,
                 )
 
-                LayerPack.A3_L(
+                no_of_layers_added = LayerPack.A3_L(
                     env,
                     priority_pkgs,
                     allowed_ULDs=[uld_id],
@@ -70,12 +81,15 @@ class Hybrid(PackingAlgorithm):
                     verbose=True,
                 )
 
-                for uld in env.ULDs:
-                    for pkg in uld.packages:
-                        for coa in COA.generate_COAs(pkg.corners[0], pkg.corners[1]):
-                            if uld.id - 1 not in uld_COAs:
-                                uld_COAs[uld.id - 1] = []
-                            uld_COAs[uld.id - 1].append(coa)
+                if no_of_layers_added != 0:
+                    for uld in env.ULDs:
+                        for pkg in uld.packages:
+                            for coa in COA.generate_COAs(
+                                pkg.corners[0], pkg.corners[1]
+                            ):
+                                if uld.id - 1 not in uld_COAs:
+                                    uld_COAs[uld.id - 1] = []
+                                uld_COAs[uld.id - 1].append(coa)
 
             best_heuristic = COA.Ai(
                 uld_COAs,
@@ -107,7 +121,7 @@ class Hybrid(PackingAlgorithm):
                     env,
                     economy_pkgs,
                     allowed_ULDs=[uld_id],
-                    n_calls=10,
+                    n_calls=1,
                     n_jobs=-1,
                     verbose=False,
                     multiprocessing=True,
@@ -117,20 +131,23 @@ class Hybrid(PackingAlgorithm):
                     simulate=True,
                 )
 
-                LayerPack.A3_L(
+                no_of_layers_added = LayerPack.A3_L(
                     env,
-                    priority_pkgs,
+                    economy_pkgs,
                     allowed_ULDs=[uld_id],
                     heuristic=best_layer_heuristic,
                     verbose=True,
                 )
 
-                for uld in env.ULDs:
-                    for pkg in uld.packages:
-                        for coa in COA.generate_COAs(pkg.corners[0], pkg.corners[1]):
-                            if uld.id - 1 not in uld_COAs:
-                                uld_COAs[uld.id - 1] = []
-                            uld_COAs[uld.id - 1].append(coa)
+                if no_of_layers_added != 0:
+                    for uld in env.ULDs:
+                        for pkg in uld.packages:
+                            for coa in COA.generate_COAs(
+                                pkg.corners[0], pkg.corners[1]
+                            ):
+                                if uld.id - 1 not in uld_COAs:
+                                    uld_COAs[uld.id - 1] = []
+                                uld_COAs[uld.id - 1].append(coa)
 
             best_heuristic = COA.Ai(
                 uld_COAs,
