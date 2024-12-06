@@ -380,6 +380,7 @@ class COA(PackingAlgorithm):
         allowed_ULDs: list[int] = None,
         verbose: bool = True,
         prune_COAs: bool = True,
+        beam_width: int = None,
         **kwargs,
     ):
         if heuristic is None:
@@ -394,7 +395,11 @@ class COA(PackingAlgorithm):
                 "z_gravity": -5000,
                 "y_gravity": -335,
                 "x_gravity": -100,
+                "density": 0,
             }
+
+        if beam_width is None:
+            beam_width = multiprocessing.cpu_count() - 1
 
         if allowed_ULDs is None:
             allowed_ULDs = list(range(len(env.ULDs)))
@@ -472,6 +477,7 @@ class COA(PackingAlgorithm):
                                 "z_gravity": (coa.z + orientation.z) / 2,
                                 "y_gravity": (coa.y + orientation.y) / 2,
                                 "x_gravity": (coa.x + orientation.x) / 2,
+                                "density": pkg.weight / pkg.volume(),
                             }
                             (
                                 current_values["largest_dim"],
@@ -484,7 +490,7 @@ class COA(PackingAlgorithm):
                                 for param, weight in heuristic.items()
                             )
 
-                            if len(values) < 7:
+                            if len(values) < beam_width:
                                 value = current_value
                                 best_coa = coa
                                 best_pkg = pkg
@@ -551,7 +557,7 @@ class COA(PackingAlgorithm):
                 )
 
             answers = []
-            with ProcessPoolExecutor(max_workers=7) as executor:
+            with ProcessPoolExecutor(max_workers=min(beam_width, multiprocessing.cpu_count()-1)) as executor:
                 for i in args:
                     answers.append(executor.submit(beam_A3, *i))
             for future in answers:
