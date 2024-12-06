@@ -37,12 +37,13 @@ class Hybrid(PackingAlgorithm):
         ]
 
         if layering:
+            print("Checking if layering is feasible...")
             # If it is not possible to make good layers, then the layering is turned off
             uld = env.ULDs[sorted_ULD_ids[-1]]
             priority_layers = make_layers(priority_pkgs, uld, rejection_threshold=0.95)
             economy_layers = make_layers(economy_pkgs, uld, rejection_threshold=0.95)
             if len(priority_layers) == 0 and len(economy_layers) == 0:
-                print("Layering is not feasible.")
+                print("Layering is not feasible. Turning off layering.")
                 layering = False
 
         uld_COAs = {uld_id: [] for uld_id in range(len(env.ULDs))}
