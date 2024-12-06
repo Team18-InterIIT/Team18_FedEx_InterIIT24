@@ -166,7 +166,7 @@ class LayerPack(PackingAlgorithm):
 
             if verbose:
                 print(
-                    f"\r Layer added to ULD {best_uld.id} with height {best_layer.dim.h}",
+                    f"\r Layer added to ULD {best_uld.id} with height {best_layer.dim.h}   \t",
                     end="",
                 )
                 sys.stdout.flush()

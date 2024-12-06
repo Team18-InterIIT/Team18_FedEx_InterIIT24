@@ -233,10 +233,24 @@ def _make_layers(
     length = uld.dim.l
     width = uld.dim.w
 
-    for dim in dimension_frequency:
+    dim_idx = 0
+    previous_selectedrects = []
+    while dim_idx < len(dimension_frequency):
+        dim = dimension_frequency[dim_idx]
+
         selectedrects = selectrects(int(dim[0]), packages)
         if len(selectedrects) == 0:
+            dim_idx += 1
             continue
+
+        if len(selectedrects) == len(previous_selectedrects):
+            if all(
+                rect1.id == rect2.id
+                for rect1, rect2 in zip(selectedrects, previous_selectedrects)
+            ):
+                dim_idx += 1
+                continue
+
         area = sum([rect.dim.l * rect.dim.w for rect in selectedrects])
 
         height_ratio = int(dim[0]) / uld.dim.h
@@ -245,6 +259,7 @@ def _make_layers(
             layer = Layer([], uld, int(dim[0]))
             bp2d(layer, selectedrects)
             if len(layer.rects) == 0:
+                dim_idx += 1
                 continue
 
             layer.height_ratio = height_ratio
@@ -255,6 +270,8 @@ def _make_layers(
                 and layer.weight_ratio <= weight_ratio_threshold * layer.height_ratio
             ):
                 layers.append(layer)
+
+        previous_selectedrects = selectedrects
 
     return layers
 
