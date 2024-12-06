@@ -266,12 +266,12 @@ class LayerPack(PackingAlgorithm):
         print(f"Allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}")
 
         space = [
-            Integer(1, 4, name="no_of_layers"),
+            Integer(0, 2, name="no_of_layers"),
             Integer(1000, 10000, name="layer_cost"),
             Integer(-10000, -1000, name="layer_height"),
             Integer(10000, 100000, name="layer_efficiency"),
             Real(0.95, 1, name="efficiency_threshold"),
-            Real(0, 0.3, name="weight_threshold"),
+            Real(0, 1.2, name="weight_threshold"),
         ]
 
         if not multiprocessing:

@@ -280,8 +280,8 @@ def _make_layers(
 def make_layers(
     packages: list[Package],
     uld: ULD,
-    rejection_threshold=0.9,
-    weight_ratio_threshold=0.3,
+    rejection_threshold=0.95,
+    weight_ratio_threshold=1.2,
     margin=0,
 ) -> list[Layer]:
     """
