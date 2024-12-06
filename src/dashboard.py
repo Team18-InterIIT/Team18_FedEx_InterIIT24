@@ -21,9 +21,10 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
     stepped (bool): If True, the animation will be drawn step-by-step.
     """
     # Create a subplot with a 3D scatter plot
+    env.global_stability_check()
     fig = make_subplots(rows=1, cols=1, specs=[[{'type': 'scatter3d'}]])
 
-    # Define the initial plot layout (Match Matplotlib style)
+    # Define the initial plot layout
     fig.update_layout(
         scene=dict(
             xaxis_title="Length",
@@ -66,24 +67,41 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
             z = [pkg.corners[0].z, pkg.corners[1].z]
 
             color = "green" if not pkg.is_priority else "cyan"
+           
             if env.stable[pkg.id - 1] == -1:
                 if pkg.is_priority:
                     color = "purple"
                 else:
                     color = "orange"
+            print(color, x, y, z)
+            
+            # Get the coordinates for the bottom-left and top-right corners
+            x_min, y_min, z_min = pkg.corners[0].x, pkg.corners[0].y, pkg.corners[0].z
+            x_max, y_max, z_max = pkg.corners[1].x, pkg.corners[1].y, pkg.corners[1].z
+            
+            # Define the 8 vertices of the cuboid (box)
+            x = [x_min, x_max, x_min, x_min, x_max, x_max, x_min, x_max]
+            y = [y_min, y_min, y_max, y_min, y_max, y_min, y_max, y_max]
+            z = [z_min, z_min, z_min, z_max, z_min, z_max, z_max, z_max]
 
-            # Add package as mesh (3D box) to the figure
-            fig.add_trace(go.Mesh3d(
+            # Define the faces of the cuboid (indexing the 8 vertices)
+            i = [7, 0, 0, 0, 4, 4, 6, 6, 4, 0, 3, 2],
+            j = [3, 4, 1, 2, 5, 6, 5, 2, 0, 1, 6, 3],
+            k = [0, 7, 2, 3, 6, 7, 1, 1, 5, 5, 7, 6],
+
+            # Add the cuboid as a mesh (3D box)
+            fig.add_trace(go.Figure(data=[go.Mesh3d(
                 x=x, y=y, z=z,
-                color=color,
-                opacity=0.5,
+                i=i, j=j, k=k,
+                color='cyan',  # Set color
+                opacity=0.5,   # Set opacity
                 name=f"Package {pkg.id}",
                 showlegend=False
-            ))
+            )]))
 
-            # Update ULD title (show package data in the plot title)
+            # Update the layout for the 3D plot
             fig.update_layout(
-                title=summary
+                title=summary,
             )
 
         # Display the plot step-by-step using Streamlit
@@ -178,9 +196,9 @@ elif algorithm_choice == "LayerPacking (Layer Strat with OR)":
 
 # Toggle Buttons Section (Add more toggles as needed)
 st.sidebar.header("Input Options")
-rot_toggle = st.sidebar.checkbox("Rotational Constraint", value=False)  # Example toggle
-cluster_toggle = st.sidebar.checkbox("Cluster Packages", value=False)  # Example toggle
-family_toggle = st.sidebar.checkbox("Family Packages", value=False)  # Example toggle
+rot_toggle = st.sidebar.toggle("Rotational Constraint", value=False)  # Example toggle
+cluster_toggle = st.sidebar.toggle("Cluster Packages", value=False)  # Example toggle
+family_toggle = st.sidebar.toggle("Family Packages", value=False)  # Example toggle
 
 if cluster_toggle:
     st.sidebar.write("Cluster Packages Enabled")
@@ -277,7 +295,7 @@ if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
     if "current_frame" not in st.session_state:
         st.session_state.current_frame = -1
 
-    # st_animate(env) # Animate the package insertion process
+    st_animate(env) # Animate the package insertion process
 
     # Save the result
     solution_file = f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
