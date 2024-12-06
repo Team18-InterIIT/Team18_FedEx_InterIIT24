@@ -80,9 +80,10 @@ class Package:
     corners: tuple[Point, Point]
         The coordinates of the corners of the package in the ULD
     can_be_rotated: bool
-        The pacakge can only be rotated in 2/6 directions (along z-axis)
-    family_no:
-    cluster_no:
+        If **True**, the package can be rotated along any axis
+        If **False**, the package can only be rotated along the z-axis
+    family_no: int
+        The package belongs to a family of packages defined by the same number
 
     Methods
     -------
@@ -105,7 +106,6 @@ class Package:
         pkg_row: list[str],
         orientation_constraint: bool = False,
         families: bool = False,
-        cluster: bool = False,
     ):
         self.id: int = int(pkg_row[0])
         self.dim: Dim = Dim(*map(int, pkg_row[1:4]))
@@ -116,16 +116,16 @@ class Package:
         self.uld_id: int = 0
         self.corners: tuple[Point, Point] = (Point(-1, -1, -1), Point(-1, -1, -1))
 
-        item_pos = 7
+        self.can_be_rotated: bool = True
+        self.family_no: int = 0
+
+        idx = 7
         if orientation_constraint:
-            self.can_be_rotated: bool = pkg_row[item_pos]
-            item_pos += 1
+            self.can_be_rotated: bool = pkg_row[idx] in ("True", "1")
+            idx += 1
         if families:
-            self.family_no = pkg_row[item_pos]
-            item_pos += 1
-        if cluster:
-            self.cluster_no = pkg_row[item_pos]
-            item_pos += 1
+            self.family_no = int(pkg_row[idx])
+            idx += 1
 
     def new() -> "Package":
         return Package(["0", "0", "0", "0", "0", "Economy", "0"])
@@ -148,8 +148,6 @@ class Package:
             self.can_be_rotated = other.can_be_rotated
         if hasattr(other, "family_no"):
             self.family_no = other.family_no
-        if hasattr(other, "cluster_no"):
-            self.cluster_no = other.cluster_no
 
     def copy(self) -> "Package":
         new_pkg = Package.new()

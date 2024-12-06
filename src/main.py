@@ -30,11 +30,11 @@ model.solve(env)
 # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
 
 env.summary()
-# env.plot()
-env.animate()
+env.plot(stress_plot=False)
+# env.animate()
 env.write(
     file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
 )
 
-# uncomment the below line to save to json
+# uncomment the below line to pickle the environment
 # env.save(str(PackingAlgorithm.__name__))
