@@ -240,7 +240,7 @@ class LayerPack(PackingAlgorithm):
         env: Environment,
         pkgs: list[Package],
         allowed_ULDs: list[int] = None,
-        verbose: bool = False,
+        verbose: bool = True,
         n_calls: int = 20,
         n_jobs: int = -1,
         multiprocessing: bool = True,

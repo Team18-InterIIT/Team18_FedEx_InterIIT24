@@ -7,7 +7,7 @@ from environment import Environment
 from algorithm_interface import PackingAlgorithm as PackingAlgorithm
 
 # For Example:
-from solvers.layerpack import LayerPack as PackingAlgorithm
+from solvers.hybrid import Hybrid as PackingAlgorithm
 
 if len(sys.argv) == 2:
     test_file = sys.argv[1]
@@ -23,7 +23,7 @@ env = Environment(K, uld_list, pkg_list)
 
 model = PackingAlgorithm()
 
-model.solve(env)
+model.solve(env, search="normal", layering=False)
 # To read from a solution file, use the following line instead of the above line
 # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
 
