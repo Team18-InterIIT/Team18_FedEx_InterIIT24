@@ -6,7 +6,7 @@ from environment import Environment
 from solvers.Caving_COA import COA
 from solvers.layerpack import LayerPack
 from layering import make_layers
-
+import streamlit as st
 
 class Hybrid(PackingAlgorithm):
     def solve(
@@ -64,6 +64,7 @@ class Hybrid(PackingAlgorithm):
         print("Priority Packages:")
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
+            st.write(f"ULD: {uld_id + 1}")
             if layering:
                 best_layer_heuristic = LayerPack.Ai_L(
                     uld_heights,
