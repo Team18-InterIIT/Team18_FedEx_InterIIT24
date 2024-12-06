@@ -9,7 +9,9 @@ from layering import make_layers
 
 
 class Hybrid(PackingAlgorithm):
-    def solve(self, env: Environment, search="normal", layering: bool = False):
+    def solve(
+        self, env: Environment, n_calls=100, search="normal", layering: bool = True
+    ):
         random.seed(42)
 
         if search in ("normal", "fast"):
@@ -37,10 +39,10 @@ class Hybrid(PackingAlgorithm):
         if layering:
             # If it is not possible to make good layers, then the layering is turned off
             uld = env.ULDs[sorted_ULD_ids[-1]]
-            layers = make_layers(priority_pkgs, uld, rejection_threshold=0.95)
-            layers = make_layers(economy_pkgs, uld, rejection_threshold=0.95)
-            if len(layers) == 0:
-                print("Layering is not feasible")
+            priority_layers = make_layers(priority_pkgs, uld, rejection_threshold=0.95)
+            economy_layers = make_layers(economy_pkgs, uld, rejection_threshold=0.95)
+            if len(priority_layers) == 0 and len(economy_layers) == 0:
+                print("Layering is not feasible.")
                 layering = False
 
         uld_COAs = {uld_id: [] for uld_id in range(len(env.ULDs))}
@@ -63,7 +65,7 @@ class Hybrid(PackingAlgorithm):
                     env,
                     priority_pkgs,
                     allowed_ULDs=[uld_id],
-                    n_calls=1,
+                    n_calls=n_calls,
                     n_jobs=-1,
                     verbose=False,
                     multiprocessing=True,
@@ -97,7 +99,7 @@ class Hybrid(PackingAlgorithm):
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
                 prune_COAs=False,
-                n_calls=10,
+                n_calls=n_calls,
                 multiprocessing=True,
                 simulate=True,
             )
@@ -121,7 +123,7 @@ class Hybrid(PackingAlgorithm):
                     env,
                     economy_pkgs,
                     allowed_ULDs=[uld_id],
-                    n_calls=1,
+                    n_calls=n_calls,
                     n_jobs=-1,
                     verbose=False,
                     multiprocessing=True,
@@ -155,7 +157,7 @@ class Hybrid(PackingAlgorithm):
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
                 prune_COAs=True,
-                n_calls=10,
+                n_calls=n_calls,
                 multiprocessing=True,
                 simulate=True,
             )
