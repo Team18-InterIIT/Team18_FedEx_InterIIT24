@@ -394,7 +394,7 @@ class Environment:
 
         if not stress_plot:
             plt.tight_layout()
-        
+
         if return_fig:
             return fig
         plt.show()

@@ -154,7 +154,8 @@ def get_dim_freq(packages, margin):
     dimension_frequency = collections.Counter()
 
     for pkg in packages:
-        for j, dim in enumerate(pkg.dim):
+        dims = set([pkg.dim.l, pkg.dim.w, pkg.dim.h])
+        for j, dim in enumerate(dims):
             for i in range(margin + 1):
                 if pkg.can_be_rotated or j == 2:
                     dimension_frequency[dim + i] += 1
