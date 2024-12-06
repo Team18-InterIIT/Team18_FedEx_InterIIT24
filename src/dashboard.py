@@ -12,6 +12,7 @@ from insert_package import PackageInserter
 from entity import Package
 from algorithm_interface import PackingAlgorithm as PackingAlgorithm
 from solvers.hybrid import Hybrid as PackingAlgorithm
+# from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
 import os
 
 # Initialize the Plotly figure for 3D plotting
@@ -213,9 +214,14 @@ else:
 
 # Slider for Algorithm Parameters Section
 st.sidebar.header("Algorithm Parameters")
-tlim = st.sidebar.slider("Time limit (seconds)", 1, 100, 10)
-max_iters = st.sidebar.slider("Maximum iterations", 1, 5, 1)
-
+search_method = st.sidebar.segmented_control("Select Search Method", ["Normal Search", "Hyper Search"], key="search_method")
+st.sidebar.write("Normal Search: Faster but more cost")
+st.sidebar.write("Hyper Search: Slower but less cost")
+if search_method == "Hyper Search":
+    is_hyper = True
+else:
+    is_hyper = False
+st.sidebar.toggle("Enable Layering", key="layering_toggle", disabled=is_hyper)
 # Parse the dataset using the parser
 @st.cache_data
 def load_data(file):
@@ -266,7 +272,7 @@ if "run_algorithm" not in st.session_state:
     st.session_state.run_algorithm = False
 
 @st.cache_data
-def run_algo(file=test_file, orientation_constraint=False, families=False):
+def run_algo(file=test_file, orientation_constraint=False, families=False, search="Normal Search"):
     # Load data (without CSV reading)
     K, uld_list, pkg_list = load_data(file)
 
@@ -275,9 +281,13 @@ def run_algo(file=test_file, orientation_constraint=False, families=False):
 
     # Select and run the packing algorithm
     model = PackingAlgorithm()
+
     start_time = time.time()
     with st.spinner('Running packing algorithm...'):
-        model.solve(env)
+        if search == "Normal Search":
+            model.solve(env=env, search="normal")
+        else:
+            model.solve(env=env, search="hyper")
     end_time = time.time()
     st.write(f"Time taken to solve the packing problem: {end_time - start_time:.2f} seconds")
     return env
@@ -294,7 +304,7 @@ if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
 
     orientation_constraint = True if rot_toggle else False
     family_packages = True if family_toggle else False
-    env = run_algo(file=test_file, orientation_constraint=orientation_constraint, families=family_packages)
+    env = run_algo(file=test_file, orientation_constraint=orientation_constraint, families=family_packages, search=search_method)
     
     st_plot(env, file=test_file) # Plot
 

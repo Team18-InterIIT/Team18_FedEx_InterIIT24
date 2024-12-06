@@ -16,6 +16,8 @@ from entity import ULD, Package, Point
 from environment import Environment
 from family_cost import graphFamilyCost, centroidFamilyCost
 
+import streamlit as st
+
 
 def objective(
     params,
@@ -807,6 +809,8 @@ class COA(PackingAlgorithm):
         n_calls = ((n_jobs + n_calls - 1) // n_jobs) * n_jobs
 
         progress_bar = tqdm(total=n_calls, desc="Tuning", postfix="Best Cost: inf")
+        bar = st.progress(0)
+
         best_cost = float("inf")
 
         with ProcessPoolExecutor(max_workers=n_jobs) as executor:
@@ -815,6 +819,7 @@ class COA(PackingAlgorithm):
                 futures = [
                     executor.submit(objective, point, *args) for point in sampled_points
                 ]
+                
                 for future in as_completed(futures):
                     result = future.result()
                     optimizer.tell(*result)
@@ -826,6 +831,7 @@ class COA(PackingAlgorithm):
                         progress_bar.set_postfix_str(f"Best Cost: {best_cost:.4f}")
 
                 n_completed_calls += n_jobs
+                bar.progress(n_completed_calls / n_calls)
 
         best_params = optimizer.Xi[np.argmin(optimizer.yi)]
         return best_params
