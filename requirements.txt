@@ -1,3 +1,9 @@
 matplotlib==3.9.3
 pybullet==3.2.6
 sortedcontainers==2.4.0
+plotly
+streamlit
+numpy<2
+scikit-optimize
+tqdm
+hyperpack                                                                                                                                                                                                                                           
