@@ -204,6 +204,7 @@ class Environment:
         stability_check: bool = True,
         fragility_check: bool = True,
         gravity: bool = False,
+        extra_package: bool = False,
     ) -> bool:
         """
         Add a package to the ULD at the given coordinates,
@@ -244,6 +245,9 @@ class Environment:
             corners, _ = self.apply_gravity(uld.id - 1, corners)
 
         pkg.corners = corners
+
+        if extra_package:
+            self.packages.append(pkg)
 
         uld.packages.append(pkg)
         uld.weight += pkg.weight
@@ -305,7 +309,7 @@ class Environment:
     def sort_by_z(coord) -> int:
         return coord[0].z
 
-    def plot(self, stress_plot: bool = False):
+    def plot(self, stress_plot: bool = False, return_fig: bool = False):
         """
         Plot the packages in the ULDs
         """
@@ -390,6 +394,9 @@ class Environment:
 
         if not stress_plot:
             plt.tight_layout()
+        
+        if return_fig:
+            return fig
         plt.show()
         plt.close()
 
