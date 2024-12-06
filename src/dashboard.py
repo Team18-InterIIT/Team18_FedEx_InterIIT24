@@ -10,6 +10,9 @@ from environment import Environment
 from util import Util
 from insert_package import PackageInserter
 from entity import Package
+from algorithm_interface import PackingAlgorithm as PackingAlgorithm
+from solvers.hybrid import Hybrid as PackingAlgorithm
+import os
 
 # Initialize the Plotly figure for 3D plotting
 def st_animate(_env: Environment, repeat=False, stepped=True):
@@ -136,13 +139,6 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
         for frame in frames:
             update(frame)
 
-# Dynamically import the algorithm based on user selection
-ALGORITHMS = {
-    "ThreeDBP_Pivoting": "solvers.threeDBP_Pivoting",
-    "COA (Caving COA)": "solvers.Caving_COA",
-    "LayerPacking (Layer Strat with OR)": "solvers.layerstratwithOR",
-}
-
 # Streamlit Setup
 st.set_page_config(page_title="3D Bin Packing", layout="centered")  # Centering content
 st.title("3D Bin Packing")
@@ -156,8 +152,8 @@ def stream_text(text, delay=0.005):
         yield char
         time.sleep(delay)
 
-# Sidebar Section
-st.sidebar.header("Instructions")
+# Main Content Section
+st.subheader("Instructions")
 
 # Check if the session state variable has been initialized for streaming text
 if "instructions_shown" not in st.session_state:
@@ -178,7 +174,15 @@ else:
         strategy.
     """)
 
-import os
+# Toggle Buttons Section (Add more toggles as needed)
+st.sidebar.header("Input Options")
+rot_toggle = st.sidebar.toggle("Rotational Constraint", value=False)  # Example toggle
+family_toggle = st.sidebar.toggle("Family Packages", value=False)  # Example toggle
+
+if family_toggle:
+    st.sidebar.write("Family Packages Enabled")
+if rot_toggle:
+    st.sidebar.write("Rotational Constraint Enabled")
 
 # File Uploader Section
 st.sidebar.header("Upload Test File")
@@ -206,31 +210,6 @@ else:
     # Use a default file if no file is uploaded
     test_file = "test/Challenge_FedEx.txt"
     st.last_uploaded_file = None
-
-# Algorithm Selection Section
-st.sidebar.header("Select Packing Algorithm")
-algorithm_choice = st.sidebar.selectbox("Choose Algorithm", list(ALGORITHMS.keys()))
-
-# Dynamically import the selected algorithm
-if algorithm_choice == "ThreeDBP_Pivoting":
-    from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
-elif algorithm_choice == "COA (Caving COA)":
-    from solvers.Caving_COA import COA as PackingAlgorithm
-elif algorithm_choice == "LayerPacking (Layer Strat with OR)":
-    from solvers.layerstratwithOR import LayerPacking as PackingAlgorithm
-
-# Toggle Buttons Section (Add more toggles as needed)
-st.sidebar.header("Input Options")
-rot_toggle = st.sidebar.toggle("Rotational Constraint", value=False)  # Example toggle
-cluster_toggle = st.sidebar.toggle("Cluster Packages", value=False)  # Example toggle
-family_toggle = st.sidebar.toggle("Family Packages", value=False)  # Example toggle
-
-if cluster_toggle:
-    st.sidebar.write("Cluster Packages Enabled")
-if family_toggle:
-    st.sidebar.write("Family Packages Enabled")
-if rot_toggle:
-    st.sidebar.write("Rotational Constraint Enabled")
 
 # Slider for Algorithm Parameters Section
 st.sidebar.header("Algorithm Parameters")
@@ -287,12 +266,12 @@ if "run_algorithm" not in st.session_state:
     st.session_state.run_algorithm = False
 
 @st.cache_data
-def run_algo(file=test_file):
+def run_algo(file=test_file, orientation_constraint=False, families=False):
     # Load data (without CSV reading)
-    K, uld_list, pkg_list = load_data(test_file)
+    K, uld_list, pkg_list = load_data(file)
 
     # Create the environment
-    env = Environment(K, uld_list, pkg_list)
+    env = Environment(K, uld_list, pkg_list, orientation_constraint=orientation_constraint, families=family_packages)
 
     # Select and run the packing algorithm
     model = PackingAlgorithm()
@@ -312,8 +291,10 @@ def st_plot(_env, file=test_file):
     st.pyplot(fig, clear_figure=False)
 
 if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
-   
-    env = run_algo(file=test_file) # Run the algorithm
+
+    orientation_constraint = True if rot_toggle else False
+    family_packages = True if family_toggle else False
+    env = run_algo(file=test_file, orientation_constraint=orientation_constraint, families=family_packages)
     
     st_plot(env, file=test_file) # Plot
 
