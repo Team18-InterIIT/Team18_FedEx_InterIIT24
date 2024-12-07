@@ -164,3 +164,11 @@ Using a combination of graph theory and topological sorting we create the packag
 
 ### Stress Analysis
 Using a state-of-the-art physics engine we will calculate stress on each package. In future modifications of this code we can increase customer satisfaction with regard to fragile packages etc. 
+
+# Troubleshooting
+
+1. If `pip` throws an error, check your python environment, and virtual environment.
+2. If Dashboard doesn't load, check if all packages are installed and up to date.
+3. System compatability issues: 
+4. Python Version Compatitibilty issues: install python 3.12 or later
+5. Pybullet may not work on Windows systems,therefore to solve errors for this use Linux or MacOS systems.
