@@ -37,6 +37,36 @@ python run.py
 
 This will install the required packages for the code to run, and open a dashboard for the user to interact with the code.
 
+
+## Running the code
+
+There are two primary ways to run the code:
+
+1. **Using the Dashboard** (Recommended):  
+   After running the `run.py` file, a dashboard will open in your default browser. You can upload a dataset, and run the code using the dashboard.
+    ```bash
+    python run.py
+    ```
+
+2. **Using the Command Line**:
+    You can also run the code using the command line. The following command will run the code on the dataset `Challenge_FedEx.txt`:
+     ```bash
+     python src/main.py test/Challenge_FedEx.txt
+     ```
+
+     NOTE: The path to the dataset should be relative to the project directory.
+    
+    Flags:
+    - `--plot`: To plot the 3D view of the ULDs.
+    - `--stress-analysis`: To run the stress analysis feature. (Might not work on Windows: see Prerequisites)
+    - `--animate`: To animate the packing process.
+    
+    Example:
+    ```bash
+    python src/main.py test/Challenge_FedEx.txt --plot
+    ```
+
+
 ## Navigating the Dashboard
 
 ### What should I do 
@@ -61,7 +91,7 @@ This is a deep search algorithm that optimises for "Cost" as defined by the Prob
 ##### Layering (*Available only in Normal Search*)
 Creates space and cost efficient layers according to the 2DBP logic sytems
 ##### Multi-Processing
-Takes advantage of multiple cores of modern CPU's for a exponential decrase in runtime
+Takes advantage of multiple cores of modern CPU's for a exponential decrease in runtime
 ##### Beam Width (*Available only in Hyper Search*)
 Higher Beam Width = Better Solution
 It is a parameter used to control how wide our search is in the solution space
@@ -72,15 +102,36 @@ It is a parameter used to control how many internal cycles the programs utilises
 Higher Number of Cores = Faster Runtime
 It is a parameter used to control how many of your multicore CPU is used during running the solution
 
+# Code Structure
 
+## Directories
 
-
-
-Our code provides:
-
-- a powerful Parser + Solver system
-- sophisticated application functions 
-- tools for integrating various input types
-- useful additional packing constraint capabilities
-
-
+```
+.
+├── README.md
+├── requirements.txt
+├── run.py
+├── src
+│   ├── algorithm_interface.py
+│   ├── dashboard.py
+│   ├── entity.py
+│   ├── env_handler.py
+│   ├── environment.py
+│   ├── family_cost.py
+│   ├── geometry_helpers.py
+│   ├── insert_package.py
+│   ├── layering.py
+│   ├── main.py
+│   ├── parser.py
+│   ├── solvers
+│   │   ├── hybrid.py
+│   │   ├── layerpack.py
+│   │   ├── NAC.py
+│   │   └── threeDBP_Pivoting.py
+│   └── util.py
+├── test
+│   ├── Challenge_FedEx_Raw.txt
+│   ├── Challenge_FedEx.txt
+│   ├── layer.txt
+│   └── testcase_gen.py
+```
