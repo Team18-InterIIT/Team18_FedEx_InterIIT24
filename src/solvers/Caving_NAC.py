@@ -19,7 +19,7 @@ from family_cost import centroidFamilyCost, graphFamilyCost
 
 def objective(
     params,
-    uld_COAs,
+    uld_corners,
     env,
     pkgs,
     allowed_ULDs,
@@ -42,12 +42,12 @@ def objective(
         "density": params[10],
     }
 
-    uld_COAs_copy: dict[int, list] = copy.deepcopy(uld_COAs)
+    uld_corners_copy: dict[int, list] = copy.deepcopy(uld_corners)
     env_copy: Environment = copy.deepcopy(env)
     pkgs_copy: list = copy.deepcopy(pkgs)
 
-    cost = COA.A3(
-        uld_COAs_copy,
+    cost = NAC.A3(
+        uld_corners_copy,
         env_copy,
         pkgs_copy,
         heuristic=heuristic,
@@ -90,25 +90,25 @@ def objective(
 
 def beam_A3(
     env: Environment,
-    uld_COAs: dict[int, list[Point]],
+    uld_corners: dict[int, list[Point]],
     pkgs: list[Package],
-    best_coa: Point,
+    best_corner: Point,
     best_pkg: Package,
     best_uld: ULD,
     best_orientation: Point,
     heuristic: dict[str, int],
     allowed_ULDs: list[ULD],
-    prune_COAs=True,
+    prune_corners=True,
     verbose: bool = False,
     maximize_volume_utilization: bool = True,
     minimize_unstable: bool = True,
     family_cost: bool = False,
 ):
     new_env = copy.deepcopy(env)
-    new_uld_COAs = copy.deepcopy(uld_COAs)
+    new_uld_corners = copy.deepcopy(uld_corners)
     new_pkgs = copy.deepcopy(pkgs)
 
-    best_coa = copy.deepcopy(best_coa)
+    best_corner = copy.deepcopy(best_corner)
     best_pkg = copy.deepcopy(best_pkg)
     best_orientation = copy.deepcopy(best_orientation)
     best_uld = copy.deepcopy(best_uld)
@@ -116,7 +116,7 @@ def beam_A3(
     new_env.add_package(
         best_pkg.id,
         best_uld.id,
-        corners=(best_coa, best_orientation),
+        corners=(best_corner, best_orientation),
         collision_check=False,
         stability_check=False,
         gravity=True,
@@ -127,18 +127,18 @@ def beam_A3(
             new_pkgs.pop(i)
             break
 
-    new_uld_COAs[best_uld.id - 1].remove(best_coa)
-    for new_coa in COA.generate_COAs(best_coa, best_orientation):
-        new_uld_COAs[best_uld.id - 1].append(new_coa)
+    new_uld_corners[best_uld.id - 1].remove(best_corner)
+    for new_corner in NAC.generate_corners(best_corner, best_orientation):
+        new_uld_corners[best_uld.id - 1].append(new_corner)
 
-    cost = COA.A3(
-        new_uld_COAs,
+    cost = NAC.A3(
+        new_uld_corners,
         new_env,
         new_pkgs,
         heuristic=heuristic,
         allowed_ULDs=allowed_ULDs,
         verbose=False,
-        prune_COAs=prune_COAs,
+        prune_corners=prune_corners,
     )
 
     if maximize_volume_utilization is not None:
@@ -171,10 +171,10 @@ def beam_A3(
     if verbose:
         print(f"Cost: {cost}")
 
-    return (cost, best_coa, best_pkg, best_orientation, best_uld)
+    return (cost, best_corner, best_pkg, best_orientation, best_uld)
 
 
-class COA(PackingAlgorithm):
+class NAC(PackingAlgorithm):
     """
     https://www.sciencedirect.com/science/article/pii/S0305054807001785
     """
@@ -343,8 +343,8 @@ class COA(PackingAlgorithm):
 
         return (x_distance, y_distance, z_distance)
 
-    def distance_coa(uld: ULD, point_min: Point, point_max: Point) -> int:
-        paste_number_value = COA.paste_number(uld, point_min, point_max)
+    def distance_nac(uld: ULD, point_min: Point, point_max: Point) -> int:
+        paste_number_value = NAC.paste_number(uld, point_min, point_max)
         if paste_number_value == 6:
             return 0
 
@@ -363,7 +363,7 @@ class COA(PackingAlgorithm):
         Dz = neg_z if pos_z == 0 else pos_z if neg_z == 0 else min(neg_z, pos_z)
 
         for existing_pkg in uld.packages:
-            dx, dy, dz = COA.distance(
+            dx, dy, dz = NAC.distance(
                 existing_pkg.corners[0],
                 existing_pkg.corners[1],
                 point_min,
@@ -384,10 +384,10 @@ class COA(PackingAlgorithm):
         volume = (x_max - x_min) * (y_max - y_min) * (z_max - z_min)
 
         return 1.0 - (
-            COA.distance_coa(uld, point_min, point_max) / ((volume) ** (1 / 3))
+            NAC.distance_nac(uld, point_min, point_max) / ((volume) ** (1 / 3))
         )
 
-    def generate_COAs(point_min: Point, point_max: Point) -> list[Point]:
+    def generate_corners(point_min: Point, point_max: Point) -> list[Point]:
         x, y, z = point_min.x, point_min.y, point_min.z
         l, w, h = point_max.x - x, point_max.y - y, point_max.z - z
 
@@ -398,13 +398,13 @@ class COA(PackingAlgorithm):
         ]
 
     def A4(
-        uld_COAs: dict[int, list[Point]],
+        uld_corners: dict[int, list[Point]],
         env: Environment,
         pkgs: list[Package],
         heuristic: dict[str, int] = None,
         allowed_ULDs: list[int] = None,
         verbose: bool = True,
-        prune_COAs: bool = True,
+        prune_corners: bool = True,
         beam_width: int = None,
         maximize_volume_utilization: bool = True,
         minimize_unstable: bool = True,
@@ -442,8 +442,8 @@ class COA(PackingAlgorithm):
                 f"A4 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}"
             )
 
-        while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
-            best_coa = None
+        while any(len(uld_corners[uld_id]) != 0 for uld_id in allowed_ULDs):
+            best_corner = None
             best_pkg = None
             best_orientation = None
             best_uld = None
@@ -452,13 +452,13 @@ class COA(PackingAlgorithm):
 
             for uld_id in allowed_ULDs:
                 uld = env.ULDs[uld_id]
-                COAs = uld_COAs[uld_id]
+                corners = uld_corners[uld_id]
 
-                if prune_COAs:
-                    COAs_to_remove = []
+                if prune_corners:
+                    corners_to_prune = []
 
-                for coa in COAs:
-                    if prune_COAs:
+                for corner in corners:
+                    if prune_corners:
                         found_atleast_one_package = False
 
                     for pkg in pkgs:
@@ -466,13 +466,13 @@ class COA(PackingAlgorithm):
                             (pkg.dim.l, pkg.dim.w, pkg.dim.h)
                         ):
                             orientation = Point(
-                                coa.x + x_inc, coa.y + y_inc, coa.z + z_inc
+                                corner.x + x_inc, corner.y + y_inc, corner.z + z_inc
                             )
 
                             if not env.add_package(
                                 pkg.id,
                                 uld.id,
-                                corners=(coa, orientation),
+                                corners=(corner, orientation),
                                 simulate=True,
                                 stability_check=False,
                             ):
@@ -500,14 +500,14 @@ class COA(PackingAlgorithm):
                                         else 0
                                     )
                                 ),
-                                "caving_degree": COA.caving_degree(
-                                    uld, coa, orientation
+                                "caving_degree": NAC.caving_degree(
+                                    uld, corner, orientation
                                 ),
-                                "paste_number": COA.paste_number(uld, coa, orientation),
-                                "paste_ratio": COA.paste_ratio(uld, coa, orientation),
-                                "z_gravity": (coa.z + orientation.z) / 2,
-                                "y_gravity": (coa.y + orientation.y) / 2,
-                                "x_gravity": (coa.x + orientation.x) / 2,
+                                "paste_number": NAC.paste_number(uld, corner, orientation),
+                                "paste_ratio": NAC.paste_ratio(uld, corner, orientation),
+                                "z_gravity": (corner.z + orientation.z) / 2,
+                                "y_gravity": (corner.y + orientation.y) / 2,
+                                "x_gravity": (corner.x + orientation.x) / 2,
                                 "density": pkg.weight / pkg.volume(),
                             }
                             (
@@ -523,14 +523,14 @@ class COA(PackingAlgorithm):
 
                             if len(values) < beam_width:
                                 value = current_value
-                                best_coa = coa
+                                best_corner = corner
                                 best_pkg = pkg
                                 best_orientation = orientation
                                 best_uld = uld
                                 values.append(
                                     (
                                         value,
-                                        best_coa,
+                                        best_corner,
                                         best_pkg,
                                         best_orientation,
                                         best_uld,
@@ -539,49 +539,49 @@ class COA(PackingAlgorithm):
                                 values.sort(key=lambda x: x[0])
                             else:
                                 value = current_value
-                                best_coa = coa
+                                best_corner = corner
                                 best_pkg = pkg
                                 best_orientation = orientation
                                 best_uld = uld
                                 values[0] = (
                                     value,
-                                    best_coa,
+                                    best_corner,
                                     best_pkg,
                                     best_orientation,
                                     best_uld,
                                 )
                                 values.sort(key=lambda x: x[0])
 
-                    if prune_COAs and not found_atleast_one_package:
-                        COAs_to_remove.append(coa)
+                    if prune_corners and not found_atleast_one_package:
+                        corners_to_prune.append(corner)
 
-                if prune_COAs:
-                    for coa in COAs_to_remove:
-                        COAs.remove(coa)
+                if prune_corners:
+                    for corner in corners_to_prune:
+                        corners.remove(corner)
             if len(values) == 0:
                 break
-            if best_coa is None:
+            if best_corner is None:
                 break
 
             max_vals = []
             args = []
             for i in values:
-                best_coa = i[1]
+                best_corner = i[1]
                 best_pkg = i[2]
                 best_orientation = i[3]
                 best_uld = i[4]
                 args.append(
                     (
                         env,
-                        uld_COAs,
+                        uld_corners,
                         pkgs,
-                        best_coa,
+                        best_corner,
                         best_pkg,
                         best_uld,
                         best_orientation,
                         heuristic,
                         allowed_ULDs,
-                        prune_COAs,
+                        prune_corners,
                         False,
                         maximize_volume_utilization,
                         minimize_unstable,
@@ -602,7 +602,7 @@ class COA(PackingAlgorithm):
 
             print(f"Minimized cost: {max_vals[0][0]}", end="")
 
-            best_coa = max_vals[0][1]
+            best_corner = max_vals[0][1]
             best_pkg = max_vals[0][2]
             best_orientation = max_vals[0][3]
             best_uld = max_vals[0][4]
@@ -610,7 +610,7 @@ class COA(PackingAlgorithm):
             env.add_package(
                 best_pkg.id,
                 best_uld.id,
-                corners=(best_coa, best_orientation),
+                corners=(best_corner, best_orientation),
                 collision_check=False,
                 weight_limit_check=False,
                 stability_check=False,
@@ -621,9 +621,9 @@ class COA(PackingAlgorithm):
                 if pkg.id == best_pkg.id:
                     pkgs.remove(pkg)
 
-            uld_COAs[best_uld.id - 1].remove(best_coa)
-            for new_coa in COA.generate_COAs(best_coa, best_orientation):
-                uld_COAs[best_uld.id - 1].append(new_coa)
+            uld_corners[best_uld.id - 1].remove(best_corner)
+            for new_corner in NAC.generate_corners(best_corner, best_orientation):
+                uld_corners[best_uld.id - 1].append(new_corner)
 
             if verbose:
                 print(
@@ -640,13 +640,13 @@ class COA(PackingAlgorithm):
         return cost
 
     def A3(
-        uld_COAs: dict[int, list[Point]],
+        uld_corners: dict[int, list[Point]],
         env: Environment,
         pkgs: list[Package],
         heuristic: dict[str, int] = None,
         allowed_ULDs: list[int] = None,
         verbose: bool = True,
-        prune_COAs: bool = True,
+        prune_corners: bool = True,
         **kwargs,
     ):
         if heuristic is None:
@@ -674,8 +674,8 @@ class COA(PackingAlgorithm):
                 f"A3 on {total_pkgs} packages, allowed ULDs: {[uld_id + 1 for uld_id in allowed_ULDs]}"
             )
 
-        while any(len(uld_COAs[uld_id]) != 0 for uld_id in allowed_ULDs):
-            best_coa = None
+        while any(len(uld_corners[uld_id]) != 0 for uld_id in allowed_ULDs):
+            best_corner = None
             best_pkg = None
             best_orientation = None
             best_uld = None
@@ -684,13 +684,13 @@ class COA(PackingAlgorithm):
 
             for uld_id in allowed_ULDs:
                 uld = env.ULDs[uld_id]
-                COAs = uld_COAs[uld_id]
+                corners = uld_corners[uld_id]
 
-                if prune_COAs:
-                    COAs_to_remove = []
+                if prune_corners:
+                    corners_to_prune = []
 
-                for coa in COAs:
-                    if prune_COAs:
+                for corner in corners:
+                    if prune_corners:
                         found_atleast_one_package = False
 
                     for pkg in pkgs:
@@ -704,13 +704,13 @@ class COA(PackingAlgorithm):
 
                         for x_inc, y_inc, z_inc in rotations:
                             orientation = Point(
-                                coa.x + x_inc, coa.y + y_inc, coa.z + z_inc
+                                corner.x + x_inc, corner.y + y_inc, corner.z + z_inc
                             )
 
                             if not env.add_package(
                                 pkg.id,
                                 uld.id,
-                                corners=(coa, orientation),
+                                corners=(corner, orientation),
                                 simulate=True,
                                 stability_check=False,
                             ):
@@ -738,14 +738,14 @@ class COA(PackingAlgorithm):
                                         else 0
                                     )
                                 ),
-                                "caving_degree": COA.caving_degree(
-                                    uld, coa, orientation
+                                "caving_degree": NAC.caving_degree(
+                                    uld, corner, orientation
                                 ),
-                                "paste_number": COA.paste_number(uld, coa, orientation),
-                                "paste_ratio": COA.paste_ratio(uld, coa, orientation),
-                                "z_gravity": (coa.z + orientation.z) / 2,
-                                "y_gravity": (coa.y + orientation.y) / 2,
-                                "x_gravity": (coa.x + orientation.x) / 2,
+                                "paste_number": NAC.paste_number(uld, corner, orientation),
+                                "paste_ratio": NAC.paste_ratio(uld, corner, orientation),
+                                "z_gravity": (corner.z + orientation.z) / 2,
+                                "y_gravity": (corner.y + orientation.y) / 2,
+                                "x_gravity": (corner.x + orientation.x) / 2,
                                 "density": pkg.weight / pkg.volume(),
                             }
                             (
@@ -762,25 +762,25 @@ class COA(PackingAlgorithm):
                             if current_value > max_value:
                                 max_value = current_value
 
-                                best_coa = coa
+                                best_corner = corner
                                 best_pkg = pkg
                                 best_orientation = orientation
                                 best_uld = uld
 
-                    if prune_COAs and not found_atleast_one_package:
-                        COAs_to_remove.append(coa)
+                    if prune_corners and not found_atleast_one_package:
+                        corners_to_prune.append(corner)
 
-                if prune_COAs:
-                    for coa in COAs_to_remove:
-                        COAs.remove(coa)
+                if prune_corners:
+                    for corner in corners_to_prune:
+                        corners.remove(corner)
 
-            if best_coa is None:
+            if best_corner is None:
                 break
 
             env.add_package(
                 best_pkg.id,
                 best_uld.id,
-                corners=(best_coa, best_orientation),
+                corners=(best_corner, best_orientation),
                 collision_check=False,
                 weight_limit_check=False,
                 stability_check=False,
@@ -788,9 +788,9 @@ class COA(PackingAlgorithm):
             )
 
             pkgs.remove(best_pkg)
-            uld_COAs[best_uld.id - 1].remove(best_coa)
-            for new_coa in COA.generate_COAs(best_coa, best_orientation):
-                uld_COAs[best_uld.id - 1].append(new_coa)
+            uld_corners[best_uld.id - 1].remove(best_corner)
+            for new_corner in NAC.generate_corners(best_corner, best_orientation):
+                uld_corners[best_uld.id - 1].append(new_corner)
 
             if verbose:
                 print(
@@ -809,7 +809,7 @@ class COA(PackingAlgorithm):
     def gp_minimize(
         objective,
         space,
-        uld_COAs,
+        uld_corners,
         env,
         pkgs,
         allowed_ULDs,
@@ -828,7 +828,7 @@ class COA(PackingAlgorithm):
             n_jobs = multiprocessing.cpu_count()
         n_completed_calls = 0
         args = (
-            uld_COAs,
+            uld_corners,
             env,
             pkgs,
             allowed_ULDs,
@@ -868,11 +868,11 @@ class COA(PackingAlgorithm):
         return best_params
 
     def Ai(
-        uld_COAs: dict[int, list[Point]],
+        uld_corners: dict[int, list[Point]],
         env: Environment,
         pkgs: list[Package],
         allowed_ULDs: list[int] = None,
-        prune_COAs: bool = True,
+        prune_corners: bool = True,
         verbose: bool = False,
         n_calls: int = 20,
         n_jobs: int = -1,
@@ -910,7 +910,7 @@ class COA(PackingAlgorithm):
             def objective_wrapper(params):
                 return objective(
                     params,
-                    uld_COAs,
+                    uld_corners,
                     env,
                     pkgs,
                     allowed_ULDs,
@@ -930,10 +930,10 @@ class COA(PackingAlgorithm):
 
             best_params = res.x
         else:
-            best_params = COA.gp_minimize(
+            best_params = NAC.gp_minimize(
                 objective,
                 space,
-                uld_COAs,
+                uld_corners,
                 env,
                 pkgs,
                 allowed_ULDs,
@@ -963,12 +963,12 @@ class COA(PackingAlgorithm):
         print(f"Best heuristic:\n{best_heuristic}\n\n", file=open("heuristic.log", "a"))
 
         if not simulate:
-            COA.A3(
-                uld_COAs,
+            NAC.A3(
+                uld_corners,
                 env,
                 pkgs,
                 heuristic=best_heuristic,
-                prune_COAs=prune_COAs,
+                prune_corners=prune_corners,
                 allowed_ULDs=allowed_ULDs,
                 verbose=verbose,
             )
@@ -994,17 +994,17 @@ class COA(PackingAlgorithm):
             pkg for pkg in env.packages if not pkg.is_priority and pkg.uld_id == 0
         ]
 
-        uld_COAs = {uld_id: [] for uld_id in range(len(env.ULDs))}
+        uld_corners = {uld_id: [] for uld_id in range(len(env.ULDs))}
         for uld in env.ULDs:
             for pkg in uld.packages:
-                for coa in COA.generate_COAs(pkg.corners[0], pkg.corners[1]):
-                    if uld.id - 1 not in uld_COAs:
-                        uld_COAs[uld.id - 1] = []
-                    uld_COAs[uld.id - 1].append(coa)
+                for corner in NAC.generate_corners(pkg.corners[0], pkg.corners[1]):
+                    if uld.id - 1 not in uld_corners:
+                        uld_corners[uld.id - 1] = []
+                    uld_corners[uld.id - 1].append(corner)
 
         for uld_id in range(len(env.ULDs)):
-            if len(uld_COAs[uld_id]) == 0:
-                uld_COAs[uld_id] = [Point(0, 0, 0)]
+            if len(uld_corners[uld_id]) == 0:
+                uld_corners[uld_id] = [Point(0, 0, 0)]
 
         priority_heuristic = {
             "included_cost": 6019543,
@@ -1022,24 +1022,24 @@ class COA(PackingAlgorithm):
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            best_params = COA.Ai(
-                uld_COAs,
+            best_params = NAC.Ai(
+                uld_corners,
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
-                prune_COAs=False,
+                prune_corners=False,
                 n_calls=10,
                 multiprocessing=True,
                 simulate=True,
             )
 
-            COA.A3(
-                uld_COAs,
+            NAC.A3(
+                uld_corners,
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
                 heuristic=best_params,
-                prune_COAs=False,
+                prune_corners=False,
             )
             print(f"{'='*60}")
 
@@ -1047,8 +1047,8 @@ class COA(PackingAlgorithm):
 
         for uld_id in sorted_ULD_ids:
             print(f"ULD: {uld_id + 1}")
-            best_params = COA.Ai(
-                uld_COAs,
+            best_params = NAC.Ai(
+                uld_corners,
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
@@ -1057,8 +1057,8 @@ class COA(PackingAlgorithm):
                 simulate=True,
             )
 
-            COA.A3(
-                uld_COAs,
+            NAC.A3(
+                uld_corners,
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],

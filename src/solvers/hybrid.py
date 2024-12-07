@@ -4,7 +4,7 @@ from algorithm_interface import PackingAlgorithm
 from entity import ULD, Package, Point
 from environment import Environment
 from layering import make_layers
-from solvers.Caving_COA import COA
+from solvers.Caving_NAC import NAC
 from solvers.layerpack import LayerPack
 
 
@@ -15,9 +15,9 @@ class Hybrid(PackingAlgorithm):
         random.seed(42)
 
         if search in ("normal", "fast"):
-            solver = COA.A3
+            solver = NAC.A3
         elif search in ("hyper", "slow"):
-            solver = COA.A4
+            solver = NAC.A4
             layering = False
 
         sorted_ULD_ids = sorted(
@@ -49,17 +49,17 @@ class Hybrid(PackingAlgorithm):
         if layering:
             uld_heights = {uld_id: 0 for uld_id in range(len(env.ULDs))}
 
-        uld_COAs = {uld_id: [] for uld_id in range(len(env.ULDs))}
+        uld_corners = {uld_id: [] for uld_id in range(len(env.ULDs))}
         for uld in env.ULDs:
             for pkg in uld.packages:
-                for coa in COA.generate_COAs(pkg.corners[0], pkg.corners[1]):
-                    if uld.id - 1 not in uld_COAs:
-                        uld_COAs[uld.id - 1] = []
-                    uld_COAs[uld.id - 1].append(coa)
+                for corner in NAC.generate_corners(pkg.corners[0], pkg.corners[1]):
+                    if uld.id - 1 not in uld_corners:
+                        uld_corners[uld.id - 1] = []
+                    uld_corners[uld.id - 1].append(corner)
 
         for uld_id in range(len(env.ULDs)):
-            if len(uld_COAs[uld_id]) == 0:
-                uld_COAs[uld_id] = [Point(0, 0, 0)]
+            if len(uld_corners[uld_id]) == 0:
+                uld_corners[uld_id] = [Point(0, 0, 0)]
 
         print("Priority Packages:")
         for uld_id in sorted_ULD_ids:
@@ -92,19 +92,19 @@ class Hybrid(PackingAlgorithm):
                 if no_of_layers_added != 0:
                     for uld in env.ULDs:
                         for pkg in uld.packages:
-                            for coa in COA.generate_COAs(
+                            for corner in NAC.generate_corners(
                                 pkg.corners[0], pkg.corners[1]
                             ):
-                                if uld.id - 1 not in uld_COAs:
-                                    uld_COAs[uld.id - 1] = []
-                                uld_COAs[uld.id - 1].append(coa)
+                                if uld.id - 1 not in uld_corners:
+                                    uld_corners[uld.id - 1] = []
+                                uld_corners[uld.id - 1].append(corner)
 
-            best_heuristic = COA.Ai(
-                uld_COAs,
+            best_heuristic = NAC.Ai(
+                uld_corners,
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
-                prune_COAs=False,
+                prune_corners=False,
                 n_calls=n_calls,
                 multiprocessing=True,
                 simulate=True,
@@ -113,11 +113,11 @@ class Hybrid(PackingAlgorithm):
                 family_cost=False,
             )
             solver(
-                uld_COAs,
+                uld_corners,
                 env,
                 priority_pkgs,
                 allowed_ULDs=[uld_id],
-                prune_COAs=False,
+                prune_corners=False,
                 heuristic=best_heuristic,
                 maximize_volume_utilization=True,
                 minimize_unstable=True,
@@ -158,19 +158,19 @@ class Hybrid(PackingAlgorithm):
                 if no_of_layers_added != 0:
                     for uld in env.ULDs:
                         for pkg in uld.packages:
-                            for coa in COA.generate_COAs(
+                            for corner in NAC.generate_corners(
                                 pkg.corners[0], pkg.corners[1]
                             ):
-                                if uld.id - 1 not in uld_COAs:
-                                    uld_COAs[uld.id - 1] = []
-                                uld_COAs[uld.id - 1].append(coa)
+                                if uld.id - 1 not in uld_corners:
+                                    uld_corners[uld.id - 1] = []
+                                uld_corners[uld.id - 1].append(corner)
 
-            best_heuristic = COA.Ai(
-                uld_COAs,
+            best_heuristic = NAC.Ai(
+                uld_corners,
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                prune_COAs=True,
+                prune_corners=True,
                 n_calls=n_calls,
                 multiprocessing=True,
                 simulate=True,
@@ -179,11 +179,11 @@ class Hybrid(PackingAlgorithm):
                 family_cost=False,
             )
             solver(
-                uld_COAs,
+                uld_corners,
                 env,
                 economy_pkgs,
                 allowed_ULDs=[uld_id],
-                prune_COAs=True,
+                prune_corners=True,
                 heuristic=best_heuristic,
                 maximize_volume_utilization=True,
                 minimize_unstable=True,
