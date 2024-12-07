@@ -108,6 +108,9 @@ class Hybrid(PackingAlgorithm):
                 n_calls=n_calls,
                 multiprocessing=True,
                 simulate=True,
+                maximize_volume_utilization=True,
+                minimize_unstable=True,
+                family_cost=False,
             )
             solver(
                 uld_COAs,
@@ -116,6 +119,9 @@ class Hybrid(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 prune_COAs=False,
                 heuristic=best_heuristic,
+                maximize_volume_utilization=True,
+                minimize_unstable=True,
+                family_cost=False,
             )
 
             print(f"{'='*60}")
@@ -168,6 +174,9 @@ class Hybrid(PackingAlgorithm):
                 n_calls=n_calls,
                 multiprocessing=True,
                 simulate=True,
+                maximize_volume_utilization=True,
+                minimize_unstable=True,
+                family_cost=False,
             )
             solver(
                 uld_COAs,
@@ -176,5 +185,8 @@ class Hybrid(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 prune_COAs=True,
                 heuristic=best_heuristic,
+                maximize_volume_utilization=True,
+                minimize_unstable=True,
+                family_cost=False,
             )
             print(f"{'='*60}")
