@@ -75,7 +75,7 @@ class Hybrid(PackingAlgorithm):
                     verbose=False,
                     multiprocessing=True,
                     maximize_volume_utilization=True,
-                    minimize_untable=True,
+                    minimize_unstable=True,
                     family_cost=False,
                     simulate=True,
                 )
@@ -135,7 +135,7 @@ class Hybrid(PackingAlgorithm):
                     verbose=False,
                     multiprocessing=True,
                     maximize_volume_utilization=True,
-                    minimize_untable=True,
+                    minimize_unstable=True,
                     family_cost=False,
                     simulate=True,
                 )
