@@ -37,6 +37,44 @@ python run.py
 
 This will install the required packages for the code to run, and open a dashboard for the user to interact with the code.
 
+## Navigating the Dashboard
+
+### What should I do 
+
+1. Drag and Drop/Select the test file data into the Browse Files Button. <br>
+You should see a tabular form of your Packages and details about their number and number of ULD's
+2. Adapt Parameters for the current requirements
+3. Click the 'Run Packing Algorithm' button
+<br>
+
+### Input Options
+
+A. Rotatinal Constraint --> An additional column of boolean values must be present in the input data <br>
+B.Family of Packages --> An additional column of Family IDs must be present in the in the original dataset. They can have any name, but the name must be consistent for a given family.<br>
+
+### Search Methods and Related Parameters
+
+##### Normal Search
+This is a quick search optimising for time to find Solution
+##### Hyper Search
+This is a deep search algorithm that optimises for "Cost" as defined by the Problem Statement
+##### Layering (*Available only in Normal Search*)
+Creates space and cost efficient layers according to the 2DBP logic sytems
+##### Multi-Processing
+Takes advantage of multiple cores of modern CPU's for a exponential decrase in runtime
+##### Beam Width (*Available only in Hyper Search*)
+Higher Beam Width = Better Solution
+It is a parameter used to control how wide our search is in the solution space
+##### Number of iterations
+Higher Number of iterations = Better Solution
+It is a parameter used to control how many internal cycles the programs utilises
+##### Number of cores
+Higher Number of Cores = Faster Runtime
+It is a parameter used to control how many of your multicore CPU is used during running the solution
+
+
+
+
 
 Our code provides:
 
@@ -44,3 +82,5 @@ Our code provides:
 - sophisticated application functions 
 - tools for integrating various input types
 - useful additional packing constraint capabilities
+
+
