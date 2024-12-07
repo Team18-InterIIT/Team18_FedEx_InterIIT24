@@ -4,8 +4,26 @@ import pickle
 import time
 
 import matplotlib.pyplot as plt
+
+# Suppress both stdout and stderr
+original_stdout = os.dup(1)  # Save the original stdout
+original_stderr = os.dup(2)  # Save the original stderr
+os.close(1)  # Close stdout
+os.close(2)  # Close stderr
+devnull_fd = os.open(os.devnull, os.O_RDWR)  # Open /dev/null
+os.dup2(devnull_fd, 1)  # Redirect stdout to /dev/null
+os.dup2(devnull_fd, 2)  # Redirect stderr to /dev/null
+os.close(devnull_fd)  # Close the /dev/null file descriptor
+
 import pybullet as p
 import pybullet_data
+
+# Restore original stdout and stderr
+os.dup2(original_stdout, 1)  # Restore stdout
+os.dup2(original_stderr, 2)  # Restore stderr
+os.close(original_stdout)
+os.close(original_stderr)
+
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
 from matplotlib.colors import Normalize
