@@ -234,10 +234,9 @@ class PackageInserter:
                             Point(x + package.dim.l, y + package.dim.w, z + package.dim.h)
                         )
                         if self.env.add_package(package, uld, package.corners, False, True, True, True, True):
-                            print(f"Package {package.id} inserted into ULD {uld.id} at position {package.corners}.")
-                            return True
+                            return package.corners
         print(f"Package {package.id} could not be inserted into ULD {uld.id}.")
-        return False
+        return None
 
     def insert_package_for_uld(self, uld_id, package):
             return self.insert_package(uld_id, package)
@@ -254,10 +253,17 @@ class PackageInserter:
         # Create a pool of workers and run insert_package_optim for each ULD in parallel
         with Pool(multiprocessing.cpu_count()) as pool:
             results = pool.starmap(self.insert_package_for_uld, 
-                                  [(uld_id, package) for uld_id in range(1, len(self.env.ULDs) + 1)])
+                                   [(uld_id, package) for uld_id in range(1, len(self.env.ULDs) + 1)])
 
+        # Merge results
+        successful_insertions = [(uld_id, result) for uld_id, result in enumerate(results, start=1) if result is not None]
 
-        # Return the results (True or False for each ULD)
-        return results
-    
-    # Need to fix multiprocessing
+        # If no insertions were successful, return False
+        if not successful_insertions:
+            print(f"Package {package.id} could not be inserted into any ULD.")
+            return False
+
+        # You can choose the first successful result or any other criteria for selection
+        best_insertion = successful_insertions[0]  # For example, pick the first successful insertion
+        print(f"Package {package.id} inserted into ULD {best_insertion[0]} at position {best_insertion[1]}.")
+        return True

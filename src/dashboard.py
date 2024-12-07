@@ -221,7 +221,9 @@ if search_method == "Hyper Search":
     is_hyper = True
 else:
     is_hyper = False
-st.sidebar.toggle("Enable Layering", key="layering_toggle", disabled=is_hyper)
+is_layering = st.sidebar.toggle("Enable Layering", key="layering_toggle", disabled=is_hyper)
+if is_layering is None:
+    is_layering = False
 # Parse the dataset using the parser
 @st.cache_data
 def load_data(file):
@@ -272,7 +274,7 @@ if "run_algorithm" not in st.session_state:
     st.session_state.run_algorithm = False
 
 @st.cache_data
-def run_algo(file=test_file, orientation_constraint=False, families=False, search="Normal Search"):
+def run_algo(file=test_file, orientation_constraint=False, families=False, search="Normal Search", layering=True):
     # Load data (without CSV reading)
     K, uld_list, pkg_list = load_data(file)
 
@@ -285,9 +287,9 @@ def run_algo(file=test_file, orientation_constraint=False, families=False, searc
     start_time = time.time()
     with st.spinner('Running packing algorithm...'):
         if search == "Normal Search":
-            model.solve(env=env, search="normal")
+            model.solve(env=env, search="normal", layering=layering)
         else:
-            model.solve(env=env, search="hyper")
+            model.solve(env=env, search="hyper", layering=layering)
     end_time = time.time()
     st.write(f"Time taken to solve the packing problem: {end_time - start_time:.2f} seconds")
     return env
@@ -304,7 +306,11 @@ if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
 
     orientation_constraint = True if rot_toggle else False
     family_packages = True if family_toggle else False
-    env = run_algo(file=test_file, orientation_constraint=orientation_constraint, families=family_packages, search=search_method)
+    env = run_algo(file=test_file, 
+                   orientation_constraint=orientation_constraint, 
+                   families=family_packages, 
+                   search=search_method, 
+                   layering=is_layering)
     
     # Order the packages for insertion
     order = Util(env).order()
