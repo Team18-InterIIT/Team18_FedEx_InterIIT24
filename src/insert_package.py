@@ -196,12 +196,15 @@ class PackageInserter:
             return False
 
         self.replaceable_positions.sort(key=lambda x: x[0])
-        colliding_package = self.env.find_collision(self.env.ULDs[self.replaceable_positions[0][1] - 1], self.replaceable_positions[0][2])
-        if colliding_package is not None:
-            self.env.remove_package(colliding_package, self.env.ULDs[self.replaceable_positions[0][1] - 1])
-        self.env.add_package(package, self.env.ULDs[self.replaceable_positions[0][1] - 1], self.replaceable_positions[0][2], False, True, True, True, True)
-        print(f"Package {package.id} inserted into ULD {self.replaceable_positions[0][1]} at position {self.replaceable_positions[0][2]}.")
-        return True
+        for i in range(len(self.replaceable_positions)):
+            colliding_package = self.env.find_collision(self.env.ULDs[self.replaceable_positions[i][1] - 1], self.replaceable_positions[i][2])
+            if colliding_package is not None and colliding_package.is_priority is False:
+                self.env.remove_package(colliding_package, self.env.ULDs[self.replaceable_positions[0][1] - 1])
+                self.env.add_package(package, self.env.ULDs[self.replaceable_positions[0][1] - 1], self.replaceable_positions[0][2], False, True, True, True, True)
+                print(f"Package {package.id} inserted into ULD {self.replaceable_positions[0][1]} at position {self.replaceable_positions[0][2]}.")
+                return True
+        print(f"Package {package.id} could not be inserted into any ULD.")
+        return False
 
     def insert_package(self, uld_id: int, package: Package) -> bool:
         """
