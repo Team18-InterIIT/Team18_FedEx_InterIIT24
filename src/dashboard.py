@@ -12,6 +12,7 @@ from insert_package import PackageInserter
 from entity import Package
 from algorithm_interface import PackingAlgorithm as PackingAlgorithm
 from solvers.hybrid import Hybrid as PackingAlgorithm
+import multiprocessing
 # from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
 import os
 
@@ -221,9 +222,18 @@ if search_method == "Hyper Search":
     is_hyper = True
 else:
     is_hyper = False
+
 is_layering = st.sidebar.toggle("Enable Layering", key="layering_toggle", disabled=is_hyper)
 if is_layering is None:
     is_layering = False
+
+is_multiprocessing = st.sidebar.toggle("Enable Multiprocessing", key="multiprocessing_toggle", value=is_hyper, disabled=is_hyper)
+if is_multiprocessing is None:
+    is_multiprocessing = False
+
+beam_width = st.sidebar.slider("Beam Width", min_value=1, max_value=20, value=10, key="beam_width", disabled=not is_hyper)
+num_iterations = st.sidebar.slider("Number of Iterations", min_value=10, max_value=200, value=100, key="num_iterations")
+num_cores = st.sidebar.slider("Number of Cores", min_value=1, max_value=multiprocessing.cpu_count(), value=multiprocessing.cpu_count(), key="num_cores", disabled=not is_multiprocessing)
 # Parse the dataset using the parser
 @st.cache_data
 def load_data(file):
@@ -274,7 +284,15 @@ if "run_algorithm" not in st.session_state:
     st.session_state.run_algorithm = False
 
 @st.cache_data
-def run_algo(file=test_file, orientation_constraint=False, families=False, search="Normal Search", layering=True):
+def run_algo(file=test_file,
+             orientation_constraint=False, 
+             families=False, 
+             search="Normal Search", 
+             layering=True,
+             multiprocessing=True,
+             beam_width=None,
+             n_calls=100,
+             n_jobs=-1):
     # Load data (without CSV reading)
     K, uld_list, pkg_list = load_data(file)
 
@@ -287,19 +305,26 @@ def run_algo(file=test_file, orientation_constraint=False, families=False, searc
     start_time = time.time()
     with st.spinner('Running packing algorithm...'):
         if search == "Normal Search":
-            model.solve(env=env, search="normal", layering=layering)
+            search_method = "normal"
         else:
-            model.solve(env=env, search="hyper", layering=layering)
+            search_method = "hyper"
+        model.solve(env=env, 
+                    search=search_method, 
+                    layering=layering, 
+                    multiprocessing=multiprocessing, 
+                    beam_width=beam_width, 
+                    n_calls=n_calls,
+                    n_jobs=n_jobs)
     end_time = time.time()
     st.write(f"Time taken to solve the packing problem: {end_time - start_time:.2f} seconds")
     return env
 
 @st.cache_data
-def st_plot(_env, file=test_file):
+def st_plot(_env, file=test_file, stress_plot=False):
     # Show the packing animation (if implemented in your `env.animate()` method)
     st.subheader("Packing Animation")
     st.write("Showing packing animation...")
-    fig = env.plot(return_fig=True)
+    fig = env.plot(return_fig=True, stress_plot=stress_plot)
     st.pyplot(fig, clear_figure=False)
 
 if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
@@ -310,7 +335,11 @@ if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
                    orientation_constraint=orientation_constraint, 
                    families=family_packages, 
                    search=search_method, 
-                   layering=is_layering)
+                   layering=is_layering,
+                   multiprocessing= is_multiprocessing,
+                   beam_width=beam_width,
+                   n_calls=num_iterations,
+                   n_jobs=num_cores)
     
     # Order the packages for insertion
     order = Util(env).order()
@@ -318,7 +347,10 @@ if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
     for uld_id, order_list in order.items():
         env.pkg_addition_order.extend(order_list)
     
-    st_plot(env, file=test_file) # Plot
+    is_stress_plot = st.sidebar.toggle("Stress Plot", value=False)
+    if is_stress_plot is None:
+        is_stress_plot = False
+    st_plot(env, file=test_file, stress_plot=is_stress_plot)
 
     if "current_frame" not in st.session_state:
         st.session_state.current_frame = -1
