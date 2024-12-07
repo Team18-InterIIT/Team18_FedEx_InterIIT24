@@ -842,7 +842,10 @@ class Environment:
             for line in lines[1:]:
                 pkg_id, uld_id, x1, y1, z1, x2, y2, z2 = line.strip().split(",")
                 pkg_id = int(pkg_id.split("-")[1])
-                uld_id = int(uld_id.split("-")[1])
+                if uld_id == "NONE":
+                    uld_id = 0
+                else:
+                    uld_id = int(uld_id.split("-")[1])
                 x1, y1, z1, x2, y2, z2 = map(int, (x1, y1, z1, x2, y2, z2))
 
                 pkg = self.packages[pkg_id - 1]
