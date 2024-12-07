@@ -30,7 +30,9 @@ def install_requirements(pip_command):
             if req:  # Skip empty lines
                 # Check if the package is already installed
                 result = subprocess.run(
-                    [sys.executable, "-m", pip_command, "show", req]
+                    [sys.executable, "-m", pip_command, "show", req],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
 
                 if result.returncode == 0:
@@ -38,7 +40,9 @@ def install_requirements(pip_command):
                 else:
                     print(f"Installing '{req}'...")
                     install_result = subprocess.run(
-                        [sys.executable, "-m", pip_command, "install", req]
+                        [sys.executable, "-m", pip_command, "install", req],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
                     )
 
                     if install_result.returncode != 0:
