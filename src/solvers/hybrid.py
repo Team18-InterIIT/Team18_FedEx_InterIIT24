@@ -16,7 +16,7 @@ class Hybrid(PackingAlgorithm):
         search="normal",
         layering: bool = True,
         multiprocessing: bool = True,
-        beam_width: int = 10,
+        beam_width: int = None,
         n_jobs: int = -1,
     ):
         random.seed(42)
