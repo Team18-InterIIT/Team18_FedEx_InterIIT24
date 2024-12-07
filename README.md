@@ -115,7 +115,6 @@ It is a parameter used to control how many of your multicore CPU is used during 
 │   ├── algorithm_interface.py
 │   ├── dashboard.py
 │   ├── entity.py
-│   ├── env_handler.py
 │   ├── environment.py
 │   ├── family_cost.py
 │   ├── geometry_helpers.py
@@ -126,12 +125,10 @@ It is a parameter used to control how many of your multicore CPU is used during 
 │   ├── solvers
 │   │   ├── hybrid.py
 │   │   ├── layerpack.py
-│   │   ├── NAC.py
-│   │   └── threeDBP_Pivoting.py
+│   │   └── NAC.py
 │   └── util.py
 ├── test
 │   ├── Challenge_FedEx_Raw.txt
 │   ├── Challenge_FedEx.txt
 │   ├── layer.txt
-│   └── testcase_gen.py
 ```
