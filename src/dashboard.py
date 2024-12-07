@@ -142,11 +142,11 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
             update(frame)
 
 # Streamlit Setup
-st.set_page_config(page_title="3D Bin Packing", layout="centered")  # Centering content
+st.set_page_config(page_title="3D Bin Packing", layout="centered")  # Set the page title and layout
 st.title("Team 18 Solution Dashboard")  # Title of the app
 
 # Function to simulate streaming text (typewriter effect)
-def stream_text(text, delay=0.005):
+def stream_text(text, delay=0.002):
     """
     Generator function that yields text with a delay to simulate a typewriter effect.
     """
@@ -164,12 +164,12 @@ if "instructions_shown" not in st.session_state:
 # If the instructions have not been shown yet, stream the text
 if not st.session_state.instructions_shown:
     st.write_stream(stream_text("""
-        Welcome to Team-18 Solution! In this tool, you can upload your dataset, choose from various packing algorithms, and run the packing procedure. The sidebar allows you to control key parameters like search methods, orientation constraints, family packages, and more. You can enable advanced features like layering, multiprocessing, and fine-tune the beam width or number of iterations for better results. Once the algorithm is run, you can visualize the 3D packing process, view stress analysis (if enabled), and observe step-by-step animations of package insertions. The packing solution can be downloaded as a file once the process is complete.
+        Welcome to Team-18 Solution! In this tool, you can upload your dataset, choose from various packing algorithms, and run the packing procedure. The sidebar allows you to control key parameters like search methods, orientation constraints, family packages, and more. You can enable advanced features like layering, multiprocessing, and fine-tune the beam width or number of iterations for better results. Once the algorithm is run, you can visualize the 3D packing process, view stress analysis (if enabled), and observe step-by-step animations of package insertions. The packing solution can be downloaded as a file once the process is complete. In the plot Priority packages are shown in Cyan and Economy packages are shown in Green.
     """))
     st.session_state.instructions_shown = True  # Set this to True to prevent rerunning the stream
 else:
     st.write("""
-                Welcome to Team-18 Solution! In this tool, you can upload your dataset, choose from various packing algorithms, and run the packing procedure. The sidebar allows you to control key parameters like search methods, orientation constraints, family packages, and more. You can enable advanced features like layering, multiprocessing, and fine-tune the beam width or number of iterations for better results. Once the algorithm is run, you can visualize the 3D packing process, view stress analysis (if enabled), and observe step-by-step animations of package insertions. The packing solution can be downloaded as a file once the process is complete.
+    Welcome to Team-18 Solution! In this tool, you can upload your dataset, choose from various packing algorithms, and run the packing procedure. The sidebar allows you to control key parameters like search methods, orientation constraints, family packages, and more. You can enable advanced features like layering, multiprocessing, and fine-tune the beam width or number of iterations for better results. Once the algorithm is run, you can visualize the 3D packing process, view stress analysis (if enabled), and observe step-by-step animations of package insertions. The packing solution can be downloaded as a file once the process is complete. In the plot Priority packages are shown in Cyan and Economy packages are shown in Green.
     """)
 
 # Toggle Buttons Section (Add more toggles as needed)
