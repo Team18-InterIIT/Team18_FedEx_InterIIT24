@@ -347,7 +347,7 @@ if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
     for uld_id, order_list in order.items():
         env.pkg_addition_order.extend(order_list)
     
-    is_stress_plot = st.sidebar.toggle("Stress Plot", value=False)
+    is_stress_plot = st.toggle("Stress Plot", value=False)
     if is_stress_plot is None:
         is_stress_plot = False
     st_plot(env, file=test_file, stress_plot=is_stress_plot)
