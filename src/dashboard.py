@@ -231,7 +231,8 @@ if is_multiprocessing is None:
 
 beam_width = st.sidebar.slider("Beam Width", min_value=1, max_value=20, value=10, key="beam_width", disabled=not is_hyper)
 num_iterations = st.sidebar.slider("Number of Iterations", min_value=10, max_value=200, value=100, key="num_iterations")
-num_cores = st.sidebar.slider("Number of Cores", min_value=1, max_value=multiprocessing.cpu_count(), value=multiprocessing.cpu_count(), key="num_cores", disabled=not is_multiprocessing)
+cores = max(2, multiprocessing.cpu_count())
+num_cores = st.sidebar.slider("Number of Cores", min_value=1, max_value=cores, value=cores, key="num_cores", disabled=not is_multiprocessing or multiprocessing.cpu_count() == 1)
 # Parse the dataset using the parser
 @st.cache_data
 def load_data(file):
