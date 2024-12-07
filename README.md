@@ -142,8 +142,8 @@ Using a state-of-the-art physics engine we will calculate stress on each package
 We are exporting output in the form of a text file, in the format specified in the Problem Statement. 
 
 Cost,Number of Packages placed,Number of prioritised ULDs
-P-1,ULD-1,<coordinates>
-P-1,ULD-1,<coordinates>
+P-1,U1,<coordinates>
+P-1,U1,<coordinates>
 
 # Code Structure
 
