@@ -98,9 +98,11 @@ def beam_A3(
     best_orientation: Point,
     heuristic: dict[str, int],
     allowed_ULDs: list[ULD],
+    prune_COAs=True,
     verbose: bool = False,
     maximize_volume_utilization: bool = True,
-    prune_COAs=True,
+    minimize_unstable: bool = True,
+    family_cost: bool = False,
 ):
     new_env = copy.deepcopy(env)
     new_uld_COAs = copy.deepcopy(uld_COAs)
@@ -139,12 +141,35 @@ def beam_A3(
         prune_COAs=prune_COAs,
     )
 
-    for uld_id in allowed_ULDs:
-        cost += (1 - new_env.ULDs[uld_id].volume_utilisation()) * 1000
+    if maximize_volume_utilization is not None:
+        volume_utilization = sum(
+            uld.volume_utilisation() for uld in new_env.ULDs
+        ) / len(allowed_ULDs)
+        cost += 1000 * (
+            (1 - volume_utilization)
+            if maximize_volume_utilization
+            else (volume_utilization)
+        )
 
-    new_env.global_stability_check()
-    num_unstable = sum((1 if new_env.stable[i] == -1 else 0) for i in new_env.stable)
-    cost += num_unstable * 100
+        if verbose:
+            print(f"Volume Utilization: {volume_utilization}")
+
+    if minimize_unstable:
+        new_env.global_stability_check()
+        num_unstable = sum((1 if val == -1 else 0) for val in new_env.stable.values())
+        stability_cost = num_unstable * 100
+        cost += stability_cost
+
+    if family_cost:
+        fam_cost = 0
+        for uld_id in allowed_ULDs:
+            uld = new_env.ULDs[uld_id]
+            fam_cost += graphFamilyCost(uld, new_env.family_dict)
+        fam_cost *= 50
+        cost += fam_cost
+
+    if verbose:
+        print(f"Cost: {cost}")
 
     return (cost, best_coa, best_pkg, best_orientation, best_uld)
 
@@ -381,8 +406,14 @@ class COA(PackingAlgorithm):
         verbose: bool = True,
         prune_COAs: bool = True,
         beam_width: int = None,
+        maximize_volume_utilization: bool = True,
+        minimize_unstable: bool = True,
+        family_cost: bool = False,
         **kwargs,
     ):
+        if not env.families:
+            family_cost = False
+
         if heuristic is None:
             heuristic = {
                 "included_cost": 5012633,
@@ -550,9 +581,11 @@ class COA(PackingAlgorithm):
                         best_orientation,
                         heuristic,
                         allowed_ULDs,
-                        True,
-                        True,
                         prune_COAs,
+                        False,
+                        maximize_volume_utilization,
+                        minimize_unstable,
+                        family_cost,
                     )
                 )
 
