@@ -144,10 +144,8 @@ class Package:
         self.uld_id = other.uld_id
         self.corners = other.corners
 
-        if hasattr(other, "can_be_rotated"):
-            self.can_be_rotated = other.can_be_rotated
-        if hasattr(other, "family_no"):
-            self.family_no = other.family_no
+        self.can_be_rotated = other.can_be_rotated
+        self.family_no = other.family_no
 
     def copy(self) -> "Package":
         new_pkg = Package.new()

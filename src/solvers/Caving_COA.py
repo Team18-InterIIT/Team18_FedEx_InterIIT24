@@ -694,7 +694,7 @@ class COA(PackingAlgorithm):
                         found_atleast_one_package = False
 
                     for pkg in pkgs:
-                        if hasattr(pkg, "can_be_rotated") and not pkg.can_be_rotated:
+                        if not pkg.can_be_rotated:
                             rotations = [
                                 (pkg.dim.l, pkg.dim.w, pkg.dim.h),
                                 (pkg.dim.w, pkg.dim.l, pkg.dim.h),
