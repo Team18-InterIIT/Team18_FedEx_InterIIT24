@@ -39,10 +39,11 @@ In some case, in Ubuntu, 3 links may appear. Try all three of these.
 There are two primary ways to run the code:
 
 1. **Using the Dashboard** (Recommended):  
-   After running the `run.py` file, a dashboard will open in your default browser. You can upload a dataset, and run the code using the dashboard.
+   After running the `run.py` file, a dashboard will open in your default browser. You can upload a dataset, and run the code using the dashboard. <b> Any new test cases must use the same input format as the original test case <b>
     ```bash
     python run.py
     ```
+
 
 2. **Using the Command Line**:
     You can also run the code using the command line. The following command will run the code on the dataset `Challenge_FedEx.txt`:
@@ -73,6 +74,7 @@ You should see a tabular form of your Packages and details about their number an
 <br>
 
 ### Input Options
+
 
 A. Rotatinal Constraint --> An additional column of boolean values must be present in the input data.  
     If 'True', then the package can be rotatated along all 3 axes.
