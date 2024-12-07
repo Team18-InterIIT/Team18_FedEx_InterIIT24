@@ -169,9 +169,7 @@ if not st.session_state.instructions_shown:
     st.session_state.instructions_shown = True  # Set this to True to prevent rerunning the stream
 else:
     st.write("""
-        Welcome to Team-18 Solution. Here you can select a packing algorithm, upload your data, and 
-        run the packing procedure. The sidebar allows you to control various parameters to adjust the packing 
-        strategy.
+                Welcome to Team-18 Solution! In this tool, you can upload your dataset, choose from various packing algorithms, and run the packing procedure. The sidebar allows you to control key parameters like search methods, orientation constraints, family packages, and more. You can enable advanced features like layering, multiprocessing, and fine-tune the beam width or number of iterations for better results. Once the algorithm is run, you can visualize the 3D packing process, view stress analysis (if enabled), and observe step-by-step animations of package insertions. The packing solution can be downloaded as a file once the process is complete.
     """)
 
 # Toggle Buttons Section (Add more toggles as needed)
