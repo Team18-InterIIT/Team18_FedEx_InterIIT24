@@ -10,7 +10,14 @@ from solvers.layerpack import LayerPack
 
 class Hybrid(PackingAlgorithm):
     def solve(
-        self, env: Environment, n_calls=100, search="normal", layering: bool = True
+        self,
+        env: Environment,
+        n_calls=100,
+        search="normal",
+        layering: bool = True,
+        multiprocessing: bool = True,
+        beam_width: int = 10,
+        n_jobs: int = -1,
     ):
         random.seed(42)
 
@@ -71,9 +78,9 @@ class Hybrid(PackingAlgorithm):
                     priority_pkgs,
                     allowed_ULDs=[uld_id],
                     n_calls=n_calls,
-                    n_jobs=-1,
+                    n_jobs=n_jobs,
                     verbose=False,
-                    multiprocessing=True,
+                    multiprocessing=multiprocessing,
                     maximize_volume_utilization=True,
                     minimize_unstable=True,
                     family_cost=False,
@@ -106,7 +113,8 @@ class Hybrid(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 prune_corners=False,
                 n_calls=n_calls,
-                multiprocessing=True,
+                n_jobs=n_jobs,
+                multiprocessing=multiprocessing,
                 simulate=True,
                 maximize_volume_utilization=True,
                 minimize_unstable=True,
@@ -122,6 +130,7 @@ class Hybrid(PackingAlgorithm):
                 maximize_volume_utilization=True,
                 minimize_unstable=True,
                 family_cost=False,
+                beam_width=beam_width,
             )
 
             print(f"{'='*60}")
@@ -137,9 +146,9 @@ class Hybrid(PackingAlgorithm):
                     economy_pkgs,
                     allowed_ULDs=[uld_id],
                     n_calls=n_calls,
-                    n_jobs=-1,
+                    n_jobs=n_jobs,
                     verbose=False,
-                    multiprocessing=True,
+                    multiprocessing=multiprocessing,
                     maximize_volume_utilization=True,
                     minimize_unstable=True,
                     family_cost=False,
@@ -172,7 +181,8 @@ class Hybrid(PackingAlgorithm):
                 allowed_ULDs=[uld_id],
                 prune_corners=True,
                 n_calls=n_calls,
-                multiprocessing=True,
+                n_jobs=n_jobs,
+                multiprocessing=multiprocessing,
                 simulate=True,
                 maximize_volume_utilization=True,
                 minimize_unstable=True,
@@ -188,5 +198,6 @@ class Hybrid(PackingAlgorithm):
                 maximize_volume_utilization=True,
                 minimize_unstable=True,
                 family_cost=False,
+                beam_width=beam_width,
             )
             print(f"{'='*60}")
