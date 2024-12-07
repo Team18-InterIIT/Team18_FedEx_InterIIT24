@@ -830,7 +830,6 @@ class COA(PackingAlgorithm):
                         progress_bar.set_postfix_str(f"Best Cost: {best_cost:.4f}")
 
                 n_completed_calls += n_jobs
-                bar.progress(n_completed_calls / n_calls)
 
         best_params = optimizer.Xi[np.argmin(optimizer.yi)]
         return best_params
