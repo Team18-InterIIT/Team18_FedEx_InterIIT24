@@ -806,8 +806,12 @@ class Environment:
                 f"{cost},{sum((1 for pkg in self.packages if pkg.uld_id != 0))},{sum((1 for uld in self.ULDs if uld.has_priority))}\n"
             )
             for pkg in self.packages:
+                if pkg.uld_id == 0:
+                    uld_id = "NONE"
+                else:
+                    uld_id = f"ULD-{pkg.uld_id}"
                 f.write(
-                    f"P-{pkg.id},ULD-{pkg.uld_id},{pkg.corners[0].x},{pkg.corners[0].y},{pkg.corners[0].z},{pkg.corners[1].x},{pkg.corners[1].y},{pkg.corners[1].z}\n"
+                    f"P-{pkg.id},{uld_id},{pkg.corners[0].x},{pkg.corners[0].y},{pkg.corners[0].z},{pkg.corners[1].x},{pkg.corners[1].y},{pkg.corners[1].z}\n"
                 )
 
     def read(self, file_path):
