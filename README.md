@@ -143,7 +143,7 @@ We are exporting output in the form of a text file, in the format specified in t
 
 Cost,Number of Packages placed,Number of prioritised ULDs
 P-1,U1,<coordinates>
-P-1,U1,<coordinates>
+P-2,U1,<coordinates>
 
 # Code Structure
 
