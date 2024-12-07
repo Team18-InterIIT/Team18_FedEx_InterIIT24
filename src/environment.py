@@ -366,11 +366,6 @@ class Environment:
                 ]
                 if not stress_plot:
                     color = "green" if not pkg.is_priority else "cyan"
-                    if self.stable[pkg.id - 1] == -1:
-                        if pkg.is_priority:
-                            color = "purple"
-                        else:
-                            color = "orange"
                 else:
                     value = stress_dict.get(pkg.id)
                     color = cmap(norm(value))
@@ -515,11 +510,6 @@ class Environment:
                 ]
 
                 color = "green" if not pkg.is_priority else "cyan"
-                if self.stable[pkg.id - 1] == -1:
-                    if pkg.is_priority:
-                        color = "purple"
-                    else:
-                        color = "orange"
 
                 ax.add_collection3d(
                     Poly3DCollection(
