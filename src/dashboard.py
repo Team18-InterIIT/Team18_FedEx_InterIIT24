@@ -13,7 +13,6 @@ from entity import Package
 from algorithm_interface import PackingAlgorithm as PackingAlgorithm
 from solvers.hybrid import Hybrid as PackingAlgorithm
 import multiprocessing
-# from solvers.threeDBP_Pivoting import ThreeDBP_Pivoting as PackingAlgorithm
 import os
 
 # Initialize the Plotly figure for 3D plotting
@@ -210,7 +209,9 @@ if uploaded_file is not None:
     st.session_state.last_uploaded_file = file_name
 else:
     # Use a default file if no file is uploaded
-    test_file = "test/Challenge_FedEx.txt"
+    default_file = "test/Challenge_FedEx.txt"
+    # Check if the default file exists, else set to None
+    test_file = default_file if os.path.exists(default_file) else None
     st.last_uploaded_file = None
 
 # Slider for Algorithm Parameters Section
@@ -238,6 +239,8 @@ num_cores = st.sidebar.slider("Number of Cores", min_value=1, max_value=multipro
 @st.cache_data
 def load_data(file):
     # Use the parser directly to extract ULDs and packages from the file
+    if file is None:
+        return -1, [], []
     parser_instance = parser.Parser(file)
     K = parser_instance.get_K()
     uld_list = parser_instance.get_uld_list()
