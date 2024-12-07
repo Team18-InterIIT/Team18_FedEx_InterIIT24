@@ -15,8 +15,13 @@ os.dup2(devnull_fd, 1)  # Redirect stdout to /dev/null
 os.dup2(devnull_fd, 2)  # Redirect stderr to /dev/null
 os.close(devnull_fd)  # Close the /dev/null file descriptor
 
-import pybullet as p
-import pybullet_data
+# Try to import the optional packages
+pybullet_available = True
+try:
+    import pybullet as p
+    import pybullet_data
+except ImportError:
+    pybullet_available = False
 
 # Restore original stdout and stderr
 os.dup2(original_stdout, 1)  # Restore stdout
@@ -339,6 +344,11 @@ class Environment:
         cols = (num_ULDs + 1) // 2
 
         if stress_plot:
+            if not pybullet_available:
+                print(
+                    "PyBullet is not installed. Please install it to plot the stress analysis."
+                )
+                return
             stress_dict = self.calculate_stress_on_packages()
             stress_values = [
                 stress_dict.get(pkg.id, 0) for uld in self.ULDs for pkg in uld.packages
@@ -771,6 +781,10 @@ class Environment:
         return package_list
 
     def simulate(self, uld_ids=None):
+        if not pybullet_available:
+            print("PyBullet is not installed. Please install it to run the simulation.")
+            return
+
         if uld_ids is None:
             uld_ids = list(range(len(self.ULDs)))
         p.connect(p.GUI)

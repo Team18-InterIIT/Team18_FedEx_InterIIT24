@@ -19,6 +19,9 @@ def main():
     parser.add_argument(
         "--animate", action="store_true", help="Animate the environment"
     )
+    parser.add_argument(
+        "--simulate", action="store_true", help="Simulate the environment"
+    )
     args = parser.parse_args()
     test_file = args.test_file
 
@@ -31,7 +34,7 @@ def main():
 
     model = PackingAlgorithm()
 
-    model.solve(env, search="normal", layering=True, n_calls=10)
+    model.solve(env, search="normal", layering=True, n_calls=100)
     # To read from a solution file, use the following line instead of the above line
     # env.read(file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}")
 
@@ -48,8 +51,9 @@ def main():
         env.plot(stress_plot=True)
     if args.animate:
         env.animate()
+    if args.simulate:
+        env.simulate()
 
-    # env.simulate()
     env.write(
         file_path=f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
     )
