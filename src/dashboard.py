@@ -115,6 +115,7 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
     # Frame control (Next and Previous)
     if stepped:
         st.write("Step-by-step animation")
+        st.write("Use the prev and next buttons below to navigate through the frames.")
         
         def next_frame():
             if st.session_state.current_frame < len(env.pkg_addition_order) - 1:
@@ -142,7 +143,7 @@ def st_animate(_env: Environment, repeat=False, stepped=True):
 
 # Streamlit Setup
 st.set_page_config(page_title="3D Bin Packing", layout="centered")  # Centering content
-st.title("3D Bin Packing")
+st.title("Team 18 Solution Dashboard")  # Title of the app
 
 # Function to simulate streaming text (typewriter effect)
 def stream_text(text, delay=0.005):
@@ -163,9 +164,7 @@ if "instructions_shown" not in st.session_state:
 # If the instructions have not been shown yet, stream the text
 if not st.session_state.instructions_shown:
     st.write_stream(stream_text("""
-        Welcome to Team-18 Solution. Here you can select a packing algorithm, upload your data, and 
-        run the packing procedure. The sidebar allows you to control various parameters to adjust the packing 
-        strategy.
+        Welcome to Team-18 Solution! In this tool, you can upload your dataset, choose from various packing algorithms, and run the packing procedure. The sidebar allows you to control key parameters like search methods, orientation constraints, family packages, and more. You can enable advanced features like layering, multiprocessing, and fine-tune the beam width or number of iterations for better results. Once the algorithm is run, you can visualize the 3D packing process, view stress analysis (if enabled), and observe step-by-step animations of package insertions. The packing solution can be downloaded as a file once the process is complete.
     """))
     st.session_state.instructions_shown = True  # Set this to True to prevent rerunning the stream
 else:
@@ -320,6 +319,7 @@ def run_algo(file=test_file,
                     n_jobs=n_jobs)
     end_time = time.time()
     st.write(f"Time taken to solve the packing problem: {end_time - start_time:.2f} seconds")
+    st.write(f"Total Cost: {sum(env.cost())}")
     return env
 
 @st.cache_data
@@ -364,6 +364,8 @@ if st.session_state.run_algorithm or st.button("Run Packing Algorithm"):
     solution_file = f"solutions/{str(PackingAlgorithm.__name__)}/{test_file.split('/')[-1]}"
     env.write(file_path=solution_file)
     st.write(f"Solution saved at {solution_file}")
+    data = open(solution_file, "rb").read()
+    st.download_button(label="Download Solution", data=data, file_name=solution_file)
     st.session_state.run_algorithm = True
 
 # Closing the div tag for center-alignment
