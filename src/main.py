@@ -46,6 +46,7 @@ def main():
 
     env.summary()
     if args.plot:
+        print("Priority packages are Cyan\nEconomy packages are Green")
         env.plot(stress_plot=False)
     if args.stress_plot:
         env.plot(stress_plot=True)
