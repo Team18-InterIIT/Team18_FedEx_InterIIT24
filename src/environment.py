@@ -4,8 +4,31 @@ import pickle
 import time
 
 import matplotlib.pyplot as plt
-import pybullet as p
-import pybullet_data
+
+# Suppress both stdout and stderr
+original_stdout = os.dup(1)  # Save the original stdout
+original_stderr = os.dup(2)  # Save the original stderr
+os.close(1)  # Close stdout
+os.close(2)  # Close stderr
+devnull_fd = os.open(os.devnull, os.O_RDWR)  # Open /dev/null
+os.dup2(devnull_fd, 1)  # Redirect stdout to /dev/null
+os.dup2(devnull_fd, 2)  # Redirect stderr to /dev/null
+os.close(devnull_fd)  # Close the /dev/null file descriptor
+
+# Try to import the optional packages
+pybullet_available = True
+try:
+    import pybullet as p
+    import pybullet_data
+except ImportError:
+    pybullet_available = False
+
+# Restore original stdout and stderr
+os.dup2(original_stdout, 1)  # Restore stdout
+os.dup2(original_stderr, 2)  # Restore stderr
+os.close(original_stdout)
+os.close(original_stderr)
+
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
 from matplotlib.colors import Normalize
@@ -204,6 +227,7 @@ class Environment:
         stability_check: bool = True,
         fragility_check: bool = True,
         gravity: bool = False,
+        extra_package: bool = False,
     ) -> bool:
         """
         Add a package to the ULD at the given coordinates,
@@ -244,6 +268,9 @@ class Environment:
             corners, _ = self.apply_gravity(uld.id - 1, corners)
 
         pkg.corners = corners
+
+        if extra_package:
+            self.packages.append(pkg)
 
         uld.packages.append(pkg)
         uld.weight += pkg.weight
@@ -305,7 +332,7 @@ class Environment:
     def sort_by_z(coord) -> int:
         return coord[0].z
 
-    def plot(self, stress_plot: bool = False):
+    def plot(self, stress_plot: bool = False, return_fig: bool = False):
         """
         Plot the packages in the ULDs
         """
@@ -317,6 +344,11 @@ class Environment:
         cols = (num_ULDs + 1) // 2
 
         if stress_plot:
+            if not pybullet_available:
+                print(
+                    "PyBullet is not installed. Please install it to plot the stress analysis."
+                )
+                return
             stress_dict = self.calculate_stress_on_packages()
             stress_values = [
                 stress_dict.get(pkg.id, 0) for uld in self.ULDs for pkg in uld.packages
@@ -344,11 +376,6 @@ class Environment:
                 ]
                 if not stress_plot:
                     color = "green" if not pkg.is_priority else "cyan"
-                    if self.stable[pkg.id - 1] == -1:
-                        if pkg.is_priority:
-                            color = "purple"
-                        else:
-                            color = "orange"
                 else:
                     value = stress_dict.get(pkg.id)
                     color = cmap(norm(value))
@@ -390,6 +417,9 @@ class Environment:
 
         if not stress_plot:
             plt.tight_layout()
+
+        if return_fig:
+            return fig
         plt.show()
         plt.close()
 
@@ -490,11 +520,6 @@ class Environment:
                 ]
 
                 color = "green" if not pkg.is_priority else "cyan"
-                if self.stable[pkg.id - 1] == -1:
-                    if pkg.is_priority:
-                        color = "purple"
-                    else:
-                        color = "orange"
 
                 ax.add_collection3d(
                     Poly3DCollection(
@@ -756,6 +781,10 @@ class Environment:
         return package_list
 
     def simulate(self, uld_ids=None):
+        if not pybullet_available:
+            print("PyBullet is not installed. Please install it to run the simulation.")
+            return
+
         if uld_ids is None:
             uld_ids = list(range(len(self.ULDs)))
         p.connect(p.GUI)
@@ -799,8 +828,12 @@ class Environment:
                 f"{cost},{sum((1 for pkg in self.packages if pkg.uld_id != 0))},{sum((1 for uld in self.ULDs if uld.has_priority))}\n"
             )
             for pkg in self.packages:
+                if pkg.uld_id == 0:
+                    uld_id = "NONE"
+                else:
+                    uld_id = f"ULD-{pkg.uld_id}"
                 f.write(
-                    f"P-{pkg.id},ULD-{pkg.uld_id},{pkg.corners[0].x},{pkg.corners[0].y},{pkg.corners[0].z},{pkg.corners[1].x},{pkg.corners[1].y},{pkg.corners[1].z}\n"
+                    f"P-{pkg.id},{uld_id},{pkg.corners[0].x},{pkg.corners[0].y},{pkg.corners[0].z},{pkg.corners[1].x},{pkg.corners[1].y},{pkg.corners[1].z}\n"
                 )
 
     def read(self, file_path):
@@ -813,7 +846,10 @@ class Environment:
             for line in lines[1:]:
                 pkg_id, uld_id, x1, y1, z1, x2, y2, z2 = line.strip().split(",")
                 pkg_id = int(pkg_id.split("-")[1])
-                uld_id = int(uld_id.split("-")[1])
+                if uld_id == "NONE":
+                    uld_id = 0
+                else:
+                    uld_id = int(uld_id.split("-")[1])
                 x1, y1, z1, x2, y2, z2 = map(int, (x1, y1, z1, x2, y2, z2))
 
                 pkg = self.packages[pkg_id - 1]

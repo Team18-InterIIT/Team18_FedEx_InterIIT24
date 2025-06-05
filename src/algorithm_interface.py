@@ -8,9 +8,6 @@ class PackingAlgorithm(ABC):
         Solve the bin-packing problem for the given environment.
 
         Parameters:
-        - environment: An instance of the Environment class.
-
-        Returns:
-        - Solution or None if infeasible.
+        - environment: An instance of the Environment class that will be modified by the algorithm.
         """
         pass

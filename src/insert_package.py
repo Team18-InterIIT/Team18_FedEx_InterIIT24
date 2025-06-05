@@ -196,12 +196,15 @@ class PackageInserter:
             return False
 
         self.replaceable_positions.sort(key=lambda x: x[0])
-        colliding_package = self.env.find_collision(self.env.ULDs[self.replaceable_positions[0][1] - 1], self.replaceable_positions[0][2])
-        if colliding_package is not None:
-            self.env.remove_package(colliding_package, self.env.ULDs[self.replaceable_positions[0][1] - 1])
-        self.env.add_package(package, self.env.ULDs[self.replaceable_positions[0][1] - 1], self.replaceable_positions[0][2], False, True, True, True, True)
-        print(f"Package {package.id} inserted into ULD {self.replaceable_positions[0][1]} at position {self.replaceable_positions[0][2]}.")
-        return True
+        for i in range(len(self.replaceable_positions)):
+            colliding_package = self.env.find_collision(self.env.ULDs[self.replaceable_positions[i][1] - 1], self.replaceable_positions[i][2])
+            if colliding_package is not None and colliding_package.is_priority is False:
+                self.env.remove_package(colliding_package, self.env.ULDs[self.replaceable_positions[0][1] - 1])
+                self.env.add_package(package, self.env.ULDs[self.replaceable_positions[0][1] - 1], self.replaceable_positions[0][2], False, True, True, True, True)
+                print(f"Package {package.id} inserted into ULD {self.replaceable_positions[0][1]} at position {self.replaceable_positions[0][2]}.")
+                return True
+        print(f"Package {package.id} could not be inserted into any ULD.")
+        return False
 
     def insert_package(self, uld_id: int, package: Package) -> bool:
         """
@@ -234,10 +237,9 @@ class PackageInserter:
                             Point(x + package.dim.l, y + package.dim.w, z + package.dim.h)
                         )
                         if self.env.add_package(package, uld, package.corners, False, True, True, True, True):
-                            print(f"Package {package.id} inserted into ULD {uld.id} at position {package.corners}.")
-                            return True
+                            return package.corners
         print(f"Package {package.id} could not be inserted into ULD {uld.id}.")
-        return False
+        return None
 
     def insert_package_for_uld(self, uld_id, package):
             return self.insert_package(uld_id, package)
@@ -254,8 +256,17 @@ class PackageInserter:
         # Create a pool of workers and run insert_package_optim for each ULD in parallel
         with Pool(multiprocessing.cpu_count()) as pool:
             results = pool.starmap(self.insert_package_for_uld, 
-                                  [(uld_id, package) for uld_id in range(1, len(self.env.ULDs) + 1)])
+                                   [(uld_id, package) for uld_id in range(1, len(self.env.ULDs) + 1)])
 
+        # Merge results
+        successful_insertions = [(uld_id, result) for uld_id, result in enumerate(results, start=1) if result is not None]
 
-        # Return the results (True or False for each ULD)
-        return results
+        # If no insertions were successful, return False
+        if not successful_insertions:
+            print(f"Package {package.id} could not be inserted into any ULD.")
+            return False
+
+        # You can choose the first successful result or any other criteria for selection
+        best_insertion = successful_insertions[0]  # For example, pick the first successful insertion
+        print(f"Package {package.id} inserted into ULD {best_insertion[0]} at position {best_insertion[1]}.")
+        return True

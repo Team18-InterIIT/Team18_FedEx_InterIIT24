@@ -1,14 +1,12 @@
-from collections import defaultdict, deque
-
+from collections import deque, defaultdict
 from entity import ULD, Package
 from environment import Environment
-
 
 class Util:
     def __init__(self, env: Environment):
         self.env = env
         self.uld_to_order = {}  # Dictionary to store the order of packages for each ULD
-
+    
     def order(self):
         """
         This method orders the packages in the ULDs within the environment by their Z coordinates.
@@ -18,17 +16,17 @@ class Util:
         for uld in self.env.ULDs:
             self.uld_to_order[uld.id] = self.topological_sort(uld)
         return self.uld_to_order
-
+    
     def do_rectangles_overlap(self, x1, y1, x2, y2, x3, y3, x4, y4):
         """
         Checks if two rectangles (defined by corner coordinates) overlap.
         """
         min_x1, max_x1 = min(x1, x2), max(x1, x2)
         min_y1, max_y1 = min(y1, y2), max(y1, y2)
-
+        
         min_x2, max_x2 = min(x3, x4), max(x3, x4)
         min_y2, max_y2 = min(y3, y4), max(y3, y4)
-
+        
         return max_x1 > min_x2 and min_x1 < max_x2 and max_y1 > min_y2 and min_y1 < max_y2
 
     def build_graph(self, uld: ULD):
@@ -41,10 +39,10 @@ class Util:
         for package in uld.packages:
             graph[package.id] = []
             indegree[package.id] = 0
-
+        
         # Sort the packages by their Z-coordinate
         sorted_packages = sorted(uld.packages, key=lambda p: p.corners[0].z)
-
+        
         # Build the graph by checking overlap between packages
         for i, package_a in enumerate(sorted_packages):
             for package_b in sorted_packages[i+1:]:
@@ -56,7 +54,7 @@ class Util:
                     graph[package_a.id].append(package_b.id)
                     indegree[package_b.id] += 1
         return graph, indegree
-
+    
     def topological_sort(self, uld: ULD):
         """
         Perform a topological sort on the ULD's package graph using the indegree method.
@@ -67,13 +65,13 @@ class Util:
 
         # Initialize the queue with all packages that have zero indegree (no package supports them)
         queue = deque(pkg_id for pkg_id, degree in indegree.items() if degree == 0)
-
+        
         # Create a dictionary to map package IDs to their corner coordinates
         package_id_to_corners = {pkg.id: pkg.corners for pkg in uld.packages}
 
         # Sort the initial queue based on (x, y) coordinates to prioritize the smallest (x, y)
         queue = deque(sorted(queue, key=lambda pkg_id: (package_id_to_corners[pkg_id][0].x, package_id_to_corners[pkg_id][0].y)))
-
+        
         topo_order = []  # This will store the topologically sorted packages
 
         # Process the queue and perform topological sort
